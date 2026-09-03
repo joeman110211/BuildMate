@@ -41,7 +41,7 @@ buildmate/
 
 ## 1. Local setup
 
-Requirements: Node 20+, npm, Git, an Expo account, and Android Studio for a local Android emulator.
+Requirements: Node 22.12+ (Node 24 recommended), npm, Git, an Expo account, and Android Studio for a local Android emulator.
 
 ```bash
 git clone https://github.com/joeman110211/BuildMate.git
