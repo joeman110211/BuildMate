@@ -1,0 +1,8 @@
+import { Stack } from 'expo-router';
+import { View } from 'react-native';
+import { DashboardHeader } from '@/components/DashboardHeader';
+import { RoleGate } from '@/components/RoleGate';
+
+export default function TraderLayout() {
+  return <RoleGate role="trader"><View style={{ flex: 1 }}><DashboardHeader home="/(trader)/dashboard" /><Stack screenOptions={{ headerTintColor: '#D35400', headerShadowVisible: false }}><Stack.Screen name="dashboard" options={{ headerShown: false }} /><Stack.Screen name="onboarding" options={{ title: 'Build your profile' }} /><Stack.Screen name="subscription" options={{ title: 'Plans and payouts' }} /><Stack.Screen name="quotes/new" options={{ title: 'Create quote' }} /><Stack.Screen name="invoices/new" options={{ title: 'Create invoice' }} /></Stack></View></RoleGate>;
+}

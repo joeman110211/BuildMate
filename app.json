@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "BuildMate",
+    "slug": "buildmate",
+    "version": "1.0.0",
+    "icon": "./assets/icon.png",
+    "orientation": "portrait",
+    "scheme": "buildmate",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "uk.co.buildmate.app"
+    },
+    "android": {
+      "package": "uk.co.buildmate.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#D35400"
+      }
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAFAFA"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "server",
+      "name": "BuildMate",
+      "shortName": "BuildMate",
+      "themeColor": "#D35400",
+      "backgroundColor": "#FAFAFA",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.uk.co.buildmate.app",
+          "enableGooglePay": true
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
