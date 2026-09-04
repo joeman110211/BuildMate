@@ -1,29 +1,50 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
-import { traderProfiles, users } from '@/db/schema';
+import { traderProfiles } from '@/db/schema';
 import { traderProfileShowcase } from '@/db/showcase-schema';
 import { InvalidPostcodeError, lookupPostcode } from '@/lib/postcode';
-import { accountAccess, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
+import { getSql } from '@/lib/sql';
+import { accountAccess, accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
 import { roleSchema, traderProfileSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
   try {
     const userId = await authenticatedUserId(request);
     const user = await ensureDbUser(userId);
-    const access = await accountAccess(userId);
-    return Response.json({ ...user, isAdmin: access.isAdmin, isSuspended: access.isSuspended });
+    const [access, modes] = await Promise.all([accountAccess(userId), accountModes(userId)]);
+    return Response.json({ ...user, ...modes, isAdmin: access.isAdmin, isSuspended: access.isSuspended });
   } catch (error) { return jsonError(error); }
 }
 
 export async function PATCH(request: Request) {
   try {
     const userId = await authenticatedUserId(request);
-    const current = await ensureDbUser(userId);
+    await ensureDbUser(userId);
     const payload = roleSchema.parse(await request.json());
-    if (current.role && current.role !== payload.role) throw new HttpError(409, 'Account role is already locked');
-    const [user] = await getDb().update(users).set({ role: payload.role, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
-    const access = await accountAccess(userId);
-    return Response.json({ ...user, isAdmin: access.isAdmin, isSuspended: access.isSuspended });
+
+    if (payload.role === 'customer') {
+      await getSql()`
+        UPDATE users
+        SET customer_enabled = true,
+            active_mode = 'customer',
+            role = COALESCE(role, 'customer'),
+            updated_at = NOW()
+        WHERE id = ${userId}
+      `;
+    } else {
+      await getSql()`
+        UPDATE users
+        SET trader_enabled = true,
+            active_mode = 'trader',
+            role = COALESCE(role, 'trader'),
+            updated_at = NOW()
+        WHERE id = ${userId}
+      `;
+    }
+
+    const user = await ensureDbUser(userId);
+    const [access, modes] = await Promise.all([accountAccess(userId), accountModes(userId)]);
+    return Response.json({ ...user, ...modes, isAdmin: access.isAdmin, isSuspended: access.isSuspended });
   } catch (error) { return jsonError(error); }
 }
 
@@ -38,8 +59,9 @@ function missingShowcaseTable(error: unknown) {
 export async function PUT(request: Request) {
   try {
     const userId = await authenticatedUserId(request);
-    const current = await ensureDbUser(userId);
-    if (current.role !== 'trader') throw new HttpError(403, 'Trader account required');
+    await ensureDbUser(userId);
+    const modes = await accountModes(userId);
+    if (!modes.traderEnabled) throw new HttpError(403, 'Trader account required');
     const payload = traderProfileSchema.parse(await request.json());
     const { showcase, ...baseProfile } = payload;
 
