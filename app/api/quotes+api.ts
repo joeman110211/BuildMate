@@ -28,8 +28,9 @@ export async function POST(request: Request) {
     if (!job.targetTraderId && profile.subscriptionTier !== 'featured') throw new HttpError(402, 'Featured subscription required to quote open marketplace jobs');
 
     const totalAmount = payload.laborCost + payload.materialsCost + payload.vatAmount;
-    const [quote] = await db.insert(quotes).values({ ...payload, totalAmount, traderId: trader.id, validUntil: payload.validUntil ? new Date(payload.validUntil) : null })
-      .onConflictDoUpdate({ target: [quotes.jobId, quotes.traderId], set: { ...payload, totalAmount, updatedAt: new Date(), validUntil: payload.validUntil ? new Date(payload.validUntil) : null } }).returning();
+    const validUntil = payload.validUntil ? new Date(payload.validUntil) : null;
+    const [quote] = await db.insert(quotes).values({ ...payload, totalAmount, traderId: trader.id, validUntil })
+      .onConflictDoUpdate({ target: [quotes.jobId, quotes.traderId], set: { ...payload, status: 'pending', totalAmount, updatedAt: new Date(), validUntil } }).returning();
     await db.update(jobs).set({ status: 'quoted', updatedAt: new Date() }).where(eq(jobs.id, payload.jobId));
 
     const conversations = await getSql()`
