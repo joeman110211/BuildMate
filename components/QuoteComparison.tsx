@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Chip, DataTable, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
@@ -6,9 +7,10 @@ import { formatMoney } from '@/lib/money';
 import type { Quote } from '@/types';
 
 export function QuoteComparison({ quotes, accepting, messaging, onAccept, onMessage }: { quotes: Quote[]; accepting?: string; messaging?: string; onAccept: (quote: Quote) => void; onMessage?: (quote: Quote) => void }) {
+  const [renderedAt] = useState(() => Date.now());
   return <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.row}>
     {quotes.map((quote) => {
-      const expired = Boolean(quote.validUntil && new Date(quote.validUntil).getTime() < Date.now());
+      const expired = Boolean(quote.validUntil && new Date(quote.validUntil).getTime() < renderedAt);
       return <View key={quote.id} style={styles.column}><AppCard>
         <View style={styles.heading}><Text variant="titleLarge" style={styles.title}>{quote.businessName ?? 'Trade quote'}</Text><Chip>{expired && quote.status === 'pending' ? 'expired' : quote.status}</Chip></View>
         <DataTable>
