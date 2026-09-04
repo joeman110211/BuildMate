@@ -6,10 +6,28 @@ import { getStripe } from '@/lib/stripe';
 
 export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!signature || !secret) return new Response('Webhook not configured', { status: 400 });
+  const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_CONNECT_WEBHOOK_SECRET]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  if (!signature || secrets.length === 0) return new Response('Webhook not configured', { status: 400 });
+
   try {
-    const event = await getStripe().webhooks.constructEventAsync(await request.text(), signature, secret);
+    const payload = await request.text();
+    const stripe = getStripe();
+    let event: Stripe.Event | undefined;
+
+    for (const secret of secrets) {
+      try {
+        event = await stripe.webhooks.constructEventAsync(payload, signature, secret);
+        break;
+      } catch {
+        // The same endpoint is registered for both platform-account and Connect events,
+        // which have different signing secrets. Try each configured secret.
+      }
+    }
+
+    if (!event) return new Response('Invalid webhook', { status: 400 });
     await handleEvent(event);
     return Response.json({ received: true });
   } catch (error) {
@@ -20,6 +38,7 @@ export async function POST(request: Request) {
 
 async function handleEvent(event: Stripe.Event) {
   const db = getDb();
+
   if (event.type === 'account.updated') {
     const account = event.data.object;
     await db.update(traderProfiles).set({ stripeChargesEnabled: Boolean(account.charges_enabled), updatedAt: new Date() }).where(eq(traderProfiles.stripeAccountId, account.id));
