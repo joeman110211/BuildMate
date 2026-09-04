@@ -12,10 +12,14 @@ concurrency:
   group: quality-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CI: '1'
+  EXPO_NO_TELEMETRY: '1'
+
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -23,7 +27,15 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --no-audit --no-fund --prefer-offline
+      - name: Expo health check
+        run: npx expo-doctor
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - name: Export web
+        run: npm run build:web
+      - name: Export Android bundle
+        run: npx expo export --platform android --output-dir dist/android
+      - name: Export iOS bundle
+        run: npx expo export --platform ios --output-dir dist/ios
       - run: npm audit --omit=dev --audit-level=high
