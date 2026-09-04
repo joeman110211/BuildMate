@@ -55,8 +55,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          health=$(curl --fail --show-error --silent --retry 8 --retry-delay 3 "$BASE_URL/api/health")
-          printf '%s\n' "$health"
-          printf '%s' "$health" | jq -e '.status == "ok" and .database == "ok"' > /dev/null
+          health_file=$(mktemp)
+          health_status=$(curl --silent --show-error --retry 4 --retry-delay 3 \
+            -o "$health_file" -w '%{http_code}' "$BASE_URL/api/health" || true)
+          cat "$health_file"
+          printf '\n'
+          if [ "$health_status" != "200" ]; then
+            echo "::error::Production health endpoint returned HTTP $health_status"
+            exit 1
+          fi
+          jq -e '.status == "ok" and .database == "ok"' "$health_file" > /dev/null
           curl --fail --show-error --silent --retry 8 --retry-delay 3 "$BASE_URL/api/traders" > /dev/null
           echo "Production API, Neon database and public trader endpoint are responding."
