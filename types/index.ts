@@ -10,6 +10,9 @@ export interface CurrentUser {
   email: string | null;
   phone: string | null;
   role: UserRole | null;
+  customerEnabled: boolean;
+  traderEnabled: boolean;
+  activeMode: UserRole | null;
   isAdmin: boolean;
   isSuspended: boolean;
   createdAt: string;
