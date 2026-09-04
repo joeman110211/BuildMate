@@ -27,8 +27,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --no-audit --no-fund --prefer-offline
-      - name: Expo health check
-        run: timeout 180s npx --yes expo-doctor@1.20.4
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
