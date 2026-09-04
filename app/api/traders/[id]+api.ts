@@ -14,6 +14,7 @@ export async function GET(request: Request, { id }: { id: string }) {
       subSkills: traderProfiles.subSkills,
       bio: traderProfiles.bio,
       radiusMiles: traderProfiles.radiusMiles,
+      locationLabel: traderProfiles.locationLabel,
       qualifications: traderProfiles.qualifications,
       externalLinks: traderProfiles.externalLinks,
       photos: traderProfiles.photos,
