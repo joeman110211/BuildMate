@@ -52,6 +52,7 @@ export const traderProfiles = pgTable(
     selfCertified: boolean('self_certified').notNull().default(false),
     subscriptionTier: subscriptionTierEnum('subscription_tier').notNull().default('free'),
     isSubscriptionActive: boolean('is_subscription_active').notNull().default(false),
+    trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
     stripeSubscriptionId: text('stripe_subscription_id'),
     stripeCustomerId: text('stripe_customer_id'),
     stripeAccountId: text('stripe_account_id'),
