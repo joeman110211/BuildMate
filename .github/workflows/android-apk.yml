@@ -61,12 +61,14 @@ jobs:
             fi
           fi
 
-      - name: Require production client configuration
+      - name: Require beta client configuration
         shell: bash
         run: |
           test -n "$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" || { echo "::error::Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in GitHub Actions and Vercel production"; exit 1; }
-          test -n "$EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY" || { echo "::error::Missing EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY in GitHub Actions and Vercel production"; exit 1; }
           test -n "$EXPO_PUBLIC_API_URL" || { echo "::error::Missing EXPO_PUBLIC_API_URL"; exit 1; }
+          if [ -z "$EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY" ]; then
+            echo "::notice::Stripe publishable key is not set; beta APK will build with payments disabled."
+          fi
 
       - run: npm ci --no-audit --no-fund --prefer-offline
 
