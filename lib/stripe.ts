@@ -9,7 +9,13 @@ export function getStripe() {
 }
 
 export function appUrl() {
-  return (process.env.APP_URL ?? process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8081').replace(/\/$/, '');
+  const explicit = process.env.APP_URL ?? process.env.EXPO_PUBLIC_API_URL;
+  if (explicit) return explicit.replace(/\/$/, '');
+
+  const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+  if (vercelHost) return `https://${vercelHost}`.replace(/\/$/, '');
+
+  return 'http://localhost:8081';
 }
 
 export function providerReturnUrl(type: 'subscription' | 'connect' | 'payment', state: 'complete' | 'cancelled' | 'retry') {
