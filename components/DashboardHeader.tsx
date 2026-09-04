@@ -1,15 +1,24 @@
 import { useClerk } from '@clerk/expo';
+import type { Href } from 'expo-router';
 import { Link, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { colors } from '@/constants/theme';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export function DashboardHeader({ home }: { home: '/(customer)/dashboard' | '/(trader)/dashboard' }) {
   const { signOut } = useClerk();
   const router = useRouter();
+  const { user } = useCurrentUser();
+  const messagesHref = (home.startsWith('/(customer)') ? '/(customer)/messages' : '/(trader)/messages') as Href;
   return <View style={styles.header}>
     <Link href={home} asChild><Button><Text variant="titleLarge" style={styles.brand}>BuildMate</Text></Button></Link>
-    <View style={styles.actions}><Link href="/(public)/directory" asChild><Button>Directory</Button></Link><Button onPress={() => signOut(() => router.replace('/(public)/directory'))}>Sign out</Button></View>
+    <View style={styles.actions}>
+      <Link href="/(public)/directory" asChild><Button>Directory</Button></Link>
+      <Link href={messagesHref} asChild><Button>Messages</Button></Link>
+      {user?.isAdmin ? <Link href="/(admin)/moderation" asChild><Button>Moderation</Button></Link> : null}
+      <Button onPress={() => signOut(() => router.replace('/(public)/directory'))}>Sign out</Button>
+    </View>
   </View>;
 }
 

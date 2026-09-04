@@ -5,7 +5,7 @@ import { colors } from '@/constants/theme';
 import { formatMoney } from '@/lib/money';
 import type { Quote } from '@/types';
 
-export function QuoteComparison({ quotes, accepting, onAccept }: { quotes: Quote[]; accepting?: string; onAccept: (quote: Quote) => void }) {
+export function QuoteComparison({ quotes, accepting, messaging, onAccept, onMessage }: { quotes: Quote[]; accepting?: string; messaging?: string; onAccept: (quote: Quote) => void; onMessage?: (quote: Quote) => void }) {
   return <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.row}>
     {quotes.map((quote) => <View key={quote.id} style={styles.column}><AppCard>
       <View style={styles.heading}><Text variant="titleLarge" style={styles.title}>{quote.businessName ?? 'Trade quote'}</Text><Chip>{quote.status}</Chip></View>
@@ -17,9 +17,12 @@ export function QuoteComparison({ quotes, accepting, onAccept }: { quotes: Quote
         <DataTable.Row><DataTable.Cell>Deposit</DataTable.Cell><DataTable.Cell numeric>{formatMoney(quote.depositAmount)}</DataTable.Cell></DataTable.Row>
       </DataTable>
       <Text variant="labelLarge">Payment terms</Text><Text>{quote.paymentTerms}</Text>{quote.notes ? <Text style={styles.muted}>{quote.notes}</Text> : null}
-      {quote.status === 'pending' ? <Button mode="contained" loading={accepting === quote.id} disabled={Boolean(accepting)} onPress={() => onAccept(quote)}>Accept quote</Button> : null}
+      <View style={styles.actions}>
+        {onMessage ? <Button mode="outlined" icon="message-text" loading={messaging === quote.id} disabled={Boolean(messaging)} onPress={() => onMessage(quote)}>Message trader</Button> : null}
+        {quote.status === 'pending' ? <Button mode="contained" loading={accepting === quote.id} disabled={Boolean(accepting)} onPress={() => onAccept(quote)}>Accept quote</Button> : null}
+      </View>
     </AppCard></View>)}
   </ScrollView>;
 }
 
-const styles = StyleSheet.create({ row: { gap: 12, paddingBottom: 8 }, column: { width: 320 }, heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }, title: { fontWeight: '800', flex: 1 }, total: { color: colors.primary, fontWeight: '900' }, muted: { color: colors.muted } });
+const styles = StyleSheet.create({ row: { gap: 12, paddingBottom: 8 }, column: { width: 320 }, heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }, title: { fontWeight: '800', flex: 1 }, total: { color: colors.primary, fontWeight: '900' }, muted: { color: colors.muted }, actions: { gap: 8 } });

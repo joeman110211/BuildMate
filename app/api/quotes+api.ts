@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { jobs, quotes, traderProfiles } from '@/db/schema';
 import { HttpError, jsonError, requireRole } from '@/lib/server';
+import { getSql } from '@/lib/sql';
 import { quoteSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -26,6 +27,15 @@ export async function POST(request: Request) {
     const [quote] = await db.insert(quotes).values({ ...payload, totalAmount, traderId: trader.id, validUntil: payload.validUntil ? new Date(payload.validUntil) : null })
       .onConflictDoUpdate({ target: [quotes.jobId, quotes.traderId], set: { ...payload, totalAmount, updatedAt: new Date(), validUntil: payload.validUntil ? new Date(payload.validUntil) : null } }).returning();
     await db.update(jobs).set({ status: 'quoted', updatedAt: new Date() }).where(eq(jobs.id, payload.jobId));
-    return Response.json(quote, { status: 201 });
+
+    const conversations = await getSql()`
+      INSERT INTO conversations(job_id, customer_id, trader_id)
+      VALUES (${payload.jobId}, ${job.customerId}, ${trader.id})
+      ON CONFLICT (job_id, customer_id, trader_id)
+      DO UPDATE SET updated_at = now()
+      RETURNING id
+    ` as { id: string }[];
+
+    return Response.json({ ...quote, conversationId: conversations[0]?.id ?? null }, { status: 201 });
   } catch (error) { return jsonError(error); }
 }

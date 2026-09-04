@@ -8,6 +8,8 @@ export interface CurrentUser {
   email: string | null;
   phone: string | null;
   role: UserRole | null;
+  isAdmin: boolean;
+  isSuspended: boolean;
   createdAt: string;
 }
 
