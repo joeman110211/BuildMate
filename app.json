@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "BuildMate",
+    "slug": "buildmate",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "buildmate",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true, "reactCompiler": true },
+    "android": {
+      "package": "uk.co.buildmate.app",
+      "predictiveBackGestureEnabled": true
+    },
+    "ios": {
+      "bundleIdentifier": "uk.co.buildmate.app",
+      "supportsTablet": true
+    },
+    "web": {
+      "output": "static"
+    }
+  }
+}
