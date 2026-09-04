@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { traderProfiles, users } from '@/db/schema';
 import { traderProfileShowcase } from '@/db/showcase-schema';
@@ -50,22 +50,31 @@ export async function PUT(request: Request) {
       latitude: location.latitude,
       longitude: location.longitude,
     };
-    const trialListing = process.env.STRIPE_SECRET_KEY?.trim()
-      ? {}
-      : { subscriptionTier: 'basic' as const, isSubscriptionActive: true, trialEndsAt: trialEndsAt() };
 
     const db = getDb();
+    const existingProfile = await db.query.traderProfiles.findFirst({
+      where: eq(traderProfiles.userId, userId),
+      columns: {
+        stripeSubscriptionId: true,
+        trialEndsAt: true,
+      },
+    });
+
+    // Every new trader gets Basic lead access for 14 days whether Stripe is configured or not.
+    // Editing a profile never resets an existing trial and never overwrites a paid subscription.
+    const trialListing = existingProfile?.stripeSubscriptionId
+      ? {}
+      : {
+          subscriptionTier: 'basic' as const,
+          isSubscriptionActive: true,
+          trialEndsAt: existingProfile?.trialEndsAt ?? trialEndsAt(),
+        };
+
     const [profile] = await db.insert(traderProfiles).values({ userId, ...values, ...trialListing }).onConflictDoUpdate({
       target: traderProfiles.userId,
       set: {
         ...values,
-        ...(process.env.STRIPE_SECRET_KEY?.trim()
-          ? {}
-          : {
-              subscriptionTier: 'basic' as const,
-              isSubscriptionActive: true,
-              trialEndsAt: sql`coalesce(${traderProfiles.trialEndsAt}, excluded.trial_ends_at)`,
-            }),
+        ...trialListing,
         updatedAt: new Date(),
       },
     }).returning();
