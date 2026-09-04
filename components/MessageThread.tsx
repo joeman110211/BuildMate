@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/expo';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { EmptyState, LoadingScreen, Screen } from '@/components/Screen';
@@ -10,21 +10,32 @@ type Message = { id: string; conversationId: string; senderId: string; body: str
 
 export function MessageThread({ conversationId }: { conversationId: string }) {
   const { getToken, userId } = useAuth();
+  const getTokenRef = useRef(getToken);
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
 
-  const load = useCallback(async () => {
-    try { setMessages(await apiFetch(`/api/conversations/${conversationId}/messages`, {}, getToken)); setError(''); }
-    catch (e) { setError(errorMessage(e)); }
-    finally { setLoading(false); }
-  }, [conversationId, getToken]);
   useEffect(() => {
-    const timer = setTimeout(() => void load(), 0);
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  const load = useCallback(async () => {
+    try {
+      setMessages(await apiFetch<Message[]>(`/api/conversations/${conversationId}/messages`, {}, () => getTokenRef.current()));
+      setError('');
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    void load();
     const refresh = setInterval(() => void load(), 5000);
-    return () => { clearTimeout(timer); clearInterval(refresh); };
+    return () => clearInterval(refresh);
   }, [load]);
 
   const send = async () => {
@@ -32,19 +43,24 @@ export function MessageThread({ conversationId }: { conversationId: string }) {
     if (!text || sending) return;
     setSending(true);
     try {
-      const created = await apiFetch<Message>(`/api/conversations/${conversationId}/messages`, { method: 'POST', body: JSON.stringify({ body: text }) }, getToken);
+      const created = await apiFetch<Message>(`/api/conversations/${conversationId}/messages`, { method: 'POST', body: JSON.stringify({ body: text }) }, () => getTokenRef.current());
       setMessages((current) => current.some((message) => message.id === created.id) ? current : [...current, created]);
       setBody('');
       setError('');
-    } catch (e) { setError(errorMessage(e)); }
-    finally { setSending(false); }
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setSending(false);
+    }
   };
 
   const report = async (messageId: string) => {
     try {
-      await apiFetch('/api/reports', { method: 'POST', body: JSON.stringify({ messageId, reason: 'abuse_or_harassment', details: 'Reported from a BuildMate job conversation.' }) }, getToken);
+      await apiFetch('/api/reports', { method: 'POST', body: JSON.stringify({ messageId, reason: 'abuse_or_harassment', details: 'Reported from a BuildMate job conversation.' }) }, () => getTokenRef.current());
       Alert.alert('Report received', 'The message has been added to the moderation queue.');
-    } catch (e) { Alert.alert('Could not report message', errorMessage(e)); }
+    } catch (e) {
+      Alert.alert('Could not report message', errorMessage(e));
+    }
   };
 
   if (loading) return <LoadingScreen label="Loading conversation…" />;
