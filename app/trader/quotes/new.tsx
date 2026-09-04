@@ -15,19 +15,22 @@ export default function NewQuoteScreen() {
   const [materials, setMaterials] = useState('');
   const [vat, setVat] = useState('no');
   const [deposit, setDeposit] = useState('');
+  const [validDays, setValidDays] = useState('14');
   const [terms, setTerms] = useState('Deposit due on acceptance. Balance due after completed work and customer approval.');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const totals = useMemo(() => calculateQuote(poundsToPence(labor), poundsToPence(materials), vat === 'yes' ? 0.2 : 0), [labor, materials, vat]);
   async function submit() {
-    try { setBusy(true); setError(''); await apiFetch('/api/quotes', { method: 'POST', body: JSON.stringify({ jobId, laborCost: poundsToPence(labor), materialsCost: poundsToPence(materials), vatAmount: totals.vatAmount, depositAmount: poundsToPence(deposit), paymentTerms: terms, notes }) }, getToken); router.replace('/trader/dashboard'); }
+    const validUntil = new Date(Date.now() + Number(validDays) * 24 * 60 * 60 * 1000).toISOString();
+    try { setBusy(true); setError(''); await apiFetch('/api/quotes', { method: 'POST', body: JSON.stringify({ jobId, laborCost: poundsToPence(labor), materialsCost: poundsToPence(materials), vatAmount: totals.vatAmount, depositAmount: poundsToPence(deposit), paymentTerms: terms, notes, validUntil }) }, getToken); router.replace('/trader/dashboard'); }
     catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   }
   return <Screen title="Create an itemised quote" subtitle={title ?? 'Customer job'}>
     <TextInput label="Labour (£)" value={labor} onChangeText={setLabor} keyboardType="decimal-pad" mode="outlined" /><TextInput label="Materials (£)" value={materials} onChangeText={setMaterials} keyboardType="decimal-pad" mode="outlined" />
     <Text variant="labelLarge">Add 20% VAT?</Text><SegmentedButtons value={vat} onValueChange={setVat} buttons={[{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }]} />
     <TextInput label="Deposit requested (£)" value={deposit} onChangeText={setDeposit} keyboardType="decimal-pad" mode="outlined" />
+    <Text variant="labelLarge">Quote valid for</Text><SegmentedButtons value={validDays} onValueChange={setValidDays} buttons={[{ value: '7', label: '7 days' }, { value: '14', label: '14 days' }, { value: '30', label: '30 days' }]} />
     <TextInput label="Payment terms" value={terms} onChangeText={setTerms} mode="outlined" multiline /><TextInput label="Notes / exclusions" value={notes} onChangeText={setNotes} mode="outlined" multiline />
     <AppCard><Text>Net: {formatMoney(totals.net)}</Text><Text>VAT: {formatMoney(totals.vatAmount)}</Text><Text variant="headlineSmall">Total: {formatMoney(totals.totalAmount)}</Text></AppCard>
     <HelperText type="error" visible={Boolean(error)}>{error}</HelperText><Button mode="contained" loading={busy} disabled={busy || totals.totalAmount <= 0 || poundsToPence(deposit) > totals.totalAmount || terms.length < 5} onPress={submit}>Send quote</Button>
