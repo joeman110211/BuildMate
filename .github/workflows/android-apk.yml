@@ -16,7 +16,7 @@ jobs:
       CI: '1'
       EXPO_NO_TELEMETRY: '1'
       EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-      EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+      EXPO_PUBLIC_API_URL: https://buildmate-nine.vercel.app
       EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
       EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME: qrrcn7ma
 
@@ -33,36 +33,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Resolve public runtime configuration
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          api_url="${EXPO_PUBLIC_API_URL:-https://buildmate-nine.vercel.app}"
-          clerk_key="${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
-
-          if [ -z "$clerk_key" ]; then
-            html="$(curl -fsSL "$api_url")"
-            js_path="$(printf '%s' "$html" | grep -oE '/_expo/static/js/web/entry-[^"[:space:]]+\.js' | head -n 1)"
-            test -n "$js_path" || { echo "Could not locate BuildMate web bundle"; exit 1; }
-
-            bundle_file="$(mktemp)"
-            curl -fsSL "$api_url$js_path" -o "$bundle_file"
-            clerk_key="$(node -e "const fs=require('fs'); const b=fs.readFileSync(process.argv[1],'utf8'); const marker=b.indexOf('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is missing'); const rx=/pk_(?:test|live)_[A-Za-z0-9_-]+/g; const hits=[...b.matchAll(rx)]; hits.sort((a,c)=>Math.abs(a.index-marker)-Math.abs(c.index-marker)); if(hits.length) process.stdout.write(hits[0][0]);" "$bundle_file")"
-          fi
-
-          test -n "$clerk_key" || { echo "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"; exit 1; }
-
-          {
-            echo "EXPO_PUBLIC_API_URL=$api_url"
-            echo "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=$clerk_key"
-          } >> "$GITHUB_ENV"
-
-      - name: Require runtime configuration
+      - name: Require authentication configuration
         shell: bash
         run: |
           test -n "$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" || { echo "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"; exit 1; }
-          test -n "$EXPO_PUBLIC_API_URL" || { echo "Missing EXPO_PUBLIC_API_URL"; exit 1; }
 
       - run: npm ci --no-audit --no-fund --prefer-offline
 
