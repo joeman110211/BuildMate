@@ -1,5 +1,11 @@
 # BuildMate production checklist
 
+## Beta readiness
+
+- Configure Clerk, Neon, Gemini, Resend and Cloudinary production environment variables.
+- Confirm `/api/readiness` returns `ready: true` before sharing the beta publicly.
+- Keep Stripe configuration optional until paid subscriptions and marketplace payments are enabled.
+
 ## Product and legal
 
 - Publish UK privacy notice, cookie policy, marketplace terms, trader subscription terms and cancellation/refund rules.
@@ -18,10 +24,10 @@
 
 ## Payments
 
-- Test successful, declined, 3DS, cancelled, duplicate-webhook and refunded payments.
+- Test successful, declined, 3DS, cancelled, duplicate-webhook and refunded payments before enabling paid plans or job payments.
 - Test Connect accounts with incomplete verification and disabled charges.
 - Test subscription upgrade, downgrade, cancellation, failed renewal and customer portal access.
-- Decide who absorbs Stripe fees and document BuildMate’s platform fee.
+- Decide who absorbs Stripe fees and document BuildMate's platform fee.
 
 ## App stores and devices
 
