@@ -1,4 +1,4 @@
-name: Deploy Web
+name: Production Smoke Test
 
 on:
   workflow_run:
@@ -8,61 +8,55 @@ on:
 
 permissions:
   contents: read
+  statuses: read
 
 concurrency:
-  group: buildmate-production-web
+  group: buildmate-production-smoke
   cancel-in-progress: true
 
-env:
-  VERCEL_ORG_ID: team_IFj5B0CLFEKezv3Z5MRTTfDT
-  VERCEL_PROJECT_ID: prj_NPfSapewQCfCwWFKQa1C9R7CWQK6
-  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
 jobs:
-  deploy:
+  verify-production:
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    env:
+      BASE_URL: https://buildmate-nine.vercel.app
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Require Vercel deployment token
-        shell: bash
-        run: |
-          test -n "$VERCEL_TOKEN" || { echo "::error::Missing GitHub Actions secret VERCEL_TOKEN. Production deployment cannot run."; exit 1; }
-
-      - uses: actions/checkout@v5
-        if: github.event_name == 'workflow_run'
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - uses: actions/checkout@v5
+      - name: Resolve commit for manual runs
         if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: echo "EXPECTED_SHA=${GITHUB_SHA}" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci --no-audit --no-fund --prefer-offline
-
-      - name: Pull production environment
-        run: npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
-
-      - name: Build production deployment
-        run: npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
-
-      - name: Deploy production
-        id: deploy
+      - name: Wait for Vercel Git deployment
         shell: bash
         run: |
-          DEPLOY_URL=$(npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN" | tail -n 1)
-          echo "url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
-          echo "Deployed $DEPLOY_URL"
+          set -euo pipefail
+          for attempt in $(seq 1 36); do
+            payload=$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_SHA}/status")
+            state=$(printf '%s' "$payload" | jq -r '[.statuses[] | select(.context == "Vercel")][0].state // "pending"')
+            echo "Vercel status: $state (attempt $attempt/36)"
+            case "$state" in
+              success) break ;;
+              failure|error) echo "::error::Vercel deployment failed for $EXPECTED_SHA"; exit 1 ;;
+            esac
+            if [ "$attempt" -eq 36 ]; then
+              echo "::error::Timed out waiting for Vercel deployment of $EXPECTED_SHA"
+              exit 1
+            fi
+            sleep 10
+          done
 
-      - name: Smoke test production
+      - name: Verify production API and database
         shell: bash
         run: |
-          BASE_URL="${{ steps.deploy.outputs.url }}"
-          curl --fail --show-error --silent --retry 5 --retry-delay 3 "$BASE_URL/api/health"
-          curl --fail --show-error --silent --retry 5 --retry-delay 3 "$BASE_URL/api/traders" > /dev/null
-          echo "Production health and public trader API are responding."
+          set -euo pipefail
+          health=$(curl --fail --show-error --silent --retry 8 --retry-delay 3 "$BASE_URL/api/health")
+          printf '%s\n' "$health"
+          printf '%s' "$health" | jq -e '.status == "ok" and .database == "ok"' > /dev/null
+          curl --fail --show-error --silent --retry 8 --retry-delay 3 "$BASE_URL/api/traders" > /dev/null
+          echo "Production API, Neon database and public trader endpoint are responding."
