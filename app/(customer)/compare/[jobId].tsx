@@ -15,7 +15,7 @@ export default function CompareQuotesScreen() {
   const [accepting, setAccepting] = useState<string>();
   const [error, setError] = useState('');
   const load = useCallback(async () => { try { setData(await apiFetch(`/api/jobs/${jobId}/quotes`, {}, getToken)); } catch (e) { setError(errorMessage(e)); } }, [getToken, jobId]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
   async function accept(quote: Quote) {
     try { setAccepting(quote.id); await apiFetch(`/api/quotes/${quote.id}`, { method: 'PATCH', body: JSON.stringify({ action: 'accept' }) }, getToken); router.replace(`/(customer)/jobs/${jobId}`); }
     catch (e) { setError(errorMessage(e)); } finally { setAccepting(undefined); }

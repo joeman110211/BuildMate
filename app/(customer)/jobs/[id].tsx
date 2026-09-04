@@ -25,7 +25,7 @@ export default function JobDetailScreen() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const load = useCallback(async () => { try { setData(await apiFetch(`/api/jobs/${id}`, {}, getToken)); setError(''); } catch (e) { setError(errorMessage(e)); } }, [getToken, id]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
   async function review() {
     if (!data?.acceptedQuote) return;
     try { setBusy(true); await apiFetch('/api/reviews', { method: 'POST', body: JSON.stringify({ jobId: id, traderId: data.acceptedQuote.traderId, rating, comment }) }, getToken); await load(); }
