@@ -29,4 +29,4 @@ export function QuoteComparison({ quotes, accepting, messaging, onAccept, onMess
   </ScrollView>;
 }
 
-const styles = StyleSheet.create({ row: { gap: 12, paddingBottom: 8 }, column: { width: 320 }, heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }, title: { fontWeight: '800', flex: 1 }, total: { color: colors.primary, fontWeight: '900' }, muted: { color: colors.muted }, expired: { color: colors.error, fontWeight: '700' }, actions: { gap: 8 } });
+const styles = StyleSheet.create({ row: { gap: 12, paddingBottom: 8 }, column: { width: 320 }, heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 }, title: { fontWeight: '800', flex: 1 }, total: { color: colors.primary, fontWeight: '900' }, muted: { color: colors.muted }, expired: { color: colors.danger, fontWeight: '700' }, actions: { gap: 8 } });
