@@ -1,16 +1,19 @@
 export const TRADER_TRIAL_DAYS = 14;
 
-export function trialEndsAt(from = new Date()) {
-  return new Date(from.getTime() + TRADER_TRIAL_DAYS * 24 * 60 * 60 * 1000);
+export function trialEndsAt(from: Date | string = new Date()) {
+  const startedAt = from instanceof Date ? from : new Date(from);
+  return new Date(startedAt.getTime() + TRADER_TRIAL_DAYS * 24 * 60 * 60 * 1000);
 }
 
 export function hasActiveLeadAccess(profile: {
   isSubscriptionActive: boolean;
+  createdAt?: Date | string | null;
   trialEndsAt?: Date | string | null;
   stripeSubscriptionId?: string | null;
 }) {
   if (!profile.isSubscriptionActive) return false;
   if (profile.stripeSubscriptionId) return true;
-  if (!profile.trialEndsAt) return true;
-  return new Date(profile.trialEndsAt).getTime() > Date.now();
+  const endsAt = profile.trialEndsAt ? new Date(profile.trialEndsAt) : profile.createdAt ? trialEndsAt(profile.createdAt) : null;
+  if (!endsAt) return true;
+  return endsAt.getTime() > Date.now();
 }
