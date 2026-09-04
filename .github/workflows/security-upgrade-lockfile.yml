@@ -1,4 +1,4 @@
-name: Security upgrade lockfile
+name: Security upgrade validation
 
 on:
   push:
@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: security-upgrade-lockfile
+  group: security-upgrade-validation
   cancel-in-progress: true
 
 env:
@@ -17,39 +17,21 @@ env:
   EXPO_NO_TELEMETRY: '1'
 
 jobs:
-  upgrade:
-    if: github.actor != 'github-actions[bot]'
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
-        with:
-          ref: chore/security-upgrade
       - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
-      - run: npm ci --no-audit --no-fund
-      - name: Upgrade core dependencies
-        run: |
-          npm install expo@~57.0.19 @clerk/expo@4.6.4 drizzle-orm@0.45.2
-          npx expo install --fix
-          npx expo install expo-splash-screen @stripe/stripe-react-native
-      - name: Commit dependency graph
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add package.json package-lock.json
-          if git diff --cached --quiet; then
-            echo "No dependency changes to commit"
-          else
-            git commit -m "chore: align Expo 57 dependencies"
-            git push origin HEAD:chore/security-upgrade
-          fi
-      - name: Validate upgraded stack
-        run: |
-          npx expo-doctor
-          npm run lint
-          npm run typecheck
-          npm test
-          npm audit --omit=dev --audit-level=high
+      - run: npm ci --no-audit --no-fund --prefer-offline
+      - run: npx expo-doctor
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build:web
+      - run: npx expo export --platform android --output-dir dist/android
+      - run: npx expo export --platform ios --output-dir dist/ios
+      - run: npm audit --omit=dev --audit-level=high
