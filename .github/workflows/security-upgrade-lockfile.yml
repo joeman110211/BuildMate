@@ -8,11 +8,19 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: security-upgrade-lockfile
+  cancel-in-progress: true
+
+env:
+  CI: '1'
+  EXPO_NO_TELEMETRY: '1'
+
 jobs:
   upgrade:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
         with:
