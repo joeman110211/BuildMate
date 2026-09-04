@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { jobs, traderProfiles } from '@/db/schema';
+import { demoJobs } from '@/lib/demo-data';
 import { InvalidPostcodeError, lookupPostcode, outwardCode } from '@/lib/postcode';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
@@ -58,6 +59,9 @@ export async function GET(request: Request) {
       }
 
       rows = await db.select().from(jobs).where(access).orderBy(desc(jobs.createdAt)).limit(100);
+      if (!rows.length && activeLeadAccess) {
+        rows = demoJobs.filter((job) => profile.subscriptionTier === 'featured' || job.category === profile.tradeCategory);
+      }
       rows = rows.map((job) => {
         const openMarketplaceJob = job.targetTraderId == null && ['open', 'quoted'].includes(job.status);
         return openMarketplaceJob
@@ -81,7 +85,7 @@ export async function POST(request: Request) {
                tp.subscription_tier AS "subscriptionTier",
                (
                  tp.is_subscription_active = true
-                 AND (tp.trial_ends_at IS NULL OR tp.trial_ends_at > now() OR tp.stripe_subscription_id IS NOT NULL)
+                 AND (tp.stripe_subscription_id IS NOT NULL OR tp.created_at + interval '14 days' > now())
                ) AS "isSubscriptionActive"
         FROM trader_profiles tp
         JOIN users u ON u.id = tp.user_id
