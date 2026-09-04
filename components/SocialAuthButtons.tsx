@@ -1,17 +1,21 @@
 import { useSSO } from '@clerk/expo';
 import type { OAuthStrategy } from '@clerk/expo/types';
 import * as AuthSession from 'expo-auth-session';
+import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Divider, Text } from 'react-native-paper';
+import { modeSetupHref } from '@/lib/account-mode';
 import { errorMessage } from '@/lib/api';
+import type { UserRole } from '@/types';
 
 WebBrowser.maybeCompleteAuthSession();
 
 type Props = {
   onError: (message: string) => void;
+  mode?: UserRole | null;
 };
 
 const providers: Array<{ strategy: OAuthStrategy; label: string }> = [
@@ -19,7 +23,7 @@ const providers: Array<{ strategy: OAuthStrategy; label: string }> = [
   { strategy: 'oauth_facebook', label: 'Continue with Facebook' },
 ];
 
-export function SocialAuthButtons({ onError }: Props) {
+export function SocialAuthButtons({ onError, mode = null }: Props) {
   const { startSSOFlow } = useSSO();
   const router = useRouter();
   const [loadingStrategy, setLoadingStrategy] = useState<OAuthStrategy | null>(null);
@@ -31,10 +35,11 @@ export function SocialAuthButtons({ onError }: Props) {
 
       // Clerk's Expo SSO flow expects a concrete callback URL. On web this resolves
       // to the current BuildMate origin; on Android/iOS it resolves to buildmate://.
-      const redirectUrl = AuthSession.makeRedirectUri({
+      const callback = AuthSession.makeRedirectUri({
         scheme: 'buildmate',
         path: 'auth/social-continue',
       });
+      const redirectUrl = mode ? `${callback}${callback.includes('?') ? '&' : '?'}mode=${mode}` : callback;
 
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy,
@@ -46,10 +51,10 @@ export function SocialAuthButtons({ onError }: Props) {
           session: createdSessionId,
           navigate: async ({ session }) => {
             if (session?.currentTask) {
-              router.replace('/auth/social-continue');
+              router.replace((mode ? `/auth/social-continue?mode=${mode}` : '/auth/social-continue') as Href);
               return;
             }
-            router.replace('/auth/choose-role');
+            router.replace(modeSetupHref(mode));
           },
         });
         return;
@@ -58,7 +63,7 @@ export function SocialAuthButtons({ onError }: Props) {
       // A first-time social user commonly has no existing Clerk account yet.
       // Clerk preserves the in-progress flow so the continuation screen can
       // transfer SignIn -> SignUp and finish creating the account.
-      router.replace('/auth/social-continue');
+      router.replace((mode ? `/auth/social-continue?mode=${mode}` : '/auth/social-continue') as Href);
     } catch (error) {
       onError(errorMessage(error));
     } finally {
