@@ -68,5 +68,6 @@ export interface Quote {
   totalAmount: number;
   paymentTerms: string;
   notes?: string | null;
+  validUntil?: string | null;
   status: QuoteStatus;
 }
