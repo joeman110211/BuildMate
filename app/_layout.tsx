@@ -11,26 +11,33 @@ import { tokenCache } from '@/lib/token-cache';
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
+function AppShell() {
+  return (
+    <SafeAreaProvider>
+      <PaperProvider theme={paperTheme}>
+        <AppStripeProvider>
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerTintColor: '#D35400', headerShadowVisible: false, contentStyle: { backgroundColor: '#FAFAFA' } }}>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(public)" options={{ headerShown: false }} />
+            <Stack.Screen name="auth" options={{ headerShown: false }} />
+            <Stack.Screen name="customer" options={{ headerShown: false }} />
+            <Stack.Screen name="trader" options={{ headerShown: false }} />
+            <Stack.Screen name="admin" options={{ headerShown: false }} />
+          </Stack>
+        </AppStripeProvider>
+      </PaperProvider>
+    </SafeAreaProvider>
+  );
+}
+
 export default function RootLayout() {
-  if (!publishableKey) throw new Error('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is missing. Copy .env.example to .env.');
+  if (!publishableKey) return <AppShell />;
+
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
       <ClerkLoaded>
-        <SafeAreaProvider>
-          <PaperProvider theme={paperTheme}>
-            <AppStripeProvider>
-              <StatusBar style="dark" />
-              <Stack screenOptions={{ headerTintColor: '#D35400', headerShadowVisible: false, contentStyle: { backgroundColor: '#FAFAFA' } }}>
-                <Stack.Screen name="index" options={{ headerShown: false }} />
-                <Stack.Screen name="(public)" options={{ headerShown: false }} />
-                <Stack.Screen name="auth" options={{ headerShown: false }} />
-                <Stack.Screen name="customer" options={{ headerShown: false }} />
-                <Stack.Screen name="trader" options={{ headerShown: false }} />
-                <Stack.Screen name="admin" options={{ headerShown: false }} />
-              </Stack>
-            </AppStripeProvider>
-          </PaperProvider>
-        </SafeAreaProvider>
+        <AppShell />
       </ClerkLoaded>
     </ClerkProvider>
   );
