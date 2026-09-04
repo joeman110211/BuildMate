@@ -2,7 +2,7 @@ import { useAuth } from '@clerk/expo';
 import type { Href } from 'expo-router';
 import { Link, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { Button, Chip, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
 import { EmptyState, LoadingScreen, Screen } from '@/components/Screen';
@@ -38,8 +38,8 @@ export default function TraderDashboard() {
     {!profile.isSubscriptionActive ? <AppCard><Text variant="titleMedium">Your profile is shareable but not listed</Text><Text style={styles.muted}>Choose Basic to unlock direct leads, or Featured to appear first and send unlimited quotes.</Text><Link href="/(trader)/subscription" asChild><Button>Compare plans</Button></Link></AppCard> : null}
     {error ? <EmptyState title="Something needs attention" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
     <Text variant="titleLarge">Relevant jobs</Text>
-    {!jobs.length ? <EmptyState title="No matching jobs" body={`New ${profile.tradeCategory.toLowerCase()} jobs will appear here.`} /> : jobs.map((job) => <AppCard key={job.id}><View style={styles.row}><Text variant="titleMedium" style={styles.title}>{job.title}</Text><Chip>{job.status.replace('_', ' ')}</Chip></View><Text style={styles.muted}>{job.propertyType} · {job.budgetRange} · {job.urgency}</Text><Text numberOfLines={4}>{job.description}</Text>{['open','quoted'].includes(job.status) ? <Button mode="contained" disabled={profile.subscriptionTier !== 'featured' || !profile.isSubscriptionActive} onPress={() => router.push({ pathname: '/(trader)/quotes/new', params: { jobId: job.id, title: job.title } })}>Quote this job</Button> : null}{job.status === 'in_progress' ? <Button mode="contained" onPress={() => complete(job.id)}>Mark work complete</Button> : null}</AppCard>)}
+    {!jobs.length ? <EmptyState title="No matching jobs" body={`New ${profile.tradeCategory.toLowerCase()} jobs will appear here.`} /> : jobs.map((job) => <AppCard key={job.id}><View style={styles.row}><Text variant="titleMedium" style={styles.title}>{job.title}</Text><Chip>{job.status.replace('_', ' ')}</Chip></View><Text style={styles.muted}>{job.propertyType} · {job.budgetRange} · {job.urgency}</Text>{job.photos?.[0] ? <Image source={{ uri: job.photos[0] }} style={styles.jobPhoto} /> : null}<Text numberOfLines={4}>{job.description}</Text>{['open','quoted'].includes(job.status) ? <Button mode="contained" disabled={profile.subscriptionTier !== 'featured' || !profile.isSubscriptionActive} onPress={() => router.push({ pathname: '/(trader)/quotes/new', params: { jobId: job.id, title: job.title } })}>Quote this job</Button> : null}{job.status === 'in_progress' ? <Button mode="contained" onPress={() => complete(job.id)}>Mark work complete</Button> : null}</AppCard>)}
   </Screen>;
 }
 
-const styles = StyleSheet.create({ actions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }, title: { fontWeight: '800' }, muted: { color: colors.muted } });
+const styles = StyleSheet.create({ actions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }, title: { fontWeight: '800' }, muted: { color: colors.muted }, jobPhoto: { width: '100%', height: 220, borderRadius: 10, backgroundColor: colors.border } });
