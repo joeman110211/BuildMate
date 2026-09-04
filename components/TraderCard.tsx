@@ -8,9 +8,10 @@ import type { TraderProfile } from '@/types';
 
 export function TraderCard({ trader }: { trader: TraderProfile }) {
   const router = useRouter();
+  const area = trader.locationLabel ? ` · ${trader.locationLabel}` : '';
   return <AppCard>
     {trader.photos[0] ? <Image source={{ uri: trader.photos[0] }} style={styles.image} accessibilityLabel={`${trader.businessName} work example`} /> : <View style={styles.placeholder}><Text variant="headlineLarge">{trader.businessName.slice(0, 1)}</Text></View>}
-    <View style={styles.row}><View style={styles.flex}><Text variant="titleLarge" style={styles.title}>{trader.businessName}</Text><Text style={styles.muted}>{trader.tradeCategory} · Within {trader.radiusMiles} miles</Text></View>{trader.subscriptionTier === 'featured' ? <Chip compact icon="star">Featured</Chip> : null}</View>
+    <View style={styles.row}><View style={styles.flex}><Text variant="titleLarge" style={styles.title}>{trader.businessName}</Text><Text style={styles.muted}>{trader.tradeCategory}{area} · Within {trader.radiusMiles} miles</Text></View>{trader.subscriptionTier === 'featured' ? <Chip compact icon="star">Featured</Chip> : null}</View>
     <Text numberOfLines={3}>{trader.bio}</Text>
     <View style={styles.row}><Text style={styles.rating}>★ {Number(trader.averageRating || 0).toFixed(1)} ({trader.reviewCount})</Text><Button mode="outlined" onPress={() => router.push(`/(public)/traders/${trader.id}` as Href)}>View profile</Button></View>
   </AppCard>;
