@@ -1,123 +1,143 @@
-import { useSignIn } from '@clerk/expo/legacy';
+import { useSignIn } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, HelperText, SegmentedButtons, Text, TextInput } from 'react-native-paper';
+import { Button, HelperText, Text, TextInput } from 'react-native-paper';
 import { Screen } from '@/components/Screen';
+import { SocialAuthButtons } from '@/components/SocialAuthButtons';
 import { errorMessage } from '@/lib/api';
-import { normalizeUkMobile } from '@/lib/phone';
 
 export default function SignInScreen() {
-  const { isLoaded, signIn, setActive } = useSignIn();
+  const { signIn, fetchStatus } = useSignIn();
   const router = useRouter();
-  const [method, setMethod] = useState<'password' | 'phone'>('password');
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
-  const [pendingPhone, setPendingPhone] = useState(false);
-  const [pendingEmailCode, setPendingEmailCode] = useState(false);
-  const [verificationTarget, setVerificationTarget] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState('');
 
-  async function finish(sessionId: string | null | undefined) {
-    if (!setActive) throw new Error('Authentication is still loading');
-    if (!sessionId) throw new Error('Sign-in did not create a session');
-    await setActive({ session: sessionId });
-    router.replace('/auth/choose-role');
+  const busy = fetchStatus === 'fetching';
+
+  async function finishSignIn() {
+    await signIn.finalize({
+      navigate: async ({ session }) => {
+        if (session?.currentTask) {
+          throw new Error('Your account needs another Clerk setup step before BuildMate can continue.');
+        }
+        router.replace('/auth/choose-role');
+      },
+    });
   }
 
-  async function submit() {
-    if (!isLoaded || !signIn) return;
+  async function signInWithEmail() {
     try {
-      setBusy(true);
       setError('');
+      const result = await signIn.password({
+        emailAddress: email.trim().toLowerCase(),
+        password,
+      });
+      if (result.error) throw result.error;
 
-      if (pendingEmailCode) {
-        const result = await signIn.attemptSecondFactor({ strategy: 'email_code', code: code.trim() });
-        if (result.status !== 'complete') throw new Error('Email verification is incomplete');
-        await finish(result.createdSessionId);
+      if (signIn.status === 'complete') {
+        await finishSignIn();
         return;
       }
 
-      if (method === 'password') {
-        const email = identifier.trim().toLowerCase();
-        const result = await signIn.create({ identifier: email, password });
-        if (result.status === 'complete') {
-          await finish(result.createdSessionId);
-          return;
-        }
-
-        if (result.status === 'needs_second_factor') {
-          const emailFactor = result.supportedSecondFactors?.find((factor) => factor.strategy === 'email_code') as { emailAddressId?: string; safeIdentifier?: string } | undefined;
-          if (!emailFactor?.emailAddressId) throw new Error('This sign-in needs verification, but no email verification method is available');
-          await signIn.prepareSecondFactor({ strategy: 'email_code', emailAddressId: emailFactor.emailAddressId });
-          setVerificationTarget(emailFactor.safeIdentifier ?? email);
-          setCode('');
-          setPendingEmailCode(true);
-          return;
-        }
-
-        throw new Error(`Sign-in needs an additional step (${result.status ?? 'unknown status'})`);
-      }
-
-      if (!pendingPhone) {
-        const phoneNumber = normalizeUkMobile(identifier);
-        const result = await signIn.create({ identifier: phoneNumber });
-        const phoneFactor = result.supportedFirstFactors?.find((factor) => factor.strategy === 'phone_code') as { phoneNumberId?: string; safeIdentifier?: string } | undefined;
-        if (!phoneFactor?.phoneNumberId) throw new Error('SMS sign-in is not enabled for this account');
-        await signIn.prepareFirstFactor({ strategy: 'phone_code', phoneNumberId: phoneFactor.phoneNumberId });
-        setVerificationTarget(phoneFactor.safeIdentifier ?? phoneNumber);
+      if (signIn.status === 'needs_client_trust' || signIn.status === 'needs_second_factor') {
+        const emailFactor = signIn.supportedSecondFactors?.find((factor) => factor.strategy === 'email_code');
+        if (!emailFactor) throw new Error('This sign-in needs another verification step, but no email-code factor is available.');
+        await signIn.mfa.sendEmailCode();
         setCode('');
-        setPendingPhone(true);
+        setVerifying(true);
         return;
       }
 
-      const result = await signIn.attemptFirstFactor({ strategy: 'phone_code', code: code.trim() });
-      if (result.status !== 'complete') throw new Error('Phone verification is incomplete');
-      await finish(result.createdSessionId);
+      throw new Error(`Sign-in is incomplete (${signIn.status}).`);
     } catch (e) {
       setError(errorMessage(e));
-    } finally {
-      setBusy(false);
     }
   }
 
-  function changeMethod(value: string) {
-    setMethod(value as typeof method);
-    setPendingPhone(false);
-    setPendingEmailCode(false);
-    setVerificationTarget('');
-    setCode('');
-    setError('');
+  async function verifyEmailCode() {
+    try {
+      setError('');
+      await signIn.mfa.verifyEmailCode({ code: code.trim() });
+      if (signIn.status !== 'complete') throw new Error(`Email verification is incomplete (${signIn.status}).`);
+      await finishSignIn();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
   }
 
-  const waitingForCode = pendingPhone || pendingEmailCode;
+  async function resendCode() {
+    try {
+      setError('');
+      await signIn.mfa.sendEmailCode();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
 
-  return <Screen title="Welcome back" subtitle="Sign in to post work, quote jobs and manage payments.">
-    <SegmentedButtons value={method} onValueChange={changeMethod} buttons={[{ value: 'password', label: 'Email & password' }, { value: 'phone', label: 'Phone OTP' }]} />
-    {!waitingForCode ? <>
+  if (verifying) {
+    return (
+      <Screen title="Confirm it's you" subtitle={`Enter the code Clerk sent to ${email.trim().toLowerCase()}.`}>
+        <TextInput
+          label="Verification code"
+          value={code}
+          onChangeText={setCode}
+          keyboardType="number-pad"
+          autoComplete="one-time-code"
+          mode="outlined"
+        />
+        <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
+        <Button mode="contained" loading={busy} disabled={busy || !code.trim()} onPress={() => void verifyEmailCode()} contentStyle={styles.button}>
+          Verify and sign in
+        </Button>
+        <Button disabled={busy} onPress={() => void resendCode()}>Send another code</Button>
+        <Button disabled={busy} onPress={() => { signIn.reset(); setVerifying(false); setCode(''); setError(''); }}>Start over</Button>
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen title="Welcome back" subtitle="Sign in to post work, quote jobs and manage payments.">
+      <SocialAuthButtons onError={setError} />
       <TextInput
-        label={method === 'password' ? 'Email address' : 'UK mobile (07 / 447 / +447)'}
-        value={identifier}
-        onChangeText={setIdentifier}
+        label="Email address"
+        value={email}
+        onChangeText={setEmail}
         autoCapitalize="none"
-        keyboardType={method === 'password' ? 'email-address' : 'phone-pad'}
+        keyboardType="email-address"
+        autoComplete="email"
         mode="outlined"
       />
-      {method === 'phone' ? <HelperText type="info" visible>We accept 07911…, 447911… or +447911… and convert it automatically.</HelperText> : null}
-      {method === 'password' ? <TextInput label="Password" value={password} onChangeText={setPassword} secureTextEntry mode="outlined" /> : null}
-    </> : <>
-      <Text variant="bodyMedium">Enter the verification code sent to {verificationTarget || identifier}.</Text>
-      <TextInput label="Verification code" value={code} onChangeText={setCode} keyboardType="number-pad" mode="outlined" />
-    </>}
-    <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
-    <Button mode="contained" loading={busy} disabled={busy || (!waitingForCode && !identifier) || (!waitingForCode && method === 'password' && !password) || (waitingForCode && !code.trim())} onPress={submit} contentStyle={styles.button}>
-      {waitingForCode ? 'Verify and sign in' : 'Continue'}
-    </Button>
-    {waitingForCode ? <Button disabled={busy} onPress={() => { setPendingPhone(false); setPendingEmailCode(false); setCode(''); setError(''); }}>Back</Button> : null}
-    <View style={styles.footer}><Text>New to BuildMate?</Text><Link href="/auth/sign-up" asChild><Button>Create account</Button></Link></View>
-  </Screen>;
+      <TextInput
+        label="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoComplete="current-password"
+        mode="outlined"
+      />
+      <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
+      <Button
+        mode="contained"
+        loading={busy}
+        disabled={busy || !email.trim() || !password}
+        onPress={() => void signInWithEmail()}
+        contentStyle={styles.button}
+      >
+        Sign in with email
+      </Button>
+      <View style={styles.footer}>
+        <Text>New to BuildMate?</Text>
+        <Link href="/auth/sign-up" asChild><Button>Create account</Button></Link>
+      </View>
+    </Screen>
+  );
 }
 
-const styles = StyleSheet.create({ button: { minHeight: 48 }, footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' } });
+const styles = StyleSheet.create({
+  button: { minHeight: 48 },
+  footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' },
+});
