@@ -65,10 +65,25 @@ jobs:
             exit 1
           fi
           jq -e '.status == "ok" and .database == "ok"' "$health_file" > /dev/null
-          curl --fail --show-error --silent --retry 8 --retry-delay 3 "$BASE_URL/api/traders" > /dev/null
-          echo "Production API, Neon database and public trader endpoint are responding."
 
-      - name: Verify production integration configuration
+          traders_file=$(mktemp)
+          curl --fail --show-error --silent --retry 8 --retry-delay 3 "$BASE_URL/api/traders" -o "$traders_file"
+          jq -e 'type == "array"' "$traders_file" > /dev/null
+
+          jobs_file=$(mktemp)
+          curl --fail --show-error --silent --retry 8 --retry-delay 3 "$BASE_URL/api/public/jobs" -o "$jobs_file"
+          jq -e 'type == "array" and length > 0' "$jobs_file" > /dev/null
+          echo "Production API, Neon database, trader directory and live public jobs are responding."
+
+      - name: Verify public auth entry points
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --retry 4 --retry-delay 2 "$BASE_URL/auth/sign-in" > /dev/null
+          curl --fail --show-error --silent --retry 4 --retry-delay 2 "$BASE_URL/auth/sign-up" > /dev/null
+          echo "Production sign-in and sign-up pages are serving successfully."
+
+      - name: Verify production integration configuration and schema
         shell: bash
         run: |
           set -euo pipefail
@@ -78,9 +93,9 @@ jobs:
           cat "$readiness_file"
           printf '\n'
           if [ "$readiness_status" != "200" ]; then
-            missing=$(jq -r '.missing // [] | join(", ")' "$readiness_file" 2>/dev/null || true)
-            echo "::error::Production integration configuration incomplete${missing:+: $missing}"
+            missing=$(jq -r '[(.missing // []), (.missingSchema // [])] | flatten | join(", ")' "$readiness_file" 2>/dev/null || true)
+            echo "::error::Production readiness incomplete${missing:+: $missing}"
             exit 1
           fi
           jq -e '.ready == true and .status == "ready"' "$readiness_file" > /dev/null
-          echo "Production Clerk, Stripe, Gemini, Resend and Cloudinary configuration is present."
+          echo "Production integrations and required database schema are ready."
