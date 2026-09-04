@@ -34,7 +34,7 @@ jobs:
         run: |
           npm install expo@~57.0.19 @clerk/expo@4.6.4 drizzle-orm@0.45.2
           npx expo install --fix
-          npx expo install @stripe/stripe-react-native
+          npx expo install expo-splash-screen @stripe/stripe-react-native
       - name: Commit dependency graph
         run: |
           git config user.name github-actions[bot]
@@ -43,7 +43,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No dependency changes to commit"
           else
-            git commit -m "chore: upgrade Expo Clerk and Drizzle"
+            git commit -m "chore: align Expo 57 dependencies"
             git push origin HEAD:chore/security-upgrade
           fi
       - name: Validate upgraded stack
@@ -52,4 +52,4 @@ jobs:
           npm run lint
           npm run typecheck
           npm test
-          npm audit --omit=dev --audit-level=high || true
+          npm audit --omit=dev --audit-level=high
