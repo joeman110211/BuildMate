@@ -68,7 +68,8 @@ export default function SocialContinueScreen() {
       if (signUp.isTransferable) {
         const transferred = await signIn.create({ transfer: true });
         if (transferred.error) throw transferred.error;
-        if (signIn.status === 'complete') {
+        const transferredSignInStatus = signIn.status as typeof signIn.status | 'complete';
+        if (transferredSignInStatus === 'complete') {
           await finalizeSignIn();
           return;
         }
@@ -79,7 +80,8 @@ export default function SocialContinueScreen() {
       if (signIn.isTransferable) {
         const transferred = await signUp.create({ transfer: true });
         if (transferred.error) throw transferred.error;
-        if (signUp.status === 'complete') {
+        const transferredSignUpStatus = signUp.status as typeof signUp.status | 'complete';
+        if (transferredSignUpStatus === 'complete') {
           await finalizeSignUp();
           return;
         }
@@ -116,6 +118,8 @@ export default function SocialContinueScreen() {
     if (!clerk.loaded || started.current) return;
     started.current = true;
     void advanceFlow();
+    // This flow intentionally runs once after Clerk restores the OAuth attempt.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clerk.loaded]);
 
   async function submitRequirements() {
