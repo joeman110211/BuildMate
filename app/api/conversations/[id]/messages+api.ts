@@ -5,6 +5,7 @@ import { getSql } from '@/lib/sql';
 const messageSchema = z.object({ body: z.string().trim().min(1).max(4000) });
 
 type Participant = { id: string; customerId: string; traderId: string };
+type MessageRow = { id: string; conversationId: string; senderId: string; body: string; readAt: string | null; createdAt: string };
 
 async function requireParticipant(conversationId: string, userId: string) {
   const sql = getSql();
@@ -13,7 +14,7 @@ async function requireParticipant(conversationId: string, userId: string) {
     FROM conversations
     WHERE id = ${conversationId} AND (customer_id = ${userId} OR trader_id = ${userId})
     LIMIT 1
-  ` as Participant[];
+  ` as unknown as Participant[];
   if (!rows[0]) throw new HttpError(404, 'Conversation not found');
   return rows[0];
 }
@@ -31,7 +32,7 @@ export async function GET(request: Request, { id }: { id: string }) {
       WHERE conversation_id = ${id}
       ORDER BY created_at ASC
       LIMIT 500
-    `;
+    ` as unknown as MessageRow[];
     return Response.json(rows);
   } catch (error) { return jsonError(error); }
 }
@@ -47,7 +48,7 @@ export async function POST(request: Request, { id }: { id: string }) {
       INSERT INTO messages(conversation_id, sender_id, body)
       VALUES (${id}, ${userId}, ${payload.body})
       RETURNING id, conversation_id AS "conversationId", sender_id AS "senderId", body, read_at AS "readAt", created_at AS "createdAt"
-    `;
+    ` as unknown as MessageRow[];
     await sql`UPDATE conversations SET last_message_at = now(), updated_at = now() WHERE id = ${id}`;
     return Response.json(rows[0], { status: 201 });
   } catch (error) { return jsonError(error); }
