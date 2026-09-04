@@ -1,3 +1,5 @@
+import { getSql } from '@/lib/sql';
+
 const requiredEnvironment = [
   'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY',
   'CLERK_SECRET_KEY',
@@ -24,20 +26,56 @@ function configured(name: string) {
   return Boolean(process.env[name]?.trim());
 }
 
-export function GET() {
+export async function GET() {
   const missing = requiredEnvironment.filter((name) => !configured(name));
   const optionalMissing = optionalEnvironment.filter((name) => !configured(name));
+  const missingSchema: string[] = [];
 
+  if (!missing.includes('DATABASE_URL')) {
+    try {
+      const [schema] = await getSql()`
+        SELECT
+          EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'trader_profiles'
+              AND column_name = 'trial_ends_at'
+          ) AS "hasTrialEndsAt",
+          to_regclass('public.trader_profile_showcase') IS NOT NULL AS "hasTraderShowcase",
+          to_regprocedure('accept_job_quote(uuid,text)') IS NOT NULL AS "hasAcceptQuoteFunction",
+          EXISTS (
+            SELECT 1 FROM pg_trigger
+            WHERE tgname = 'verify_review_before_insert'
+              AND NOT tgisinternal
+          ) AS "hasReviewVerificationTrigger"
+      ` as unknown as Array<{
+        hasTrialEndsAt: boolean;
+        hasTraderShowcase: boolean;
+        hasAcceptQuoteFunction: boolean;
+        hasReviewVerificationTrigger: boolean;
+      }>;
+
+      if (!schema?.hasTrialEndsAt) missingSchema.push('trader_profiles.trial_ends_at');
+      if (!schema?.hasTraderShowcase) missingSchema.push('trader_profile_showcase');
+      if (!schema?.hasAcceptQuoteFunction) missingSchema.push('accept_job_quote(uuid,text)');
+      if (!schema?.hasReviewVerificationTrigger) missingSchema.push('verify_review_before_insert');
+    } catch {
+      missingSchema.push('database_schema_check');
+    }
+  }
+
+  const ready = missing.length === 0 && missingSchema.length === 0;
   return Response.json(
     {
-      status: missing.length === 0 ? 'ready' : 'configuration_required',
-      ready: missing.length === 0,
+      status: ready ? 'ready' : 'configuration_required',
+      ready,
       missing,
+      missingSchema,
       optionalMissing,
       timestamp: new Date().toISOString(),
     },
     {
-      status: missing.length === 0 ? 200 : 503,
+      status: ready ? 200 : 503,
       headers: { 'Cache-Control': 'no-store' },
     },
   );
