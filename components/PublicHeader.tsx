@@ -20,6 +20,7 @@ function AuthenticatedHeader() {
   return <View style={styles.header}>
     <HeaderBrand />
     <View style={styles.actions}>
+      <Link href="/(public)/jobs" asChild><Button>Jobs</Button></Link>
       {isSignedIn ? <>
         <Button mode="contained" onPress={() => router.push(dashboard)}>Dashboard</Button>
         <Button onPress={() => signOut(() => router.replace('/(public)/directory'))}>Sign out</Button>
@@ -35,6 +36,7 @@ function PreviewHeader() {
   return <View style={styles.header}>
     <HeaderBrand />
     <View style={styles.actions}>
+      <Link href="/(public)/jobs" asChild><Button>Jobs</Button></Link>
       <Text variant="bodySmall" style={styles.preview}>Public preview</Text>
       <Button disabled>Sign in</Button>
       <Button mode="contained" disabled>Join</Button>
