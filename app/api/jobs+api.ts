@@ -105,6 +105,7 @@ export async function POST(request: Request) {
       latitude: location.latitude,
       longitude: location.longitude,
     }).returning();
+    if (!job) throw new Error('Job could not be created');
 
     let conversationId: string | null = null;
     if (payload.targetTraderId) {
