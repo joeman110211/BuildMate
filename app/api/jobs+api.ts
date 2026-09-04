@@ -17,7 +17,16 @@ export async function GET(request: Request) {
     if (user.role === 'customer') {
       rows = await db.select().from(jobs).where(eq(jobs.customerId, user.id)).orderBy(desc(jobs.createdAt));
     } else if (user.role === 'trader') {
-      const profile = await db.query.traderProfiles.findFirst({ where: eq(traderProfiles.userId, user.id) });
+      const [profile] = await db.select({
+        tradeCategory: traderProfiles.tradeCategory,
+        subscriptionTier: traderProfiles.subscriptionTier,
+        isSubscriptionActive: traderProfiles.isSubscriptionActive,
+        stripeSubscriptionId: traderProfiles.stripeSubscriptionId,
+        latitude: traderProfiles.latitude,
+        longitude: traderProfiles.longitude,
+        radiusMiles: traderProfiles.radiusMiles,
+        createdAt: traderProfiles.createdAt,
+      }).from(traderProfiles).where(eq(traderProfiles.userId, user.id)).limit(1);
       if (!profile) throw new HttpError(409, 'Complete your trader profile first');
       const activeLeadAccess = hasActiveLeadAccess(profile);
 
@@ -87,7 +96,7 @@ export async function POST(request: Request) {
                  tp.is_subscription_active = true
                  AND (
                    tp.stripe_subscription_id IS NOT NULL
-                   OR coalesce(tp.trial_ends_at, tp.created_at + interval '14 days') > now()
+                   OR tp.created_at + interval '14 days' > now()
                  )
                ) AS "isSubscriptionActive"
         FROM trader_profiles tp
