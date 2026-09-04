@@ -46,6 +46,13 @@
           "enableGooglePay": true
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BuildMate uses your photos to add job images and trade portfolio photos.",
+          "microphonePermission": false
+        }
+      ],
       "expo-web-browser"
     ],
     "experiments": {

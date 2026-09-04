@@ -24,6 +24,7 @@ export const jobSchema = z.object({
   description: z.string().trim().min(30).max(5000),
   aiGeneratedSpec: z.string().trim().max(5000).nullable().optional(),
   budgetRange: z.enum(BUDGET_OPTIONS),
+  photos: z.array(z.url()).max(8).default([]),
 });
 
 export const quoteSchema = z.object({

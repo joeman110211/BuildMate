@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button, HelperText, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 import { AIJobSpecModal } from '@/components/AIJobSpecModal';
 import { FormSelect } from '@/components/FormSelect';
+import { PhotoUploader } from '@/components/PhotoUploader';
 import { Screen } from '@/components/Screen';
 import { BUDGET_OPTIONS, PROPERTY_TYPES, TRADE_CATEGORIES, URGENCY_OPTIONS } from '@/constants/options';
 import { apiFetch, errorMessage } from '@/lib/api';
@@ -18,6 +19,7 @@ export default function NewJobScreen() {
   const [budgetRange, setBudgetRange] = useState<(typeof BUDGET_OPTIONS)[number]>();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
   const [aiGeneratedSpec, setAiGeneratedSpec] = useState<string | null>(null);
   const [mode, setMode] = useState('manual');
   const [showAi, setShowAi] = useState(false);
@@ -26,8 +28,16 @@ export default function NewJobScreen() {
 
   async function submit() {
     if (!category || !propertyType || !urgency || !budgetRange) return;
-    try { setBusy(true); setError(''); await apiFetch('/api/jobs', { method: 'POST', body: JSON.stringify({ targetTraderId: traderId ?? null, title, category, propertyType, urgency, budgetRange, description, aiGeneratedSpec }) }, getToken); router.replace('/(customer)/dashboard'); }
-    catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+    try {
+      setBusy(true);
+      setError('');
+      await apiFetch('/api/jobs', {
+        method: 'POST',
+        body: JSON.stringify({ targetTraderId: traderId ?? null, title, category, propertyType, urgency, budgetRange, description, aiGeneratedSpec, photos }),
+      }, getToken);
+      router.replace('/(customer)/dashboard');
+    } catch (e) { setError(errorMessage(e)); }
+    finally { setBusy(false); }
   }
   const readyForAi = Boolean(category && propertyType);
   const complete = Boolean(category && propertyType && urgency && budgetRange && title.trim().length >= 5 && description.trim().length >= 30);
@@ -44,6 +54,7 @@ export default function NewJobScreen() {
     {mode === 'ai' && !readyForAi ? <HelperText type="info">Choose a category and property type first.</HelperText> : null}
     <TextInput label="Detailed job description" value={description} onChangeText={(value) => { setDescription(value); if (value !== aiGeneratedSpec) setAiGeneratedSpec(null); }} mode="outlined" multiline numberOfLines={10} maxLength={5000} />
     <HelperText type="info">{description.length}/5000 characters {aiGeneratedSpec ? '· AI draft—checked by you' : ''}</HelperText>
+    <PhotoUploader kind="job" photos={photos} onChange={setPhotos} max={8} />
     <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
     <Button mode="contained" loading={busy} disabled={!complete || busy} onPress={submit}>Publish job</Button>
     {category && propertyType ? <AIJobSpecModal visible={showAi} category={category} propertyType={propertyType} onDismiss={() => setShowAi(false)} onGenerated={(spec) => { setDescription(spec); setAiGeneratedSpec(spec); }} /> : null}

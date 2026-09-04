@@ -75,6 +75,7 @@ export const jobs = pgTable(
     description: text('description').notNull(),
     aiGeneratedSpec: text('ai_generated_spec'),
     budgetRange: text('budget_range').notNull(),
+    photos: text('photos').array().notNull().default(sql`ARRAY[]::text[]`),
     status: jobStatusEnum('status').notNull().default('open'),
     acceptedQuoteId: uuid('accepted_quote_id').references((): AnyPgColumn => quotes.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
