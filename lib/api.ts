@@ -33,7 +33,22 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}, getTo
   return body as T;
 }
 
+type ClerkLikeError = {
+  errors?: Array<{ longMessage?: string; message?: string; code?: string }>;
+  message?: string;
+};
+
 export function errorMessage(error: unknown) {
-  if (error instanceof ApiError || error instanceof Error) return error.message;
+  if (error instanceof ApiError) return error.message;
+
+  if (error && typeof error === 'object') {
+    const clerkError = error as ClerkLikeError;
+    const first = clerkError.errors?.[0];
+    if (first?.longMessage) return first.longMessage;
+    if (first?.message) return first.message;
+    if (typeof clerkError.message === 'string' && clerkError.message) return clerkError.message;
+  }
+
+  if (error instanceof Error) return error.message;
   return 'Something went wrong. Please try again.';
 }
