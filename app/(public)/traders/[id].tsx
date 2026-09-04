@@ -39,7 +39,10 @@ export default function TraderProfileScreen() {
       setProfile(await apiFetch(`/api/traders/${id}`, {}, tokenGetter));
     } catch (e) { setError(errorMessage(e)); }
   }, [id, isSignedIn]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   if (error) return <Screen><EmptyState title="Profile unavailable" body={error} /></Screen>;
   if (!profile) return <LoadingScreen />;
