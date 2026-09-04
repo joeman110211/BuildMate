@@ -65,4 +65,4 @@ export default function InvoicesScreen() {
   </Screen>;
 }
 
-const styles = StyleSheet.create({ row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }, flex: { flex: 1, minWidth: 180 }, title: { fontWeight: '800' }, muted: { color: colors.muted }, total: { color: colors.primary, fontWeight: '900' }, overdue: { color: colors.error, fontWeight: '700' }, actions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' } });
+const styles = StyleSheet.create({ row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }, flex: { flex: 1, minWidth: 180 }, title: { fontWeight: '800' }, muted: { color: colors.muted }, total: { color: colors.primary, fontWeight: '900' }, overdue: { color: colors.danger, fontWeight: '700' }, actions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' } });
