@@ -17,10 +17,18 @@ const defaultShowcase = {
   beforeAfterProjects: [] as { before: string; after: string; caption?: string }[],
 };
 
+function missingShowcaseTable(error: unknown) {
+  const candidate = error as { code?: string; message?: string; cause?: { code?: string; message?: string } };
+  return candidate?.code === '42P01'
+    || candidate?.cause?.code === '42P01'
+    || candidate?.message?.includes('trader_profile_showcase')
+    || candidate?.cause?.message?.includes('trader_profile_showcase');
+}
+
 export async function GET(request: Request, { id }: { id: string }) {
   try {
     const db = getDb();
-    const effectiveTrialEnd = sql<Date>`coalesce(${traderProfiles.trialEndsAt}, ${traderProfiles.createdAt} + interval '14 days')`;
+    const effectiveTrialEnd = sql<Date>`${traderProfiles.createdAt} + interval '14 days'`;
     const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
     const [profile] = await db.select({
       id: traderProfiles.id,
@@ -62,7 +70,14 @@ export async function GET(request: Request, { id }: { id: string }) {
       });
     }
 
-    const [showcase] = await db.select().from(traderProfileShowcase).where(eq(traderProfileShowcase.userId, profile.userId)).limit(1);
+    let showcase: typeof defaultShowcase | undefined;
+    try {
+      const [storedShowcase] = await db.select().from(traderProfileShowcase).where(eq(traderProfileShowcase.userId, profile.userId)).limit(1);
+      showcase = storedShowcase ? { ...defaultShowcase, ...storedShowcase } : undefined;
+    } catch (error) {
+      if (!missingShowcaseTable(error)) throw error;
+    }
+
     const verifiedReviews = await db.select({ id: reviews.id, rating: reviews.rating, comment: reviews.comment, createdAt: reviews.createdAt })
       .from(reviews).where(and(eq(reviews.traderId, profile.userId), eq(reviews.verifiedCompletion, true))).limit(50);
 
