@@ -10,6 +10,14 @@ export class HttpError extends Error {
   }
 }
 
+export type AccountMode = 'customer' | 'trader';
+
+export type AccountModes = {
+  customerEnabled: boolean;
+  traderEnabled: boolean;
+  activeMode: AccountMode | null;
+};
+
 function bootstrapAdminIds() {
   return new Set((process.env.ADMIN_CLERK_USER_IDS ?? '').split(',').map((value) => value.trim()).filter(Boolean));
 }
@@ -35,6 +43,24 @@ export async function accountAccess(userId: string) {
     isAdmin: Boolean(row?.isAdmin || bootstrapAdminIds().has(userId)),
     isSuspended: Boolean(row?.isSuspended),
     suspensionReason: row?.suspensionReason ?? '',
+  };
+}
+
+export async function accountModes(userId: string): Promise<AccountModes> {
+  const rows = await getSql()`
+    SELECT
+      customer_enabled AS "customerEnabled",
+      trader_enabled AS "traderEnabled",
+      active_mode AS "activeMode"
+    FROM users
+    WHERE id = ${userId}
+    LIMIT 1
+  ` as Array<{ customerEnabled: boolean; traderEnabled: boolean; activeMode: AccountMode | null }>;
+  const row = rows[0];
+  return {
+    customerEnabled: Boolean(row?.customerEnabled),
+    traderEnabled: Boolean(row?.traderEnabled),
+    activeMode: row?.activeMode ?? null,
   };
 }
 
@@ -67,11 +93,13 @@ export async function ensureDbUser(userId: string) {
   return user;
 }
 
-export async function requireRole(request: Request, role: 'customer' | 'trader') {
+export async function requireRole(request: Request, role: AccountMode) {
   const id = await authenticatedUserId(request);
   const user = await ensureDbUser(id);
-  if (user.role !== role) throw new HttpError(403, `${role} account required`);
-  return user;
+  const modes = await accountModes(id);
+  const enabled = role === 'customer' ? modes.customerEnabled : modes.traderEnabled;
+  if (!enabled) throw new HttpError(403, `${role} account required`);
+  return { ...user, ...modes };
 }
 
 export async function requireAdmin(request: Request) {
