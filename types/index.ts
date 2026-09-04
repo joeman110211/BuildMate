@@ -29,6 +29,7 @@ export interface TraderProfile {
   photos: string[];
   subscriptionTier: SubscriptionTier;
   isSubscriptionActive: boolean;
+  trialEndsAt?: string | null;
   averageRating: number;
   reviewCount: number;
   stripeAccountId?: string | null;
