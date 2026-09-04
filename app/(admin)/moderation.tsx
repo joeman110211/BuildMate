@@ -42,7 +42,7 @@ export default function ModerationScreen() {
     finally { setLoading(false); }
   }, [getToken]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
 
   async function update(report: Report, status: 'reviewed' | 'actioned' | 'dismissed', accountAction: 'none' | 'suspend' | 'unsuspend' = 'none') {
     setBusyId(report.id);

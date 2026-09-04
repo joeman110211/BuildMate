@@ -31,7 +31,7 @@ export function MessagesHub({ basePath }: { basePath: '/(customer)' | '/(trader)
     catch (e) { setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, [getToken]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
   if (loading) return <LoadingScreen label="Loading messages…" />;
   return <Screen title="Messages" subtitle="Job conversations stay attached to the work, quote and people involved.">
     {error ? <EmptyState title="Couldn’t load messages" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}

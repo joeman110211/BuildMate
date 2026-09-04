@@ -21,7 +21,7 @@ export function MessageThread({ conversationId }: { conversationId: string }) {
     catch (e) { setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, [conversationId, getToken]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
 
   const send = async () => {
     const text = body.trim();
