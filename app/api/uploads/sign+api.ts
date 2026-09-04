@@ -8,6 +8,8 @@ const folders: Record<UploadKind, string> = {
   trader: 'buildmate/trader-gallery',
 };
 
+const DEFAULT_CLOUDINARY_CLOUD_NAME = 'qrrcn7ma';
+
 export async function POST(request: Request) {
   try {
     const userId = await authenticatedUserId(request);
@@ -17,10 +19,10 @@ export async function POST(request: Request) {
     if (body.kind === 'trader' && user.role !== 'trader') throw new HttpError(403, 'Trader account required');
     if (body.kind === 'job' && user.role !== 'customer') throw new HttpError(403, 'Customer account required');
 
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim() || DEFAULT_CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
-    if (!cloudName || !apiKey || !apiSecret) throw new Error('Cloudinary is not configured');
+    if (!apiKey || !apiSecret) throw new Error('Cloudinary is not configured');
 
     const timestamp = Math.floor(Date.now() / 1000);
     const assetFolder = folders[body.kind];
