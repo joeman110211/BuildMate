@@ -13,6 +13,8 @@ export async function PATCH(request: Request, { id }: { id: string }) {
       .where(and(eq(quotes.id, id), eq(jobs.customerId, customer.id))).limit(1);
     if (!candidate) throw new HttpError(404, 'Quote not found');
     if (!['open', 'quoted'].includes(candidate.job.status)) throw new HttpError(409, 'This job already has an accepted quote');
+    if (candidate.quote.status !== 'pending') throw new HttpError(409, 'This quote is no longer available');
+    if (candidate.quote.validUntil && candidate.quote.validUntil.getTime() < Date.now()) throw new HttpError(409, 'This quote has expired. Ask the tradesperson for an updated quote.');
 
     await db.execute(sql`select accept_job_quote(${id}::uuid, ${customer.id}::text)`);
     return Response.json({ accepted: true });
