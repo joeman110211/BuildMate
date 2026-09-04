@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { traderProfiles, users } from '@/db/schema';
+import { traderProfileShowcase } from '@/db/showcase-schema';
 import { InvalidPostcodeError, lookupPostcode } from '@/lib/postcode';
 import { accountAccess, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
 import { trialEndsAt } from '@/lib/subscription';
@@ -33,16 +34,17 @@ export async function PUT(request: Request) {
     const current = await ensureDbUser(userId);
     if (current.role !== 'trader') throw new HttpError(403, 'Trader account required');
     const payload = traderProfileSchema.parse(await request.json());
+    const { showcase, ...baseProfile } = payload;
 
     let location;
-    try { location = await lookupPostcode(payload.postcode); }
+    try { location = await lookupPostcode(baseProfile.postcode); }
     catch (error) {
       if (error instanceof InvalidPostcodeError) throw new HttpError(400, error.message);
       throw error;
     }
 
     const values = {
-      ...payload,
+      ...baseProfile,
       postcode: location.postcode,
       locationLabel: location.locationLabel,
       latitude: location.latitude,
@@ -52,7 +54,8 @@ export async function PUT(request: Request) {
       ? {}
       : { subscriptionTier: 'basic' as const, isSubscriptionActive: true, trialEndsAt: trialEndsAt() };
 
-    const [profile] = await getDb().insert(traderProfiles).values({ userId, ...values, ...trialListing }).onConflictDoUpdate({
+    const db = getDb();
+    const [profile] = await db.insert(traderProfiles).values({ userId, ...values, ...trialListing }).onConflictDoUpdate({
       target: traderProfiles.userId,
       set: {
         ...values,
@@ -66,6 +69,25 @@ export async function PUT(request: Request) {
         updatedAt: new Date(),
       },
     }).returning();
+
+    if (showcase) {
+      const showcaseValues = {
+        template: showcase.template,
+        colourTheme: showcase.colourTheme,
+        coverPhotoUrl: showcase.coverPhotoUrl || null,
+        profileImageUrl: showcase.profileImageUrl || null,
+        logoUrl: showcase.logoUrl || null,
+        yearsExperience: showcase.yearsExperience,
+        yearEstablished: showcase.yearEstablished ?? null,
+        serviceAreas: showcase.serviceAreas,
+        beforeAfterProjects: showcase.beforeAfterProjects,
+      };
+      await db.insert(traderProfileShowcase).values({ userId, ...showcaseValues }).onConflictDoUpdate({
+        target: traderProfileShowcase.userId,
+        set: { ...showcaseValues, updatedAt: new Date() },
+      });
+    }
+
     return Response.json(profile);
   } catch (error) { return jsonError(error); }
 }
