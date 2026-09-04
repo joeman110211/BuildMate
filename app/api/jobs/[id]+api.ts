@@ -1,4 +1,4 @@
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { jobMilestones, jobs, quotes, reviews, traderProfiles } from '@/db/schema';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
@@ -31,7 +31,7 @@ export async function PATCH(request: Request, { id }: { id: string }) {
     if (payload.action === 'cancel') {
       if (user.role !== 'customer') throw new HttpError(403, 'Customer account required');
       const [cancelled] = await db.update(jobs).set({ status: 'cancelled', updatedAt: new Date() })
-        .where(and(eq(jobs.id, id), eq(jobs.customerId, userId), eq(jobs.acceptedQuoteId, null), sqlStatusOpenOrQuoted()))
+        .where(and(eq(jobs.id, id), eq(jobs.customerId, userId), isNull(jobs.acceptedQuoteId), inArray(jobs.status, ['open', 'quoted'])))
         .returning();
       if (!cancelled) throw new HttpError(409, 'Only open jobs can be cancelled before a quote is accepted');
       await db.update(quotes).set({ status: 'declined', updatedAt: new Date() })
@@ -51,9 +51,3 @@ export async function PATCH(request: Request, { id }: { id: string }) {
     return Response.json({ completed: true });
   } catch (error) { return jsonError(error); }
 }
-
-function sqlStatusOpenOrQuoted() {
-  return inArray(jobs.status, ['open', 'quoted']);
-}
-
-import { inArray } from 'drizzle-orm';
