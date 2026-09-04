@@ -80,7 +80,12 @@ export default function TraderDashboard() {
 
   const trialEnds = profile.trialEndsAt ? new Date(profile.trialEndsAt) : null;
   return <Screen title={`Hello, ${profile.businessName}`} subtitle={`${profile.tradeCategory} · ${profile.subscriptionTier} plan`}>
-    <View style={styles.actions}><Link href="/trader/subscription" asChild><Button mode="contained" icon="credit-card">Plans & payouts</Button></Link><Link href="/trader/invoices" asChild><Button mode="outlined" icon="file-document">Invoices</Button></Link><Button mode="outlined" onPress={() => router.push(`/(public)/traders/${profile.id}` as Href)}>View public profile</Button></View>
+    <View style={styles.actions}>
+      <Link href="/trader/onboarding" asChild><Button mode="contained-tonal" icon="account-edit">Edit profile</Button></Link>
+      <Link href="/trader/subscription" asChild><Button mode="contained" icon="credit-card">Plans & payouts</Button></Link>
+      <Link href="/trader/invoices" asChild><Button mode="outlined" icon="file-document">Invoices</Button></Link>
+      <Button mode="outlined" onPress={() => router.push(`/(public)/traders/${profile.id}` as Href)}>View public profile</Button>
+    </View>
     {profile.isSubscriptionActive && trialEnds ? <AppCard><Text variant="titleMedium">14-day free trial active</Text><Text style={styles.muted}>Your Basic listing is live until {trialEnds.toLocaleDateString('en-GB')}. Stripe subscriptions can be enabled before then.</Text></AppCard> : null}
     {!profile.isSubscriptionActive ? <AppCard><Text variant="titleMedium">Your profile is shareable but not listed</Text><Text style={styles.muted}>Choose Basic to receive and quote direct customer leads, or Featured to also quote open marketplace jobs.</Text><Link href="/trader/subscription" asChild><Button>Compare plans</Button></Link></AppCard> : null}
     {error ? <EmptyState title="Something needs attention" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
