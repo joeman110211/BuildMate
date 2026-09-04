@@ -12,9 +12,11 @@ import { apiFetch, errorMessage } from '@/lib/api';
 export default function NewJobScreen() {
   const { getToken } = useAuth();
   const router = useRouter();
-  const { traderId, traderName } = useLocalSearchParams<{ traderId?: string; traderName?: string }>();
-  const [category, setCategory] = useState<(typeof TRADE_CATEGORIES)[number]>();
+  const { traderId, traderName, tradeCategory } = useLocalSearchParams<{ traderId?: string; traderName?: string; tradeCategory?: string }>();
+  const initialCategory = TRADE_CATEGORIES.find((item) => item === tradeCategory);
+  const [category, setCategory] = useState<(typeof TRADE_CATEGORIES)[number] | undefined>(initialCategory);
   const [propertyType, setPropertyType] = useState<(typeof PROPERTY_TYPES)[number]>();
+  const [postcode, setPostcode] = useState('');
   const [urgency, setUrgency] = useState<(typeof URGENCY_OPTIONS)[number]>();
   const [budgetRange, setBudgetRange] = useState<(typeof BUDGET_OPTIONS)[number]>();
   const [title, setTitle] = useState('');
@@ -33,18 +35,20 @@ export default function NewJobScreen() {
       setError('');
       await apiFetch('/api/jobs', {
         method: 'POST',
-        body: JSON.stringify({ targetTraderId: traderId ?? null, title, category, propertyType, urgency, budgetRange, description, aiGeneratedSpec, photos }),
+        body: JSON.stringify({ targetTraderId: traderId ?? null, title, category, propertyType, postcode, urgency, budgetRange, description, aiGeneratedSpec, photos }),
       }, getToken);
       router.replace('/customer/dashboard');
     } catch (e) { setError(errorMessage(e)); }
     finally { setBusy(false); }
   }
   const readyForAi = Boolean(category && propertyType);
-  const complete = Boolean(category && propertyType && urgency && budgetRange && title.trim().length >= 5 && description.trim().length >= 30);
+  const complete = Boolean(category && propertyType && postcode.trim().length >= 5 && urgency && budgetRange && title.trim().length >= 5 && description.trim().length >= 30);
   return <Screen title="Tell us about the job" subtitle="Clear details get better quotes and fewer awkward surprises.">
     {traderName ? <Text variant="titleMedium">Direct quote request for {traderName}</Text> : null}
     <FormSelect label="Trade category" value={category} options={TRADE_CATEGORIES} onChange={setCategory} />
     <FormSelect label="Property type" value={propertyType} options={PROPERTY_TYPES} onChange={setPropertyType} />
+    <TextInput label="Job postcode" value={postcode} onChangeText={setPostcode} mode="outlined" autoCapitalize="characters" placeholder="e.g. TW18 4AA" />
+    <HelperText type="info">Used to match nearby tradespeople. Open marketplace listings only reveal the outward postcode.</HelperText>
     <FormSelect label="Urgency" value={urgency} options={URGENCY_OPTIONS} onChange={setUrgency} />
     <FormSelect label="Budget bracket" value={budgetRange} options={BUDGET_OPTIONS} onChange={setBudgetRange} />
     <TextInput label="Short job title" value={title} onChangeText={setTitle} mode="outlined" maxLength={120} />
