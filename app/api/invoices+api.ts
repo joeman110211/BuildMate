@@ -18,7 +18,8 @@ export async function POST(request: Request) {
     const { sendNow, dueAt, customerId, jobId, ...invoiceFields } = payload;
     const subtotal = invoiceFields.items.reduce((sum, item) => sum + Math.round(item.quantity * item.unitPrice), 0);
     const totalAmount = subtotal + invoiceFields.vatAmount;
-    const [invoice] = await getDb().insert(invoices).values({
+    const db = getDb();
+    const [invoice] = await db.insert(invoices).values({
       ...invoiceFields,
       traderId: trader.id,
       customerId: customerId ?? null,
@@ -26,21 +27,28 @@ export async function POST(request: Request) {
       dueAt: dueAt ? new Date(dueAt) : null,
       subtotal,
       totalAmount,
-      status: sendNow ? 'sent' : 'draft',
+      status: 'draft',
     }).returning();
+
+    let savedInvoice = invoice;
     let deliveryWarning: string | undefined;
     if (sendNow) {
       const apiKey = process.env.RESEND_API_KEY;
       const from = process.env.INVOICE_FROM_EMAIL;
-      if (!apiKey || !from) deliveryWarning = 'Invoice saved as sent, but email delivery is not configured';
+      if (!apiKey || !from) deliveryWarning = 'Invoice saved as a draft because email delivery is not configured';
       else {
         const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value / 100);
         const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
         const rows = payload.items.map((item) => `<tr><td>${escape(item.description)}</td><td>${item.quantity}</td><td>${money(item.unitPrice)}</td><td>${money(Math.round(item.quantity * item.unitPrice))}</td></tr>`).join('');
-        const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [payload.customerEmail], subject: `BuildMate invoice ${payload.invoiceNumber}`, html: `<h1>Invoice ${escape(payload.invoiceNumber)}</h1><p>For ${escape(payload.customerName)}</p><table cellpadding="8" border="1" cellspacing="0"><thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><p>Subtotal: ${money(subtotal)}<br>VAT: ${money(payload.vatAmount)}<br><strong>Total: ${money(totalAmount)}</strong><br>Deposit: ${money(payload.depositAmount)}</p>${payload.notes ? `<p>${escape(payload.notes)}</p>` : ''}<p>Sent securely via BuildMate.</p>` }) });
-        if (!response.ok) deliveryWarning = 'Invoice saved, but the email provider rejected delivery';
+        const dueText = dueAt ? new Date(dueAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : null;
+        const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [payload.customerEmail], subject: `BuildMate invoice ${payload.invoiceNumber}`, html: `<h1>Invoice ${escape(payload.invoiceNumber)}</h1><p>For ${escape(payload.customerName)}</p><table cellpadding="8" border="1" cellspacing="0"><thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><p>Subtotal: ${money(subtotal)}<br>VAT: ${money(payload.vatAmount)}<br><strong>Total: ${money(totalAmount)}</strong><br>Deposit: ${money(payload.depositAmount)}${dueText ? `<br><strong>Due: ${escape(dueText)}</strong>` : ''}</p>${payload.notes ? `<p>${escape(payload.notes)}</p>` : ''}<p>Sent securely via BuildMate.</p>` }) });
+        if (!response.ok) deliveryWarning = 'Invoice saved as a draft because the email provider rejected delivery';
+        else {
+          const [sentInvoice] = await db.update(invoices).set({ status: 'sent', updatedAt: new Date() }).where(eq(invoices.id, invoice.id)).returning();
+          savedInvoice = sentInvoice ?? invoice;
+        }
       }
     }
-    return Response.json({ ...invoice, deliveryWarning }, { status: 201 });
+    return Response.json({ ...savedInvoice, deliveryWarning }, { status: 201 });
   } catch (error) { return jsonError(error); }
 }
