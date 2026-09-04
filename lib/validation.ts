@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BUDGET_OPTIONS, PROPERTY_TYPES, TRADE_CATEGORIES, URGENCY_OPTIONS } from '@/constants/options';
+import { BUDGET_OPTIONS, PROPERTY_TYPES, TRADE_CATEGORIES, TRADER_BIO_MIN_LENGTH, URGENCY_OPTIONS } from '@/constants/options';
 
 const postcodeSchema = z.string().trim().min(5, 'Enter a UK postcode').max(8, 'Enter a UK postcode');
 
@@ -25,7 +25,7 @@ export const traderProfileSchema = z.object({
   businessName: z.string().trim().min(2).max(100),
   tradeCategory: z.enum(TRADE_CATEGORIES),
   subSkills: z.array(z.string().min(1)).max(12),
-  bio: z.string().trim().min(30).max(1500),
+  bio: z.string().trim().min(TRADER_BIO_MIN_LENGTH, `Business bio must be at least ${TRADER_BIO_MIN_LENGTH} characters`).max(1500),
   radiusMiles: z.number().int().min(1).max(150),
   postcode: postcodeSchema,
   qualifications: z.array(z.string().trim().min(2)).max(20),

@@ -53,8 +53,15 @@ type ClerkLikeError = {
   message?: string;
 };
 
+type ValidationIssue = {
+  message?: string;
+};
+
 export function errorMessage(error: unknown) {
-  if (error instanceof ApiError) return error.message;
+  if (error instanceof ApiError) {
+    const issue = Array.isArray(error.details) ? (error.details[0] as ValidationIssue | undefined) : undefined;
+    return issue?.message ? `${error.message}: ${issue.message}` : error.message;
+  }
 
   if (error && typeof error === 'object') {
     const clerkError = error as ClerkLikeError;

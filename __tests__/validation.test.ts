@@ -60,4 +60,23 @@ describe('marketplace validation', () => {
     };
     expect(traderProfileSchema.safeParse(profile).success).toBe(false);
   });
+
+  it('requires a trader bio of at least 50 characters', () => {
+    const profile = {
+      businessName: 'Example Tiling',
+      tradeCategory: 'Tiling' as const,
+      subSkills: ['Bathrooms'],
+      bio: 'Experienced tiler, reliable and tidy.',
+      radiusMiles: 25,
+      postcode: 'TW18 4AB',
+      qualifications: [],
+      externalLinks: {},
+      photos: [],
+      selfCertified: true,
+    };
+
+    const result = traderProfileSchema.safeParse(profile);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0]?.message).toContain('at least 50 characters');
+  });
 });
