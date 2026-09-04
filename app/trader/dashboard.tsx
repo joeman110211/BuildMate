@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/expo';
 import type { Href } from 'expo-router';
 import { Link, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { Button, Chip, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
@@ -12,6 +12,7 @@ import type { Job, Quote, TraderProfile } from '@/types';
 
 export default function TraderDashboard() {
   const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
   const router = useRouter();
   const [profile, setProfile] = useState<TraderProfile>();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -19,35 +20,64 @@ export default function TraderDashboard() {
   const [loading, setLoading] = useState(true);
   const [busyQuote, setBusyQuote] = useState<string>();
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const load = useCallback(async () => {
     try {
-      setLoading(true); setError('');
-      const ownProfile = await apiFetch<TraderProfile>('/api/me/profile', {}, getToken);
+      setLoading(true);
+      setError('');
+      const tokenGetter = () => getTokenRef.current();
+      const ownProfile = await apiFetch<TraderProfile>('/api/me/profile', {}, tokenGetter);
       setProfile(ownProfile);
       const [jobRows, quoteRows] = await Promise.all([
-        apiFetch<Job[]>('/api/jobs', {}, getToken),
-        apiFetch<Quote[]>('/api/quotes', {}, getToken),
+        apiFetch<Job[]>('/api/jobs', {}, tokenGetter),
+        apiFetch<Quote[]>('/api/quotes', {}, tokenGetter),
       ]);
       setJobs(jobRows);
       setOwnQuotes(quoteRows);
-    } catch (e) { if (!(e instanceof ApiError && e.status === 404)) setError(errorMessage(e)); }
-    finally { setLoading(false); }
-  }, [getToken]);
-  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) {
+        setProfile(undefined);
+      } else {
+        setError(errorMessage(e));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   async function complete(jobId: string) {
-    try { await apiFetch(`/api/jobs/${jobId}`, { method: 'PATCH', body: JSON.stringify({ action: 'complete' }) }, getToken); await load(); }
-    catch (e) { setError(errorMessage(e)); }
+    try {
+      await apiFetch(`/api/jobs/${jobId}`, { method: 'PATCH', body: JSON.stringify({ action: 'complete' }) }, () => getTokenRef.current());
+      await load();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
   }
+
   async function withdraw(quoteId: string) {
     try {
-      setBusyQuote(quoteId); setError('');
-      await apiFetch(`/api/quotes/${quoteId}`, { method: 'PATCH', body: JSON.stringify({ action: 'withdraw' }) }, getToken);
+      setBusyQuote(quoteId);
+      setError('');
+      await apiFetch(`/api/quotes/${quoteId}`, { method: 'PATCH', body: JSON.stringify({ action: 'withdraw' }) }, () => getTokenRef.current());
       await load();
-    } catch (e) { setError(errorMessage(e)); }
-    finally { setBusyQuote(undefined); }
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusyQuote(undefined);
+    }
   }
+
   if (loading) return <LoadingScreen />;
   if (!profile) return <Screen title="Build your public profile" subtitle="Customers cannot find or trust a blank page."><EmptyState title="Profile setup required" body="Add your trade, skills, business details and self-certification before quoting." action={<Link href="/trader/onboarding" asChild><Button mode="contained">Start setup</Button></Link>} /></Screen>;
+
   const trialEnds = profile.trialEndsAt ? new Date(profile.trialEndsAt) : null;
   return <Screen title={`Hello, ${profile.businessName}`} subtitle={`${profile.tradeCategory} · ${profile.subscriptionTier} plan`}>
     <View style={styles.actions}><Link href="/trader/subscription" asChild><Button mode="contained" icon="credit-card">Plans & payouts</Button></Link><Link href="/trader/invoices" asChild><Button mode="outlined" icon="file-document">Invoices</Button></Link><Button mode="outlined" onPress={() => router.push(`/(public)/traders/${profile.id}` as Href)}>View public profile</Button></View>
