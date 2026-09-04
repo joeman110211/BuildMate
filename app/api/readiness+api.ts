@@ -48,12 +48,12 @@ export async function GET() {
             WHERE tgname = 'verify_review_before_insert'
               AND NOT tgisinternal
           ) AS "hasReviewVerificationTrigger"
-      ` as unknown as Array<{
+      ` as unknown as {
         hasTrialEndsAt: boolean;
         hasTraderShowcase: boolean;
         hasAcceptQuoteFunction: boolean;
         hasReviewVerificationTrigger: boolean;
-      }>;
+      }[];
 
       if (!schema?.hasTrialEndsAt) missingSchema.push('trader_profiles.trial_ends_at');
       if (!schema?.hasTraderShowcase) missingSchema.push('trader_profile_showcase');
