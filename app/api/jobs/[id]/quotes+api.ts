@@ -13,7 +13,7 @@ export async function GET(request: Request, { id }: { id: string }) {
       id: quotes.id, jobId: quotes.jobId, traderId: quotes.traderId,
       laborCost: quotes.laborCost, materialsCost: quotes.materialsCost, vatAmount: quotes.vatAmount,
       depositAmount: quotes.depositAmount, totalAmount: quotes.totalAmount, paymentTerms: quotes.paymentTerms,
-      notes: quotes.notes, status: quotes.status, businessName: traderProfiles.businessName,
+      notes: quotes.notes, validUntil: quotes.validUntil, status: quotes.status, businessName: traderProfiles.businessName,
     }).from(quotes).innerJoin(traderProfiles, eq(traderProfiles.userId, quotes.traderId)).where(eq(quotes.jobId, id));
     return Response.json({ job, quotes: rows });
   } catch (error) { return jsonError(error); }
