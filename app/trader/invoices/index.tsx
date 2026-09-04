@@ -39,7 +39,7 @@ export default function InvoicesScreen() {
 
   useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
 
-  async function changeStatus(id: string, action: 'paid' | 'void') {
+  async function changeStatus(id: string, action: 'send' | 'paid' | 'void') {
     try {
       setBusy(id); setError('');
       await apiFetch(`/api/invoices/${id}`, { method: 'PATCH', body: JSON.stringify({ action }) }, getToken);
@@ -60,7 +60,7 @@ export default function InvoicesScreen() {
         <View style={styles.row}><Text>Total</Text><Text variant="titleLarge" style={styles.total}>{formatMoney(invoice.totalAmount)}</Text></View>
         {invoice.depositAmount ? <Text style={styles.muted}>Deposit recorded: {formatMoney(invoice.depositAmount)}</Text> : null}
         {invoice.dueAt ? <Text style={overdue ? styles.overdue : styles.muted}>Due {new Date(invoice.dueAt).toLocaleDateString('en-GB')}</Text> : null}
-        {invoice.status !== 'paid' && invoice.status !== 'void' ? <View style={styles.actions}><Button mode="contained" loading={busy === invoice.id} disabled={Boolean(busy)} onPress={() => changeStatus(invoice.id, 'paid')}>Mark paid</Button><Button mode="outlined" disabled={Boolean(busy)} onPress={() => changeStatus(invoice.id, 'void')}>Void</Button></View> : null}
+        {invoice.status !== 'paid' && invoice.status !== 'void' ? <View style={styles.actions}>{invoice.status === 'draft' ? <Button mode="contained" icon="email-send" loading={busy === invoice.id} disabled={Boolean(busy)} onPress={() => changeStatus(invoice.id, 'send')}>Send invoice</Button> : null}<Button mode={invoice.status === 'draft' ? 'outlined' : 'contained'} loading={busy === invoice.id} disabled={Boolean(busy)} onPress={() => changeStatus(invoice.id, 'paid')}>Mark paid</Button><Button mode="outlined" disabled={Boolean(busy)} onPress={() => changeStatus(invoice.id, 'void')}>Void</Button></View> : null}
       </AppCard>;
     })}
   </Screen>;
