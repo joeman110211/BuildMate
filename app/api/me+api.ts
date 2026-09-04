@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { traderProfiles, users } from '@/db/schema';
+import { InvalidPostcodeError, lookupPostcode } from '@/lib/postcode';
 import { accountAccess, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
 import { roleSchema, traderProfileSchema } from '@/lib/validation';
 
@@ -31,9 +32,25 @@ export async function PUT(request: Request) {
     const current = await ensureDbUser(userId);
     if (current.role !== 'trader') throw new HttpError(403, 'Trader account required');
     const payload = traderProfileSchema.parse(await request.json());
-    const [profile] = await getDb().insert(traderProfiles).values({ userId, ...payload }).onConflictDoUpdate({
+
+    let location;
+    try { location = await lookupPostcode(payload.postcode); }
+    catch (error) {
+      if (error instanceof InvalidPostcodeError) throw new HttpError(400, error.message);
+      throw error;
+    }
+
+    const values = {
+      ...payload,
+      postcode: location.postcode,
+      locationLabel: location.locationLabel,
+      latitude: location.latitude,
+      longitude: location.longitude,
+    };
+
+    const [profile] = await getDb().insert(traderProfiles).values({ userId, ...values }).onConflictDoUpdate({
       target: traderProfiles.userId,
-      set: { ...payload, updatedAt: new Date() },
+      set: { ...values, updatedAt: new Date() },
     }).returning();
     return Response.json(profile);
   } catch (error) { return jsonError(error); }
