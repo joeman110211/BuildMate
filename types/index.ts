@@ -40,6 +40,7 @@ export interface Job {
   description: string;
   aiGeneratedSpec: string | null;
   budgetRange: string;
+  photos: string[];
   status: JobStatus;
   createdAt: string;
   quotes?: Quote[];
