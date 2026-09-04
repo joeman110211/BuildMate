@@ -6,6 +6,7 @@ import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/s
 export async function GET(request: Request, { id }: { id: string }) {
   try {
     const db = getDb();
+    const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.trialEndsAt} is null or ${traderProfiles.trialEndsAt} > now() or ${traderProfiles.stripeSubscriptionId} is not null)`;
     const [profile] = await db.select({
       id: traderProfiles.id,
       userId: traderProfiles.userId,
@@ -19,7 +20,8 @@ export async function GET(request: Request, { id }: { id: string }) {
       externalLinks: traderProfiles.externalLinks,
       photos: traderProfiles.photos,
       subscriptionTier: traderProfiles.subscriptionTier,
-      isSubscriptionActive: traderProfiles.isSubscriptionActive,
+      isSubscriptionActive: activeLeadAccess,
+      trialEndsAt: traderProfiles.trialEndsAt,
       averageRating: sql<number>`coalesce(avg(${reviews.rating}), 0)::float`,
       reviewCount: sql<number>`count(${reviews.id})::int`,
     }).from(traderProfiles).leftJoin(reviews, and(eq(reviews.traderId, traderProfiles.userId), eq(reviews.verifiedCompletion, true)))
