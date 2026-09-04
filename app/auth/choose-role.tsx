@@ -19,7 +19,7 @@ export default function ChooseRoleScreen() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!loading && user?.role) router.replace(user.role === 'trader' ? '/(trader)/dashboard' : '/(customer)/dashboard');
+    if (!loading && user?.role) router.replace(user.role === 'trader' ? '/trader/dashboard' : '/customer/dashboard');
   }, [loading, router, user?.role]);
 
   if (loading) return <LoadingScreen label="Setting up your account…" />;
@@ -29,7 +29,7 @@ export default function ChooseRoleScreen() {
     try {
       setBusy(true); setError('');
       await apiFetch('/api/me', { method: 'PATCH', body: JSON.stringify({ role }) }, getToken);
-      router.replace(role === 'trader' ? '/(trader)/onboarding' : '/(customer)/dashboard');
+      router.replace(role === 'trader' ? '/trader/onboarding' : '/customer/dashboard');
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   }
 

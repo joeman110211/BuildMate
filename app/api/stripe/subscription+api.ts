@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getDb } from '@/db/client';
 import { traderProfiles } from '@/db/schema';
 import { HttpError, jsonError, requireRole } from '@/lib/server';
-import { appUrl, getStripe } from '@/lib/stripe';
+import { getStripe, providerReturnUrl } from '@/lib/stripe';
 
 const inputSchema = z.object({ tier: z.enum(['basic', 'featured']) });
 
@@ -25,8 +25,8 @@ export async function POST(request: Request) {
     if (!price) throw new Error(`Stripe price for ${tier} is not configured`);
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription', customer: customerId, line_items: [{ price, quantity: 1 }], allow_promotion_codes: true,
-      success_url: `${appUrl()}/subscription-complete?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl()}/subscription-cancelled`,
+      success_url: providerReturnUrl('subscription', 'complete'),
+      cancel_url: providerReturnUrl('subscription', 'cancelled'),
       metadata: { buildmateUserId: trader.id, tier },
       subscription_data: { metadata: { buildmateUserId: trader.id, tier } },
     });

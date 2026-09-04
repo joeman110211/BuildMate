@@ -9,7 +9,7 @@ export function PublicHeader() {
   const { user, isSignedIn } = useCurrentUser();
   const { signOut } = useClerk();
   const router = useRouter();
-  const dashboard = user?.role === 'trader' ? '/(trader)/dashboard' : user?.role === 'customer' ? '/(customer)/dashboard' : '/(auth)/choose-role';
+  const dashboard = user?.role === 'trader' ? '/trader/dashboard' : user?.role === 'customer' ? '/customer/dashboard' : '/auth/choose-role';
   return <View style={styles.header}>
     <Link href="/(public)/directory" asChild><Button><Text variant="titleLarge" style={styles.brand}>BuildMate</Text></Button></Link>
     <View style={styles.actions}>
@@ -17,8 +17,8 @@ export function PublicHeader() {
         <Button mode="contained" onPress={() => router.push(dashboard)}>Dashboard</Button>
         <Button onPress={() => signOut(() => router.replace('/(public)/directory'))}>Sign out</Button>
       </> : <>
-        <Link href="/(auth)/sign-in" asChild><Button>Sign in</Button></Link>
-        <Link href="/(auth)/sign-up" asChild><Button mode="contained">Join</Button></Link>
+        <Link href="/auth/sign-in" asChild><Button>Sign in</Button></Link>
+        <Link href="/auth/sign-up" asChild><Button mode="contained">Join</Button></Link>
       </>}
     </View>
   </View>;

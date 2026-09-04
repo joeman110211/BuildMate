@@ -23,11 +23,11 @@ Money is stored as integer pennies throughout. Secret keys are server-only and a
 ```text
 buildmate/
 ├── app/
-│   ├── (auth)/                 sign-in, sign-up and role selection
+│   ├── auth/                   sign-in, sign-up and role selection
 │   ├── (public)/               directory and public trader profiles
-│   ├── (customer)/             dashboard, job posting, job detail, comparisons, messages
-│   ├── (trader)/               onboarding, dashboard, plans, quotes, invoices, messages
-│   ├── (admin)/                moderation queue
+│   ├── customer/               dashboard, job posting, job detail, comparisons, messages
+│   ├── trader/                 onboarding, dashboard, plans, quotes, invoices, messages
+│   ├── admin/                  moderation queue
 │   └── api/                    authenticated Expo Router server endpoints
 ├── components/                 shared cross-platform UI
 ├── constants/                  palette, trades and controlled options

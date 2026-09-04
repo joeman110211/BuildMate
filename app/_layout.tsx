@@ -23,10 +23,10 @@ export default function RootLayout() {
               <Stack screenOptions={{ headerTintColor: '#D35400', headerShadowVisible: false, contentStyle: { backgroundColor: '#FAFAFA' } }}>
                 <Stack.Screen name="index" options={{ headerShown: false }} />
                 <Stack.Screen name="(public)" options={{ headerShown: false }} />
-                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                <Stack.Screen name="(customer)" options={{ headerShown: false }} />
-                <Stack.Screen name="(trader)" options={{ headerShown: false }} />
-                <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+                <Stack.Screen name="auth" options={{ headerShown: false }} />
+                <Stack.Screen name="customer" options={{ headerShown: false }} />
+                <Stack.Screen name="trader" options={{ headerShown: false }} />
+                <Stack.Screen name="admin" options={{ headerShown: false }} />
               </Stack>
             </AppStripeProvider>
           </PaperProvider>

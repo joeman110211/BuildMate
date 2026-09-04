@@ -11,3 +11,10 @@ export function getStripe() {
 export function appUrl() {
   return (process.env.APP_URL ?? process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8081').replace(/\/$/, '');
 }
+
+export function providerReturnUrl(type: 'subscription' | 'connect' | 'payment', state: 'complete' | 'cancelled' | 'retry') {
+  const url = new URL('/status', `${appUrl()}/`);
+  url.searchParams.set('type', type);
+  url.searchParams.set('state', state);
+  return url.toString();
+}

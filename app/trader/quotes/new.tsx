@@ -21,7 +21,7 @@ export default function NewQuoteScreen() {
   const [error, setError] = useState('');
   const totals = useMemo(() => calculateQuote(poundsToPence(labor), poundsToPence(materials), vat === 'yes' ? 0.2 : 0), [labor, materials, vat]);
   async function submit() {
-    try { setBusy(true); setError(''); await apiFetch('/api/quotes', { method: 'POST', body: JSON.stringify({ jobId, laborCost: poundsToPence(labor), materialsCost: poundsToPence(materials), vatAmount: totals.vatAmount, depositAmount: poundsToPence(deposit), paymentTerms: terms, notes }) }, getToken); router.replace('/(trader)/dashboard'); }
+    try { setBusy(true); setError(''); await apiFetch('/api/quotes', { method: 'POST', body: JSON.stringify({ jobId, laborCost: poundsToPence(labor), materialsCost: poundsToPence(materials), vatAmount: totals.vatAmount, depositAmount: poundsToPence(deposit), paymentTerms: terms, notes }) }, getToken); router.replace('/trader/dashboard'); }
     catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   }
   return <Screen title="Create an itemised quote" subtitle={title ?? 'Customer job'}>

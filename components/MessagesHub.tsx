@@ -20,7 +20,7 @@ type Conversation = {
   lastMessageAt: string;
 };
 
-export function MessagesHub({ basePath }: { basePath: '/(customer)' | '/(trader)' }) {
+export function MessagesHub({ basePath }: { basePath: '/customer' | '/trader' }) {
   const { getToken } = useAuth();
   const router = useRouter();
   const [rows, setRows] = useState<Conversation[]>([]);

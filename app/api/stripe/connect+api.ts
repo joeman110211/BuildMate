@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { traderProfiles } from '@/db/schema';
 import { HttpError, jsonError, requireRole } from '@/lib/server';
-import { appUrl, getStripe } from '@/lib/stripe';
+import { getStripe, providerReturnUrl } from '@/lib/stripe';
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       accountId = account.id;
       await db.update(traderProfiles).set({ stripeAccountId: accountId }).where(eq(traderProfiles.userId, trader.id));
     }
-    const link = await stripe.accountLinks.create({ account: accountId, type: 'account_onboarding', refresh_url: `${appUrl()}/connect-refresh`, return_url: `${appUrl()}/connect-complete` });
+    const link = await stripe.accountLinks.create({ account: accountId, type: 'account_onboarding', refresh_url: providerReturnUrl('connect', 'retry'), return_url: providerReturnUrl('connect', 'complete') });
     return Response.json({ url: link.url });
   } catch (error) { return jsonError(error); }
 }

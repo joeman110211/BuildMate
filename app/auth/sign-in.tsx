@@ -21,7 +21,7 @@ export default function SignInScreen() {
     if (!setActive) throw new Error('Authentication is still loading');
     if (!sessionId) throw new Error('Sign-in did not create a session');
     await setActive({ session: sessionId });
-    router.replace('/(auth)/choose-role');
+    router.replace('/auth/choose-role');
   }
 
   async function submit() {
@@ -53,7 +53,7 @@ export default function SignInScreen() {
     <Button mode="contained" loading={busy} disabled={busy || !identifier || (method === 'password' && !password) || (pendingPhone && !code)} onPress={submit} contentStyle={styles.button}>
       {pendingPhone ? 'Verify code' : 'Continue'}
     </Button>
-    <View style={styles.footer}><Text>New to BuildMate?</Text><Link href="/(auth)/sign-up" asChild><Button>Create account</Button></Link></View>
+    <View style={styles.footer}><Text>New to BuildMate?</Text><Link href="/auth/sign-up" asChild><Button>Create account</Button></Link></View>
   </Screen>;
 }
 

@@ -36,7 +36,7 @@ export default function SignUpScreen() {
           : await signUp.attemptPhoneNumberVerification({ code });
         if (!result.createdSessionId) throw new Error('Verification is incomplete');
         await setActive({ session: result.createdSessionId });
-        router.replace('/(auth)/choose-role');
+        router.replace('/auth/choose-role');
       }
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   }
@@ -55,7 +55,7 @@ export default function SignUpScreen() {
     <Button mode="contained" loading={busy} disabled={busy || (!verifying && (!identifier || (method === 'password' && password.length < 8))) || (verifying && !code)} onPress={submit} contentStyle={styles.button}>
       {verifying ? 'Verify and continue' : 'Create account'}
     </Button>
-    <View style={styles.footer}><Text>Already registered?</Text><Link href="/(auth)/sign-in" asChild><Button>Sign in</Button></Link></View>
+    <View style={styles.footer}><Text>Already registered?</Text><Link href="/auth/sign-in" asChild><Button>Sign in</Button></Link></View>
   </Screen>;
 }
 
