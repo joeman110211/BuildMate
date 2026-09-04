@@ -8,9 +8,10 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const trade = url.searchParams.get('trade');
     const activeAccount = sql`NOT EXISTS (SELECT 1 FROM users u WHERE u.id = ${traderProfiles.userId} AND u.is_suspended = true)`;
+    const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.trialEndsAt} is null or ${traderProfiles.trialEndsAt} > now() or ${traderProfiles.stripeSubscriptionId} is not null)`;
     const where = trade
-      ? and(eq(traderProfiles.isSubscriptionActive, true), eq(traderProfiles.tradeCategory, trade), activeAccount)
-      : and(eq(traderProfiles.isSubscriptionActive, true), activeAccount);
+      ? and(activeLeadAccess, eq(traderProfiles.tradeCategory, trade), activeAccount)
+      : and(activeLeadAccess, activeAccount);
     const db = getDb();
     const rows = await db.select({
       id: traderProfiles.id,
@@ -24,7 +25,8 @@ export async function GET(request: Request) {
       externalLinks: traderProfiles.externalLinks,
       photos: traderProfiles.photos,
       subscriptionTier: traderProfiles.subscriptionTier,
-      isSubscriptionActive: traderProfiles.isSubscriptionActive,
+      isSubscriptionActive: activeLeadAccess,
+      trialEndsAt: traderProfiles.trialEndsAt,
       averageRating: sql<number>`coalesce(avg(${reviews.rating}), 0)::float`,
       reviewCount: sql<number>`count(${reviews.id})::int`,
     }).from(traderProfiles).leftJoin(reviews, and(eq(reviews.traderId, traderProfiles.userId), eq(reviews.verifiedCompletion, true))).where(where)
