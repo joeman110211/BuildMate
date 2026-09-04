@@ -49,29 +49,22 @@ jobs:
 
             bundle_file="$(mktemp)"
             curl -fsSL "$api_url$js_path" -o "$bundle_file"
-
             mapfile -t public_keys < <(grep -oE 'pk_(test|live)_[A-Za-z0-9_.$-]+' "$bundle_file" | sort -u)
-            echo "Found ${#public_keys[@]} public key candidates in deployed web bundle"
-            for key in "${public_keys[@]}"; do
-              echo "PUBLIC_KEY_CANDIDATE=$key"
-            done
 
             for key in "${public_keys[@]}"; do
-              suffix="${key#pk_test_}"
-              suffix="${suffix#pk_live_}"
-              normalized="$(printf '%s' "$suffix" | tr '_-' '/+')"
-              case $((${#normalized} % 4)) in
-                2) normalized="${normalized}==" ;;
-                3) normalized="${normalized}=" ;;
-              esac
-              decoded="$(printf '%s' "$normalized" | base64 -d 2>/dev/null || true)"
-
-              if printf '%s' "$decoded" | grep -qiE 'clerk|accounts\.dev'; then
-                clerk_key="$key"
-              elif [ -z "$stripe_key" ] && [[ "$key" == pk_test_51* || "$key" == pk_live_51* ]]; then
-                stripe_key="$key"
+              if [[ "$key" == pk_test_51* || "$key" == pk_live_51* ]]; then
+                [ -n "$stripe_key" ] || stripe_key="$key"
               fi
             done
+
+            if [ -z "$clerk_key" ]; then
+              for key in "${public_keys[@]}"; do
+                if [ "$key" != "$stripe_key" ]; then
+                  clerk_key="$key"
+                  break
+                fi
+              done
+            fi
           fi
 
           test -n "$clerk_key" || { echo "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"; exit 1; }
