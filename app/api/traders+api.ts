@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const trade = url.searchParams.get('trade');
     const activeAccount = sql`NOT EXISTS (SELECT 1 FROM users u WHERE u.id = ${traderProfiles.userId} AND u.is_suspended = true)`;
-    const effectiveTrialEnd = sql<Date>`coalesce(${traderProfiles.trialEndsAt}, ${traderProfiles.createdAt} + interval '14 days')`;
+    const effectiveTrialEnd = sql<Date>`${traderProfiles.createdAt} + interval '14 days'`;
     const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
     const where = trade
       ? and(activeLeadAccess, eq(traderProfiles.tradeCategory, trade), activeAccount)
