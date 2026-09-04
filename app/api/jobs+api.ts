@@ -4,6 +4,7 @@ import { jobs, traderProfiles } from '@/db/schema';
 import { InvalidPostcodeError, lookupPostcode, outwardCode } from '@/lib/postcode';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
+import { hasActiveLeadAccess } from '@/lib/subscription';
 import { jobSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -17,18 +18,19 @@ export async function GET(request: Request) {
     } else if (user.role === 'trader') {
       const profile = await db.query.traderProfiles.findFirst({ where: eq(traderProfiles.userId, user.id) });
       if (!profile) throw new HttpError(409, 'Complete your trader profile first');
+      const activeLeadAccess = hasActiveLeadAccess(profile);
 
       const acceptedWork = sql`${jobs.acceptedQuoteId} in (select id from quotes where trader_id = ${user.id})`;
       let access = acceptedWork;
 
-      if (profile.isSubscriptionActive && profile.subscriptionTier === 'basic') {
+      if (activeLeadAccess && profile.subscriptionTier === 'basic') {
         access = or(
           acceptedWork,
           and(eq(jobs.targetTraderId, user.id), inArray(jobs.status, ['open', 'quoted'])),
         )!;
       }
 
-      if (profile.isSubscriptionActive && profile.subscriptionTier === 'featured') {
+      if (activeLeadAccess && profile.subscriptionTier === 'featured') {
         const withinRadius = profile.latitude != null && profile.longitude != null
           ? sql`${jobs.latitude} is not null and ${jobs.longitude} is not null and (
               3959 * acos(least(1, greatest(-1,
@@ -77,7 +79,10 @@ export async function POST(request: Request) {
       const targets = await getSql()`
         SELECT tp.trade_category AS "tradeCategory",
                tp.subscription_tier AS "subscriptionTier",
-               tp.is_subscription_active AS "isSubscriptionActive"
+               (
+                 tp.is_subscription_active = true
+                 AND (tp.trial_ends_at IS NULL OR tp.trial_ends_at > now() OR tp.stripe_subscription_id IS NOT NULL)
+               ) AS "isSubscriptionActive"
         FROM trader_profiles tp
         JOIN users u ON u.id = tp.user_id
         WHERE tp.user_id = ${payload.targetTraderId}
