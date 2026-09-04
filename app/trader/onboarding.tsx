@@ -110,8 +110,10 @@ export default function TraderOnboarding() {
   ][step], [bio, businessName, certified, postcode, step, subSkills, tradeCategory]);
 
   function addBeforeAfter() {
-    if (!beforeDraft[0] || !afterDraft[0] || beforeAfterProjects.length >= 12) return;
-    setBeforeAfterProjects((current) => [...current, { before: beforeDraft[0], after: afterDraft[0], caption: projectCaption.trim() || undefined }]);
+    const before = beforeDraft[0];
+    const after = afterDraft[0];
+    if (!before || !after || beforeAfterProjects.length >= 12) return;
+    setBeforeAfterProjects((current) => [...current, { before, after, caption: projectCaption.trim() || undefined }]);
     setBeforeDraft([]);
     setAfterDraft([]);
     setProjectCaption('');
