@@ -24,8 +24,8 @@ export default function CustomerDashboard() {
     {error ? <EmptyState title="Couldn’t load jobs" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
     {!error && !jobs.length ? <EmptyState title="No jobs yet" body="Describe what you need and BuildMate will keep the quotes organised." action={<Link href="/customer/new-job" asChild><Button mode="contained">Post your first job</Button></Link>} /> : jobs.map((job) => <AppCard key={job.id}>
       <View style={styles.row}><Text variant="titleMedium" style={styles.title}>{job.title}</Text><Chip>{job.status.replace('_', ' ')}</Chip></View>
-      <Text style={styles.muted}>{job.category} · {job.budgetRange} · {job.urgency}</Text><Text numberOfLines={3}>{job.description}</Text>
-      <View style={styles.row}><Button onPress={() => router.push(`/customer/jobs/${job.id}` as Href)}>View job</Button><Button mode="outlined" onPress={() => router.push(`/customer/compare/${job.id}` as Href)}>Compare quotes</Button></View>
+      <Text style={styles.muted}>{job.category}{job.locationLabel ? ` · ${job.locationLabel}` : ''}{job.postcode ? ` · ${job.postcode}` : ''} · {job.budgetRange} · {job.urgency}</Text><Text numberOfLines={3}>{job.description}</Text>
+      <View style={styles.row}><Button onPress={() => router.push(`/customer/jobs/${job.id}` as Href)}>View job</Button><Button mode="outlined" disabled={!['open','quoted'].includes(job.status)} onPress={() => router.push(`/customer/compare/${job.id}` as Href)}>Compare quotes</Button></View>
     </AppCard>)}
   </Screen>;
 }
