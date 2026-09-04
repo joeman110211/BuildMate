@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/expo';
 import type { Href } from 'expo-router';
 import { Link, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Chip, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
@@ -12,12 +12,32 @@ import type { Job } from '@/types';
 
 export default function CustomerDashboard() {
   const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const load = useCallback(async () => { try { setJobs(await apiFetch('/api/jobs', {}, getToken)); setError(''); } catch (e) { setError(errorMessage(e)); } finally { setLoading(false); } }, [getToken]);
-  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
+
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setJobs(await apiFetch<Job[]>('/api/jobs', {}, () => getTokenRef.current()));
+      setError('');
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   if (loading) return <LoadingScreen />;
   return <Screen title="Your jobs" subtitle="Post the work once, then compare proper itemised quotes.">
     <Link href="/customer/new-job" asChild><Button mode="contained" icon="plus">Post a new job</Button></Link>
