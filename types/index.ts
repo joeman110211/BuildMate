@@ -2,6 +2,8 @@ export type UserRole = 'customer' | 'trader';
 export type SubscriptionTier = 'free' | 'basic' | 'featured';
 export type JobStatus = 'open' | 'quoted' | 'in_progress' | 'completed' | 'cancelled';
 export type QuoteStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';
+export type TraderProfileTemplate = 'classic' | 'portfolio' | 'modern';
+export type TraderProfileColour = 'burnt_orange' | 'navy' | 'forest' | 'charcoal' | 'burgundy';
 
 export interface CurrentUser {
   id: string;
@@ -11,6 +13,12 @@ export interface CurrentUser {
   isAdmin: boolean;
   isSuspended: boolean;
   createdAt: string;
+}
+
+export interface BeforeAfterProject {
+  before: string;
+  after: string;
+  caption?: string;
 }
 
 export interface TraderProfile {
@@ -25,8 +33,19 @@ export interface TraderProfile {
   locationLabel?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  qualifications?: string[];
   externalLinks: Record<string, string>;
   photos: string[];
+  template?: TraderProfileTemplate;
+  colourTheme?: TraderProfileColour;
+  coverPhotoUrl?: string | null;
+  profileImageUrl?: string | null;
+  logoUrl?: string | null;
+  yearsExperience?: number;
+  yearEstablished?: number | null;
+  serviceAreas?: string[];
+  beforeAfterProjects?: BeforeAfterProject[];
+  createdAt?: string;
   subscriptionTier: SubscriptionTier;
   isSubscriptionActive: boolean;
   trialEndsAt?: string | null;
