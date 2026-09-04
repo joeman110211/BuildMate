@@ -42,7 +42,7 @@ export const quoteSchema = z.object({
   validUntil: z.iso.datetime().optional(),
 }).superRefine((data, ctx) => {
   const total = data.laborCost + data.materialsCost + data.vatAmount;
-  if (data.depositAmount > total) ctx.addIssue({ code: 'custom', path: ['depositAmount'], message: 'Deposit cannot exceed total' });
+  if (data.depositAmount >= total && data.depositAmount > 0) ctx.addIssue({ code: 'custom', path: ['depositAmount'], message: 'Deposit must be less than the quote total so a final balance remains' });
 });
 
 export const reviewSchema = z.object({
