@@ -11,6 +11,8 @@ const reportSchema = z.object({
   details: z.string().trim().max(2000).default(''),
 }).refine((value) => Boolean(value.subjectUserId || value.messageId || value.reviewId || value.jobId), 'A report target is required');
 
+type ReportRow = { id: string; status: string; createdAt: string };
+
 export async function GET(request: Request) {
   try {
     const userId = await authenticatedUserId(request);
@@ -22,7 +24,7 @@ export async function GET(request: Request) {
       WHERE reporter_id = ${userId}
       ORDER BY created_at DESC
       LIMIT 100
-    `;
+    ` as unknown as Record<string, unknown>[];
     return Response.json(rows);
   } catch (error) { return jsonError(error); }
 }
@@ -43,7 +45,7 @@ export async function POST(request: Request) {
           AND (c.customer_id = ${userId} OR c.trader_id = ${userId})
           AND m.sender_id <> ${userId}
         LIMIT 1
-      `;
+      ` as unknown as { id: string }[];
       if (!access.length) throw new HttpError(403, 'You cannot report this message');
     }
 
@@ -51,7 +53,7 @@ export async function POST(request: Request) {
       INSERT INTO moderation_reports(reporter_id, subject_user_id, message_id, review_id, job_id, reason, details)
       VALUES (${userId}, ${payload.subjectUserId ?? null}, ${payload.messageId ?? null}, ${payload.reviewId ?? null}, ${payload.jobId ?? null}, ${payload.reason}, ${payload.details})
       RETURNING id, status, created_at AS "createdAt"
-    `;
+    ` as unknown as ReportRow[];
     return Response.json(rows[0], { status: 201 });
   } catch (error) { return jsonError(error); }
 }
