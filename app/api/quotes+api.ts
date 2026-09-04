@@ -19,10 +19,14 @@ export async function POST(request: Request) {
     const db = getDb();
     const profile = await db.query.traderProfiles.findFirst({ where: eq(traderProfiles.userId, trader.id) });
     if (!profile) throw new HttpError(409, 'Complete your trader profile before quoting');
-    if (!profile.isSubscriptionActive || profile.subscriptionTier !== 'featured') throw new HttpError(402, 'Featured subscription required to send direct quotes');
+
     const payload = quoteSchema.parse(await request.json());
     const job = await db.query.jobs.findFirst({ where: eq(jobs.id, payload.jobId) });
     if (!job || !['open', 'quoted'].includes(job.status)) throw new HttpError(409, 'This job is not open for quotes');
+    if (job.targetTraderId && job.targetTraderId !== trader.id) throw new HttpError(403, 'This direct lead belongs to another tradesperson');
+    if (!profile.isSubscriptionActive || profile.subscriptionTier === 'free') throw new HttpError(402, 'An active lead subscription is required to send quotes');
+    if (!job.targetTraderId && profile.subscriptionTier !== 'featured') throw new HttpError(402, 'Featured subscription required to quote open marketplace jobs');
+
     const totalAmount = payload.laborCost + payload.materialsCost + payload.vatAmount;
     const [quote] = await db.insert(quotes).values({ ...payload, totalAmount, traderId: trader.id, validUntil: payload.validUntil ? new Date(payload.validUntil) : null })
       .onConflictDoUpdate({ target: [quotes.jobId, quotes.traderId], set: { ...payload, totalAmount, updatedAt: new Date(), validUntil: payload.validUntil ? new Date(payload.validUntil) : null } }).returning();
