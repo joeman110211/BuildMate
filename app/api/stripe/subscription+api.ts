@@ -19,7 +19,10 @@ export async function POST(request: Request) {
     const trader = await requireRole(request, 'trader');
     const { tier } = inputSchema.parse(await request.json());
     const db = getDb();
-    const profile = await db.query.traderProfiles.findFirst({ where: eq(traderProfiles.userId, trader.id) });
+    const [profile] = await db.select({
+      stripeCustomerId: traderProfiles.stripeCustomerId,
+      createdAt: traderProfiles.createdAt,
+    }).from(traderProfiles).where(eq(traderProfiles.userId, trader.id)).limit(1);
     if (!profile) throw new HttpError(409, 'Complete your profile first');
 
     const stripe = getStripe();
@@ -37,8 +40,8 @@ export async function POST(request: Request) {
     const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {
       metadata: { buildmateUserId: trader.id, tier },
     };
-    const freeTrialEnd = profile.trialEndsAt ?? trialEndsAt(profile.createdAt);
-    const trialEndMs = new Date(freeTrialEnd).getTime();
+    const freeTrialEnd = trialEndsAt(profile.createdAt);
+    const trialEndMs = freeTrialEnd.getTime();
     const now = Date.now();
     if (trialEndMs > now) {
       // Stripe Checkout requires an explicit trial_end to be at least 48 hours away.
