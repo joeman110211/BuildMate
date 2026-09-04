@@ -4,7 +4,7 @@ import * as AuthSession from 'expo-auth-session';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Button, Divider, Text } from 'react-native-paper';
 import { errorMessage } from '@/lib/api';
 
@@ -29,22 +29,36 @@ export function SocialAuthButtons({ onError }: Props) {
       setLoadingStrategy(strategy);
       onError('');
 
-      const redirectUrl = Platform.OS === 'web'
-        ? undefined
-        : AuthSession.makeRedirectUri({ scheme: 'buildmate', path: 'auth/sign-in' });
-
-      const { createdSessionId, setActive, signIn, signUp } = await startSSOFlow({
-        strategy,
-        ...(redirectUrl ? { redirectUrl } : {}),
+      // Clerk's Expo SSO flow expects a concrete callback URL. On web this resolves
+      // to the current BuildMate origin; on Android/iOS it resolves to buildmate://.
+      const redirectUrl = AuthSession.makeRedirectUri({
+        scheme: 'buildmate',
+        path: 'auth/social-continue',
       });
 
-      if (!createdSessionId || !setActive) {
-        const status = signIn?.status ?? signUp?.status ?? 'incomplete';
-        throw new Error(`Social sign-in returned without a usable session (${status}).`);
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy,
+        redirectUrl,
+      });
+
+      if (createdSessionId && setActive) {
+        await setActive({
+          session: createdSessionId,
+          navigate: async ({ session }) => {
+            if (session?.currentTask) {
+              router.replace('/auth/social-continue');
+              return;
+            }
+            router.replace('/auth/choose-role');
+          },
+        });
+        return;
       }
 
-      await setActive({ session: createdSessionId });
-      router.replace('/auth/choose-role');
+      // A first-time social user commonly has no existing Clerk account yet.
+      // Clerk preserves the in-progress flow so the continuation screen can
+      // transfer SignIn -> SignUp and finish creating the account.
+      router.replace('/auth/social-continue');
     } catch (error) {
       onError(errorMessage(error));
     } finally {
