@@ -20,6 +20,7 @@ export async function GET(request: Request) {
       subSkills: traderProfiles.subSkills,
       bio: traderProfiles.bio,
       radiusMiles: traderProfiles.radiusMiles,
+      locationLabel: traderProfiles.locationLabel,
       externalLinks: traderProfiles.externalLinks,
       photos: traderProfiles.photos,
       subscriptionTier: traderProfiles.subscriptionTier,
