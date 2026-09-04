@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/expo';
 import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
@@ -22,20 +22,33 @@ type Conversation = {
 
 export function MessagesHub({ basePath }: { basePath: '/customer' | '/trader' }) {
   const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
   const router = useRouter();
   const [rows, setRows] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const load = useCallback(async () => {
-    try { setRows(await apiFetch('/api/conversations', {}, getToken)); setError(''); }
-    catch (e) { setError(errorMessage(e)); }
-    finally { setLoading(false); }
-  }, [getToken]);
+
   useEffect(() => {
-    const timer = setTimeout(() => void load(), 0);
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  const load = useCallback(async () => {
+    try {
+      setRows(await apiFetch<Conversation[]>('/api/conversations', {}, () => getTokenRef.current()));
+      setError('');
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
     const refresh = setInterval(() => void load(), 10000);
-    return () => { clearTimeout(timer); clearInterval(refresh); };
+    return () => clearInterval(refresh);
   }, [load]);
+
   if (loading) return <LoadingScreen label="Loading messages…" />;
   return <Screen title="Messages" subtitle="Job conversations stay attached to the work, quote and people involved.">
     {error ? <EmptyState title="Couldn’t load messages" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
