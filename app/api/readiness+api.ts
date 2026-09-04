@@ -10,13 +10,11 @@ const requiredEnvironment = [
   'GEMINI_API_KEY',
   'RESEND_API_KEY',
   'INVOICE_FROM_EMAIL',
-  'APP_URL',
-  'CLOUDINARY_CLOUD_NAME',
   'CLOUDINARY_API_KEY',
   'CLOUDINARY_API_SECRET',
 ] as const;
 
-const optionalEnvironment = ['DATABASE_URL_UNPOOLED', 'ADMIN_CLERK_USER_IDS'] as const;
+const optionalEnvironment = ['DATABASE_URL_UNPOOLED', 'ADMIN_CLERK_USER_IDS', 'APP_URL', 'CLOUDINARY_CLOUD_NAME'] as const;
 
 function configured(name: string) {
   return Boolean(process.env[name]?.trim());
