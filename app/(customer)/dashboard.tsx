@@ -17,7 +17,7 @@ export default function CustomerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const load = useCallback(async () => { try { setJobs(await apiFetch('/api/jobs', {}, getToken)); setError(''); } catch (e) { setError(errorMessage(e)); } finally { setLoading(false); } }, [getToken]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
   if (loading) return <LoadingScreen />;
   return <Screen title="Your jobs" subtitle="Post the work once, then compare proper itemised quotes.">
     <Link href="/(customer)/new-job" asChild><Button mode="contained" icon="plus">Post a new job</Button></Link>

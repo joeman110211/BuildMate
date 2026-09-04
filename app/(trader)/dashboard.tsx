@@ -26,7 +26,7 @@ export default function TraderDashboard() {
     } catch (e) { if (!(e instanceof ApiError && e.status === 404)) setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, [getToken]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
   async function complete(jobId: string) {
     try { await apiFetch(`/api/jobs/${jobId}`, { method: 'PATCH', body: JSON.stringify({ action: 'complete' }) }, getToken); await load(); }
     catch (e) { setError(errorMessage(e)); }

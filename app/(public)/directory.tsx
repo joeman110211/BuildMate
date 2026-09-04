@@ -19,7 +19,7 @@ export default function DirectoryScreen() {
     try { setLoading(true); setError(''); setTraders(await apiFetch(`/api/traders${selected ? `?trade=${encodeURIComponent(selected)}` : ''}`)); }
     catch (e) { setError(errorMessage(e)); } finally { setLoading(false); }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, []);
   const filtered = traders.filter((t) => `${t.businessName} ${t.tradeCategory} ${t.subSkills.join(' ')}`.toLowerCase().includes(query.toLowerCase()));
 
   if (loading) return <LoadingScreen label="Finding trusted local trades…" />;

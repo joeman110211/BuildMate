@@ -26,6 +26,6 @@ export function useCurrentUser() {
     }
   }, [getToken, isLoaded, isSignedIn]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { const timer = setTimeout(() => void refresh(), 0); return () => clearTimeout(timer); }, [refresh]);
   return { user, loading, error, refresh, isSignedIn: Boolean(isSignedIn), getToken };
 }
