@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { integer, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { users } from './schema';
 
@@ -16,7 +17,7 @@ export const traderProfileShowcase = pgTable('trader_profile_showcase', {
   logoUrl: text('logo_url'),
   yearsExperience: integer('years_experience').notNull().default(0),
   yearEstablished: integer('year_established'),
-  serviceAreas: text('service_areas').array().notNull().default([]),
+  serviceAreas: text('service_areas').array().notNull().default(sql`ARRAY[]::text[]`),
   beforeAfterProjects: jsonb('before_after_projects').$type<BeforeAfterProject[]>().notNull().default([]),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
