@@ -49,34 +49,28 @@ jobs:
 
             bundle_file="$(mktemp)"
             curl -fsSL "$api_url$js_path" -o "$bundle_file"
+            mapfile -t public_keys < <(grep -oE 'pk_(test|live)_[A-Za-z0-9_-]+' "$bundle_file" | sort -u)
 
-            resolved="$(python3 - "$bundle_file" <<'PY'
-import base64
-import re
-import sys
+            if [ -z "$clerk_key" ]; then
+              for key in "${public_keys[@]}"; do
+                suffix="${key#pk_test_}"
+                suffix="${suffix#pk_live_}"
+                decoded="$(node -e "try { process.stdout.write(Buffer.from(process.argv[1], 'base64url').toString('utf8')) } catch {}" "$suffix")"
+                if [[ "$decoded" == *.* && "$decoded" == *'$' ]]; then
+                  clerk_key="$key"
+                  break
+                fi
+              done
+            fi
 
-bundle = open(sys.argv[1], 'r', encoding='utf-8', errors='ignore').read()
-keys = sorted(set(re.findall(r'pk_(?:test|live)_[A-Za-z0-9_-]+', bundle)))
-clerk = ''
-for key in keys:
-    suffix = key.split('_', 2)[2]
-    suffix += '=' * (-len(suffix) % 4)
-    try:
-        decoded = base64.urlsafe_b64decode(suffix).decode('utf-8')
-    except Exception:
-        continue
-    if decoded.endswith('$') and '.' in decoded:
-        clerk = key
-        break
-stripe = next((key for key in keys if key != clerk), '') if clerk else ''
-print(clerk)
-print(stripe)
-PY
-)"
-            resolved_clerk="$(printf '%s\n' "$resolved" | sed -n '1p')"
-            resolved_stripe="$(printf '%s\n' "$resolved" | sed -n '2p')"
-            [ -n "$clerk_key" ] || clerk_key="$resolved_clerk"
-            [ -n "$stripe_key" ] || stripe_key="$resolved_stripe"
+            if [ -z "$stripe_key" ]; then
+              for key in "${public_keys[@]}"; do
+                if [ "$key" != "$clerk_key" ]; then
+                  stripe_key="$key"
+                  break
+                fi
+              done
+            fi
           fi
 
           test -n "$clerk_key" || { echo "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"; exit 1; }
