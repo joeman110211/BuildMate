@@ -2,10 +2,6 @@ const requiredEnvironment = [
   'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY',
   'CLERK_SECRET_KEY',
   'DATABASE_URL',
-  'EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY',
-  'STRIPE_SECRET_KEY',
-  'STRIPE_WEBHOOK_SECRET',
-  'STRIPE_CONNECT_WEBHOOK_SECRET',
   'GEMINI_API_KEY',
   'RESEND_API_KEY',
   'INVOICE_FROM_EMAIL',
@@ -13,7 +9,16 @@ const requiredEnvironment = [
   'CLOUDINARY_API_SECRET',
 ] as const;
 
-const optionalEnvironment = ['DATABASE_URL_UNPOOLED', 'ADMIN_CLERK_USER_IDS', 'APP_URL', 'CLOUDINARY_CLOUD_NAME'] as const;
+const optionalEnvironment = [
+  'DATABASE_URL_UNPOOLED',
+  'ADMIN_CLERK_USER_IDS',
+  'APP_URL',
+  'CLOUDINARY_CLOUD_NAME',
+  'EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'STRIPE_CONNECT_WEBHOOK_SECRET',
+] as const;
 
 function configured(name: string) {
   return Boolean(process.env[name]?.trim());
