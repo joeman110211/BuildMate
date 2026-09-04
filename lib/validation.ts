@@ -5,6 +5,22 @@ const postcodeSchema = z.string().trim().min(5, 'Enter a UK postcode').max(8, 'E
 
 export const roleSchema = z.object({ role: z.enum(['customer', 'trader']) });
 
+export const traderShowcaseSchema = z.object({
+  template: z.enum(['classic', 'portfolio', 'modern']).default('classic'),
+  colourTheme: z.enum(['burnt_orange', 'navy', 'forest', 'charcoal', 'burgundy']).default('burnt_orange'),
+  coverPhotoUrl: z.url().or(z.literal('')).optional(),
+  profileImageUrl: z.url().or(z.literal('')).optional(),
+  logoUrl: z.url().or(z.literal('')).optional(),
+  yearsExperience: z.number().int().min(0).max(80).default(0),
+  yearEstablished: z.number().int().min(1900).max(2100).nullable().optional(),
+  serviceAreas: z.array(z.string().trim().min(2).max(80)).max(20).default([]),
+  beforeAfterProjects: z.array(z.object({
+    before: z.url(),
+    after: z.url(),
+    caption: z.string().trim().max(160).optional(),
+  })).max(12).default([]),
+}).optional();
+
 export const traderProfileSchema = z.object({
   businessName: z.string().trim().min(2).max(100),
   tradeCategory: z.enum(TRADE_CATEGORIES),
@@ -14,8 +30,9 @@ export const traderProfileSchema = z.object({
   postcode: postcodeSchema,
   qualifications: z.array(z.string().trim().min(2)).max(20),
   externalLinks: z.record(z.string(), z.url().or(z.literal(''))),
-  photos: z.array(z.url()).max(20),
+  photos: z.array(z.url()).max(30),
   selfCertified: z.literal(true),
+  showcase: traderShowcaseSchema,
 });
 
 export const jobSchema = z.object({
