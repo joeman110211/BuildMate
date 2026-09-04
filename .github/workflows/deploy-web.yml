@@ -1,0 +1,66 @@
+name: Deploy Web
+
+on:
+  workflow_run:
+    workflows: [Quality]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: buildmate-production-web
+  cancel-in-progress: true
+
+env:
+  VERCEL_ORG_ID: team_IFj5B0CLFEKezv3Z5MRTTfDT
+  VERCEL_PROJECT_ID: prj_NPfSapewQCfCwWFKQa1C9R7CWQK6
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check deployment configuration
+        id: config
+        shell: bash
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "VERCEL_TOKEN is not configured; deployment skipped."
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.config.outputs.ready == 'true' && github.event_name == 'workflow_run'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/checkout@v5
+        if: steps.config.outputs.ready == 'true' && github.event_name == 'workflow_dispatch'
+
+      - uses: actions/setup-node@v5
+        if: steps.config.outputs.ready == 'true'
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.config.outputs.ready == 'true'
+        run: npm ci --no-audit --no-fund --prefer-offline
+
+      - name: Pull production environment
+        if: steps.config.outputs.ready == 'true'
+        run: npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build production deployment
+        if: steps.config.outputs.ready == 'true'
+        run: npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy production
+        if: steps.config.outputs.ready == 'true'
+        run: npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN"
