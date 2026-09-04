@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       totalAmount,
       status: 'draft',
     }).returning();
+    if (!invoice) throw new Error('Invoice could not be created');
 
     let savedInvoice = invoice;
     let deliveryWarning: string | undefined;
