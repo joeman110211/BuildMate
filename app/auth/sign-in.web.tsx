@@ -1,5 +1,8 @@
 import { SignIn } from '@clerk/expo/web';
+import { useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
+import { Text } from 'react-native-paper';
+import { modeSetupHref, parseAccountMode, signUpHref } from '@/lib/account-mode';
 
 const appearance = {
   variables: {
@@ -14,15 +17,22 @@ const appearance = {
 } as const;
 
 export default function SignInWebScreen() {
+  const params = useLocalSearchParams<{ mode?: string | string[] }>();
+  const mode = parseAccountMode(params.mode);
+  const redirectUrl = String(modeSetupHref(mode));
+  const createUrl = mode ? String(signUpHref(mode)) : '/auth/account';
+  const title = mode === 'trader' ? '🔨 Tradesperson Sign In' : mode === 'customer' ? '🏠 Homeowner Sign In' : 'Sign in to BuildMate';
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
+    <View style={{ flex: 1, backgroundColor: '#FAFAFA', paddingTop: 16 }}>
+      <Text variant="headlineSmall" style={{ textAlign: 'center', fontWeight: '800' }}>{title}</Text>
       <SignIn
         routing="path"
         path="/auth/sign-in"
         withSignUp
-        signUpUrl="/auth/sign-up"
-        forceRedirectUrl="/auth/choose-role"
-        signUpForceRedirectUrl="/auth/choose-role"
+        signUpUrl={createUrl}
+        forceRedirectUrl={redirectUrl}
+        signUpForceRedirectUrl={redirectUrl}
         appearance={appearance}
       />
     </View>
