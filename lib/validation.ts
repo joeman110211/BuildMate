@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { BUDGET_OPTIONS, PROPERTY_TYPES, TRADE_CATEGORIES, URGENCY_OPTIONS } from '@/constants/options';
 
+const postcodeSchema = z.string().trim().min(5, 'Enter a UK postcode').max(8, 'Enter a UK postcode');
+
 export const roleSchema = z.object({ role: z.enum(['customer', 'trader']) });
 
 export const traderProfileSchema = z.object({
@@ -9,6 +11,7 @@ export const traderProfileSchema = z.object({
   subSkills: z.array(z.string().min(1)).max(12),
   bio: z.string().trim().min(30).max(1500),
   radiusMiles: z.number().int().min(1).max(150),
+  postcode: postcodeSchema,
   qualifications: z.array(z.string().trim().min(2)).max(20),
   externalLinks: z.record(z.string(), z.url().or(z.literal(''))),
   photos: z.array(z.url()).max(20),
@@ -20,6 +23,7 @@ export const jobSchema = z.object({
   title: z.string().trim().min(5).max(120),
   category: z.enum(TRADE_CATEGORIES),
   propertyType: z.enum(PROPERTY_TYPES),
+  postcode: postcodeSchema,
   urgency: z.enum(URGENCY_OPTIONS),
   description: z.string().trim().min(30).max(5000),
   aiGeneratedSpec: z.string().trim().max(5000).nullable().optional(),
