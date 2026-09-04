@@ -1,0 +1,31 @@
+import { eq } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { jobs, quotes, traderProfiles } from '@/db/schema';
+import { HttpError, jsonError, requireRole } from '@/lib/server';
+import { quoteSchema } from '@/lib/validation';
+
+export async function GET(request: Request) {
+  try {
+    const trader = await requireRole(request, 'trader');
+    const rows = await getDb().select().from(quotes).where(eq(quotes.traderId, trader.id));
+    return Response.json(rows);
+  } catch (error) { return jsonError(error); }
+}
+
+export async function POST(request: Request) {
+  try {
+    const trader = await requireRole(request, 'trader');
+    const db = getDb();
+    const profile = await db.query.traderProfiles.findFirst({ where: eq(traderProfiles.userId, trader.id) });
+    if (!profile) throw new HttpError(409, 'Complete your trader profile before quoting');
+    if (!profile.isSubscriptionActive || profile.subscriptionTier !== 'featured') throw new HttpError(402, 'Featured subscription required to send direct quotes');
+    const payload = quoteSchema.parse(await request.json());
+    const job = await db.query.jobs.findFirst({ where: eq(jobs.id, payload.jobId) });
+    if (!job || !['open', 'quoted'].includes(job.status)) throw new HttpError(409, 'This job is not open for quotes');
+    const totalAmount = payload.laborCost + payload.materialsCost + payload.vatAmount;
+    const [quote] = await db.insert(quotes).values({ ...payload, totalAmount, traderId: trader.id, validUntil: payload.validUntil ? new Date(payload.validUntil) : null })
+      .onConflictDoUpdate({ target: [quotes.jobId, quotes.traderId], set: { ...payload, totalAmount, updatedAt: new Date(), validUntil: payload.validUntil ? new Date(payload.validUntil) : null } }).returning();
+    await db.update(jobs).set({ status: 'quoted', updatedAt: new Date() }).where(eq(jobs.id, payload.jobId));
+    return Response.json(quote, { status: 201 });
+  } catch (error) { return jsonError(error); }
+}

@@ -1,0 +1,59 @@
+export type UserRole = 'customer' | 'trader';
+export type SubscriptionTier = 'free' | 'basic' | 'featured';
+export type JobStatus = 'open' | 'quoted' | 'in_progress' | 'completed' | 'cancelled';
+export type QuoteStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';
+
+export interface CurrentUser {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  role: UserRole | null;
+  createdAt: string;
+}
+
+export interface TraderProfile {
+  id: string;
+  userId: string;
+  businessName: string;
+  tradeCategory: string;
+  subSkills: string[];
+  bio: string;
+  radiusMiles: number;
+  externalLinks: Record<string, string>;
+  photos: string[];
+  subscriptionTier: SubscriptionTier;
+  isSubscriptionActive: boolean;
+  averageRating: number;
+  reviewCount: number;
+  stripeAccountId?: string | null;
+}
+
+export interface Job {
+  id: string;
+  customerId: string;
+  title: string;
+  category: string;
+  propertyType: string;
+  urgency: string;
+  description: string;
+  aiGeneratedSpec: string | null;
+  budgetRange: string;
+  status: JobStatus;
+  createdAt: string;
+  quotes?: Quote[];
+}
+
+export interface Quote {
+  id: string;
+  jobId: string;
+  traderId: string;
+  businessName?: string;
+  laborCost: number;
+  materialsCost: number;
+  vatAmount: number;
+  depositAmount: number;
+  totalAmount: number;
+  paymentTerms: string;
+  notes?: string | null;
+  status: QuoteStatus;
+}

@@ -1,0 +1,45 @@
+import { useAuth } from '@clerk/expo';
+import type { Href } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Button, Chip, Text } from 'react-native-paper';
+import { AppCard } from '@/components/AppCard';
+import { EmptyState, LoadingScreen, Screen } from '@/components/Screen';
+import { colors } from '@/constants/theme';
+import { apiFetch, ApiError, errorMessage } from '@/lib/api';
+import type { Job, TraderProfile } from '@/types';
+
+export default function TraderDashboard() {
+  const { getToken } = useAuth();
+  const router = useRouter();
+  const [profile, setProfile] = useState<TraderProfile>();
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const load = useCallback(async () => {
+    try {
+      setLoading(true); setError('');
+      const ownProfile = await apiFetch<TraderProfile>('/api/me/profile', {}, getToken);
+      setProfile(ownProfile);
+      setJobs(await apiFetch('/api/jobs', {}, getToken));
+    } catch (e) { if (!(e instanceof ApiError && e.status === 404)) setError(errorMessage(e)); }
+    finally { setLoading(false); }
+  }, [getToken]);
+  useEffect(() => { void load(); }, [load]);
+  async function complete(jobId: string) {
+    try { await apiFetch(`/api/jobs/${jobId}`, { method: 'PATCH', body: JSON.stringify({ action: 'complete' }) }, getToken); await load(); }
+    catch (e) { setError(errorMessage(e)); }
+  }
+  if (loading) return <LoadingScreen />;
+  if (!profile) return <Screen title="Build your public profile" subtitle="Customers cannot find or trust a blank page."><EmptyState title="Profile setup required" body="Add your trade, skills, business details and self-certification before quoting." action={<Link href="/(trader)/onboarding" asChild><Button mode="contained">Start setup</Button></Link>} /></Screen>;
+  return <Screen title={`Hello, ${profile.businessName}`} subtitle={`${profile.tradeCategory} · ${profile.subscriptionTier} plan`}>
+    <View style={styles.actions}><Link href="/(trader)/subscription" asChild><Button mode="contained" icon="credit-card">Plans & payouts</Button></Link><Link href="/(trader)/invoices/new" asChild><Button mode="outlined" icon="file-document">New invoice</Button></Link><Button mode="outlined" onPress={() => router.push(`/(public)/traders/${profile.id}` as Href)}>View public profile</Button></View>
+    {!profile.isSubscriptionActive ? <AppCard><Text variant="titleMedium">Your profile is shareable but not listed</Text><Text style={styles.muted}>Choose Basic to unlock direct leads, or Featured to appear first and send unlimited quotes.</Text><Link href="/(trader)/subscription" asChild><Button>Compare plans</Button></Link></AppCard> : null}
+    {error ? <EmptyState title="Something needs attention" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
+    <Text variant="titleLarge">Relevant jobs</Text>
+    {!jobs.length ? <EmptyState title="No matching jobs" body={`New ${profile.tradeCategory.toLowerCase()} jobs will appear here.`} /> : jobs.map((job) => <AppCard key={job.id}><View style={styles.row}><Text variant="titleMedium" style={styles.title}>{job.title}</Text><Chip>{job.status.replace('_', ' ')}</Chip></View><Text style={styles.muted}>{job.propertyType} · {job.budgetRange} · {job.urgency}</Text><Text numberOfLines={4}>{job.description}</Text>{['open','quoted'].includes(job.status) ? <Button mode="contained" disabled={profile.subscriptionTier !== 'featured' || !profile.isSubscriptionActive} onPress={() => router.push({ pathname: '/(trader)/quotes/new', params: { jobId: job.id, title: job.title } })}>Quote this job</Button> : null}{job.status === 'in_progress' ? <Button mode="contained" onPress={() => complete(job.id)}>Mark work complete</Button> : null}</AppCard>)}
+  </Screen>;
+}
+
+const styles = StyleSheet.create({ actions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }, title: { fontWeight: '800' }, muted: { color: colors.muted } });

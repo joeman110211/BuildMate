@@ -1,0 +1,32 @@
+import { and, desc, eq, sql } from 'drizzle-orm';
+import { getDb } from '@/db/client';
+import { reviews, traderProfiles } from '@/db/schema';
+import { jsonError } from '@/lib/server';
+
+export async function GET(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const trade = url.searchParams.get('trade');
+    const db = getDb();
+    const where = trade
+      ? and(eq(traderProfiles.isSubscriptionActive, true), eq(traderProfiles.tradeCategory, trade))
+      : eq(traderProfiles.isSubscriptionActive, true);
+    const rows = await db.select({
+      id: traderProfiles.id,
+      userId: traderProfiles.userId,
+      businessName: traderProfiles.businessName,
+      tradeCategory: traderProfiles.tradeCategory,
+      subSkills: traderProfiles.subSkills,
+      bio: traderProfiles.bio,
+      radiusMiles: traderProfiles.radiusMiles,
+      externalLinks: traderProfiles.externalLinks,
+      photos: traderProfiles.photos,
+      subscriptionTier: traderProfiles.subscriptionTier,
+      isSubscriptionActive: traderProfiles.isSubscriptionActive,
+      averageRating: sql<number>`coalesce(avg(${reviews.rating}), 0)::float`,
+      reviewCount: sql<number>`count(${reviews.id})::int`,
+    }).from(traderProfiles).leftJoin(reviews, and(eq(reviews.traderId, traderProfiles.userId), eq(reviews.verifiedCompletion, true))).where(where)
+      .groupBy(traderProfiles.id).orderBy(desc(sql`${traderProfiles.subscriptionTier} = 'featured'`), desc(sql`avg(${reviews.rating})`)).limit(100);
+    return Response.json(rows);
+  } catch (error) { return jsonError(error); }
+}
