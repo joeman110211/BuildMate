@@ -3,6 +3,7 @@ import { getDb } from '@/db/client';
 import { jobs, traderProfiles } from '@/db/schema';
 import { InvalidPostcodeError, lookupPostcode, outwardCode } from '@/lib/postcode';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
+import { getSql } from '@/lib/sql';
 import { jobSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -70,6 +71,23 @@ export async function POST(request: Request) {
   try {
     const user = await requireRole(request, 'customer');
     const payload = jobSchema.parse(await request.json());
+    const db = getDb();
+
+    if (payload.targetTraderId) {
+      const targets = await getSql()`
+        SELECT tp.trade_category AS "tradeCategory",
+               tp.subscription_tier AS "subscriptionTier",
+               tp.is_subscription_active AS "isSubscriptionActive"
+        FROM trader_profiles tp
+        JOIN users u ON u.id = tp.user_id
+        WHERE tp.user_id = ${payload.targetTraderId}
+          AND coalesce(u.is_suspended, false) = false
+        LIMIT 1
+      ` as unknown as { tradeCategory: string; subscriptionTier: string; isSubscriptionActive: boolean }[];
+      const target = targets[0];
+      if (!target || !target.isSubscriptionActive || target.subscriptionTier === 'free') throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildMate leads');
+      if (target.tradeCategory !== payload.category) throw new HttpError(400, `This direct request must use the tradesperson's listed category: ${target.tradeCategory}`);
+    }
 
     let location;
     try { location = await lookupPostcode(payload.postcode); }
@@ -78,7 +96,7 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    const [job] = await getDb().insert(jobs).values({
+    const [job] = await db.insert(jobs).values({
       customerId: user.id,
       ...payload,
       targetTraderId: payload.targetTraderId ?? null,
@@ -87,6 +105,19 @@ export async function POST(request: Request) {
       latitude: location.latitude,
       longitude: location.longitude,
     }).returning();
-    return Response.json(job, { status: 201 });
+
+    let conversationId: string | null = null;
+    if (payload.targetTraderId) {
+      const conversations = await getSql()`
+        INSERT INTO conversations(job_id, customer_id, trader_id)
+        VALUES (${job.id}, ${user.id}, ${payload.targetTraderId})
+        ON CONFLICT (job_id, customer_id, trader_id)
+        DO UPDATE SET updated_at = now()
+        RETURNING id
+      ` as unknown as { id: string }[];
+      conversationId = conversations[0]?.id ?? null;
+    }
+
+    return Response.json({ ...job, conversationId }, { status: 201 });
   } catch (error) { return jsonError(error); }
 }
