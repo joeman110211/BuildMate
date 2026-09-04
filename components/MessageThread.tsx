@@ -21,7 +21,11 @@ export function MessageThread({ conversationId }: { conversationId: string }) {
     catch (e) { setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, [conversationId, getToken]);
-  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
+  useEffect(() => {
+    const timer = setTimeout(() => void load(), 0);
+    const refresh = setInterval(() => void load(), 5000);
+    return () => { clearTimeout(timer); clearInterval(refresh); };
+  }, [load]);
 
   const send = async () => {
     const text = body.trim();
@@ -29,7 +33,7 @@ export function MessageThread({ conversationId }: { conversationId: string }) {
     setSending(true);
     try {
       const created = await apiFetch<Message>(`/api/conversations/${conversationId}/messages`, { method: 'POST', body: JSON.stringify({ body: text }) }, getToken);
-      setMessages((current) => [...current, created]);
+      setMessages((current) => current.some((message) => message.id === created.id) ? current : [...current, created]);
       setBody('');
       setError('');
     } catch (e) { setError(errorMessage(e)); }
