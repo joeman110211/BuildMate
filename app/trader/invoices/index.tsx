@@ -25,6 +25,7 @@ type Invoice = {
 
 export default function InvoicesScreen() {
   const { getToken } = useAuth();
+  const [renderedAt] = useState(() => Date.now());
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string>();
@@ -52,7 +53,7 @@ export default function InvoicesScreen() {
     <Link href="/trader/invoices/new" asChild><Button mode="contained" icon="plus">New invoice</Button></Link>
     {error ? <EmptyState title="Something needs attention" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
     {!error && !invoices.length ? <EmptyState title="No invoices yet" body="Create your first invoice and it will stay here for tracking." action={<Link href="/trader/invoices/new" asChild><Button mode="contained">Create invoice</Button></Link>} /> : invoices.map((invoice) => {
-      const overdue = invoice.status === 'sent' && invoice.dueAt && new Date(invoice.dueAt).getTime() < Date.now();
+      const overdue = invoice.status === 'sent' && invoice.dueAt && new Date(invoice.dueAt).getTime() < renderedAt;
       const displayStatus = overdue ? 'overdue' : invoice.status;
       return <AppCard key={invoice.id}>
         <View style={styles.row}><View style={styles.flex}><Text variant="titleMedium" style={styles.title}>Invoice {invoice.invoiceNumber}</Text><Text style={styles.muted}>{invoice.customerName} · {invoice.customerEmail}</Text></View><Chip>{displayStatus}</Chip></View>
