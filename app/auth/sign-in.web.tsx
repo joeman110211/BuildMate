@@ -7,9 +7,9 @@ const appearance = {
     borderRadius: '14px',
   },
   elements: {
-    rootBox: { width: '100%', justifyContent: 'center' },
+    rootBox: { width: '100%', alignItems: 'flex-start', justifyContent: 'flex-start' },
     cardBox: { width: '100%', boxShadow: 'none' },
-    card: { width: '100%', maxWidth: '480px', margin: '32px auto', boxShadow: 'none', border: '1px solid #E5E7EB' },
+    card: { width: '100%', maxWidth: '480px', margin: '8px auto 24px', boxShadow: 'none', border: '1px solid #E5E7EB' },
   },
 } as const;
 

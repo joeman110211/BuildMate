@@ -2,13 +2,13 @@ import { useAuth } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Button, Checkbox, Chip, HelperText, ProgressBar, Text, TextInput } from 'react-native-paper';
+import { Button, Chip, HelperText, ProgressBar, Text, TextInput } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
 import { FormSelect } from '@/components/FormSelect';
 import { PhotoUploader } from '@/components/PhotoUploader';
 import { PillSelector } from '@/components/PillSelector';
 import { Screen } from '@/components/Screen';
-import { RADIUS_OPTIONS, SUB_SKILLS, TRADE_CATEGORIES } from '@/constants/options';
+import { RADIUS_OPTIONS, SUB_SKILLS, TRADE_CATEGORIES, TRADER_BIO_MIN_LENGTH } from '@/constants/options';
 import { colors } from '@/constants/theme';
 import { apiFetch, ApiError, errorMessage } from '@/lib/api';
 import type { BeforeAfterProject, TraderProfile, TraderProfileColour, TraderProfileTemplate } from '@/types';
@@ -104,7 +104,7 @@ export default function TraderOnboarding() {
   const valid = useMemo(() => [
     Boolean(businessName.trim().length >= 2 && tradeCategory && subSkills.length && postcode.trim().length >= 5),
     true,
-    bio.trim().length >= 30,
+    bio.trim().length >= TRADER_BIO_MIN_LENGTH,
     true,
     certified,
   ][step], [bio, businessName, certified, postcode, step, subSkills, tradeCategory]);
@@ -155,7 +155,9 @@ export default function TraderOnboarding() {
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   }
 
-  return <Screen title="Build your business profile" subtitle="Treat this as your mini website. Customers should be able to understand, trust and hire your business from one page.">
+  const bioCharactersRemaining = Math.max(0, TRADER_BIO_MIN_LENGTH - bio.trim().length);
+
+  return <Screen key={step} title="Build your business profile" subtitle="Treat this as your mini website. Customers should be able to understand, trust and hire your business from one page.">
     <ProgressBar progress={(step + 1) / 5} color={colors.primary} /><Text variant="labelLarge">Step {step + 1} of 5</Text>
     {loadingExisting ? <HelperText type="info">Loading any existing profile details…</HelperText> : null}
 
@@ -175,7 +177,7 @@ export default function TraderOnboarding() {
       <Text style={styles.muted}>Choose how your public page looks. You can change this later.</Text>
       <View style={styles.templateGrid}>{TEMPLATES.map((item) => <Pressable key={item.id} onPress={() => setTemplate(item.id)} style={[styles.templateCard, template === item.id && styles.selectedTemplate]}><Text variant="titleMedium">{item.title}</Text><Text style={styles.muted}>{item.body}</Text>{template === item.id ? <Text style={styles.tick}>Selected ✓</Text> : null}</Pressable>)}</View>
       <Text variant="titleMedium">Profile colour</Text>
-      <View style={styles.colours}>{COLOURS.map((item) => <Chip key={item.id} selected={colourTheme === item.id} onPress={() => setColourTheme(item.id)} style={{ borderColor: item.hex }} textStyle={{ color: item.hex }}>{item.label}</Chip>)}</View>
+      <View style={styles.colours}>{COLOURS.map((item) => <Chip key={item.id} selected={colourTheme === item.id} showSelectedCheck onPress={() => setColourTheme(item.id)} style={{ borderColor: item.hex }} textStyle={{ color: item.hex }}>{item.label}</Chip>)}</View>
       <PhotoUploader kind="trader" photos={coverPhoto} onChange={setCoverPhoto} max={1} title="Cover photo" buttonLabel="Choose cover" emptyText="A wide image of your best finished work or team." />
       <PhotoUploader kind="trader" photos={profileImage} onChange={setProfileImage} max={1} title="Profile image" buttonLabel="Choose profile image" emptyText="Usually you, your team or a strong business portrait." />
       <PhotoUploader kind="trader" photos={logo} onChange={setLogo} max={1} title="Business logo" buttonLabel="Choose logo" emptyText="Optional. Upload your business logo if you have one." />
@@ -184,7 +186,10 @@ export default function TraderOnboarding() {
     {step === 2 ? <AppCard>
       <Text variant="titleLarge">About your business</Text>
       <TextInput label="Business bio" value={bio} onChangeText={setBio} mode="outlined" multiline numberOfLines={7} />
-      <HelperText type="info">Explain what you specialise in, how you work and why a customer should trust you.</HelperText>
+      <HelperText type={bio.length > 0 && bioCharactersRemaining > 0 ? 'error' : 'info'}>
+        Minimum {TRADER_BIO_MIN_LENGTH} characters required.{bioCharactersRemaining > 0 ? ` ${bioCharactersRemaining} more to go.` : ' Requirement met ✓'}
+      </HelperText>
+      <Text style={styles.muted}>Explain what you specialise in, how you work and why a customer should trust you.</Text>
       <View style={styles.twoCol}><TextInput style={styles.flex} label="Years of experience" value={yearsExperience} onChangeText={setYearsExperience} mode="outlined" keyboardType="number-pad" /><TextInput style={styles.flex} label="Year established" value={yearEstablished} onChangeText={setYearEstablished} mode="outlined" keyboardType="number-pad" /></View>
       <TextInput label="Qualifications, cards and certificates (one per line)" value={qualificationsText} onChangeText={setQualificationsText} mode="outlined" multiline />
       <Text variant="titleMedium">Registers and social links</Text>
@@ -206,11 +211,14 @@ export default function TraderOnboarding() {
     {step === 4 ? <AppCard>
       <Text variant="titleLarge">Trust and publication</Text>
       <Text>Your page will display your experience, qualifications, customer reviews, service areas, portfolio and BuildMate membership date. BuildMate lists what you declare but does not pretend to be an accreditation body.</Text>
-      <View style={styles.check}><Checkbox status={certified ? 'checked' : 'unchecked'} onPress={() => setCertified((x) => !x)} /><Text style={styles.checkText} onPress={() => setCertified((x) => !x)}>I self-certify that the information is accurate and that I hold any insurance or trade accreditation required for the work I offer.</Text></View>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: certified }} onPress={() => setCertified((x) => !x)} style={styles.check}>
+        <View style={[styles.checkBox, certified && styles.checkBoxSelected]}>{certified ? <Text style={styles.checkMark}>✓</Text> : null}</View>
+        <Text style={styles.checkText}>I self-certify that the information is accurate and that I hold any insurance or trade accreditation required for the work I offer.</Text>
+      </Pressable>
     </AppCard> : null}
 
     <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
-    <View style={styles.actions}>{step > 0 ? <Button onPress={() => setStep((x) => x - 1)}>Back</Button> : <View />}{step < 4 ? <Button mode="contained" disabled={!valid} onPress={() => setStep((x) => x + 1)}>Continue</Button> : <Button mode="contained" loading={busy} disabled={!valid || busy} onPress={save}>Save & publish profile</Button>}</View>
+    <View style={styles.actions}>{step > 0 ? <Button onPress={() => setStep((x) => x - 1)}>Back</Button> : <View />}{step < 4 ? <Button mode="contained" disabled={!valid} onPress={() => setStep((x) => x + 1)}>Continue</Button> : <Button mode="contained" loading={busy} disabled={!valid || busy} onPress={() => void save()}>{busy ? 'Publishing profile…' : 'Save & publish profile'}</Button>}</View>
   </Screen>;
 }
 
@@ -224,7 +232,10 @@ const styles = StyleSheet.create({
   twoCol: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   flex: { flex: 1, minWidth: 180 },
   projectRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
-  check: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  checkText: { flex: 1, lineHeight: 22, paddingTop: 8 },
+  check: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 6 },
+  checkBox: { width: 26, height: 26, borderWidth: 2, borderColor: colors.muted, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+  checkBoxSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
+  checkMark: { color: '#fff', fontWeight: '900', fontSize: 18, lineHeight: 21 },
+  checkText: { flex: 1, lineHeight: 22, paddingTop: 2 },
   actions: { flexDirection: 'row', justifyContent: 'space-between' },
 });
