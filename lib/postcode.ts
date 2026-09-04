@@ -50,7 +50,7 @@ export async function lookupPostcode(input: string): Promise<PostcodeLocation> {
     postcode: result.postcode,
     latitude: result.latitude,
     longitude: result.longitude,
-    locationLabel: result.admin_district || result.region || result.country || result.postcode.split(' ')[0],
+    locationLabel: result.admin_district || result.region || result.country || result.postcode.split(' ')[0] || result.postcode,
   };
 }
 
