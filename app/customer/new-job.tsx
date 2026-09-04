@@ -1,4 +1,5 @@
 import { useAuth } from '@clerk/expo';
+import type { Href } from 'expo-router';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Button, HelperText, SegmentedButtons, Text, TextInput } from 'react-native-paper';
@@ -33,11 +34,12 @@ export default function NewJobScreen() {
     try {
       setBusy(true);
       setError('');
-      await apiFetch('/api/jobs', {
+      const created = await apiFetch<{ id: string; conversationId: string | null }>('/api/jobs', {
         method: 'POST',
         body: JSON.stringify({ targetTraderId: traderId ?? null, title, category, propertyType, postcode, urgency, budgetRange, description, aiGeneratedSpec, photos }),
       }, getToken);
-      router.replace('/customer/dashboard');
+      if (created.conversationId) router.replace(`/customer/messages/${created.conversationId}` as Href);
+      else router.replace('/customer/dashboard');
     } catch (e) { setError(errorMessage(e)); }
     finally { setBusy(false); }
   }
@@ -60,7 +62,7 @@ export default function NewJobScreen() {
     <HelperText type="info">{description.length}/5000 characters {aiGeneratedSpec ? '· AI draft—checked by you' : ''}</HelperText>
     <PhotoUploader kind="job" photos={photos} onChange={setPhotos} max={8} />
     <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
-    <Button mode="contained" loading={busy} disabled={!complete || busy} onPress={submit}>Publish job</Button>
+    <Button mode="contained" loading={busy} disabled={!complete || busy} onPress={submit}>{traderName ? 'Send direct quote request' : 'Publish job'}</Button>
     {category && propertyType ? <AIJobSpecModal visible={showAi} category={category} propertyType={propertyType} onDismiss={() => setShowAi(false)} onGenerated={(spec) => { setDescription(spec); setAiGeneratedSpec(spec); }} /> : null}
   </Screen>;
 }
