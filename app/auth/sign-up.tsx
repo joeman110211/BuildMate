@@ -45,7 +45,7 @@ export default function SignUpScreen() {
       await signUp.finalize({
         navigate: async ({ session }) => {
           if (session?.currentTask) {
-            throw new Error(`Account needs another setup step before continuing (${session.currentTask.key}).`);
+            throw new Error('Account needs another Clerk setup step before BuildMate can continue.');
           }
           router.replace('/auth/choose-role');
         },
