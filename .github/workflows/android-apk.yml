@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   workflow_run:
-    workflows: [Production Smoke Test]
+    workflows: [Quality]
     types: [completed]
   workflow_dispatch:
 
