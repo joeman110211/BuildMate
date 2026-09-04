@@ -5,6 +5,7 @@ import { AppCard } from '@/components/AppCard';
 import { Screen } from '@/components/Screen';
 import { SUBSCRIPTION_TIERS } from '@/constants/options';
 import { apiFetch, errorMessage } from '@/lib/api';
+import { TRADER_TRIAL_DAYS } from '@/lib/subscription';
 
 export default function SubscriptionScreen() {
   const { getToken } = useAuth();
@@ -13,9 +14,12 @@ export default function SubscriptionScreen() {
     try { const { url } = await apiFetch<{ url: string }>(path, { method: 'POST', body: JSON.stringify(body) }, getToken); await Linking.openURL(url); }
     catch (e) { alert(errorMessage(e)); }
   }
-  return <Screen title="Plans and payouts" subtitle="Subscriptions unlock leads. Stripe Connect lets customers pay you through BuildMate.">
-    {!paymentsEnabled ? <AppCard><Text variant="titleLarge">14-day trader trial</Text><Text>Paid subscriptions are paused for beta. New trader profiles get 14 days of Basic listing access without taking payment, then Stripe subscriptions can take over when payments are enabled.</Text></AppCard> : null}
-    <View style={styles.grid}>{Object.entries(SUBSCRIPTION_TIERS).map(([key, tier]) => <View key={key} style={styles.plan}><AppCard><Text variant="headlineSmall">{tier.name}</Text><Text variant="headlineMedium">{paymentsEnabled ? tier.price : key === 'free' ? tier.price : '14 days free'}</Text>{tier.features.map((feature) => <Text key={feature}>✓ {feature}</Text>)}{key !== 'free' ? <Button mode="contained" disabled={!paymentsEnabled} onPress={() => openEndpoint('/api/stripe/subscription', { tier: key })}>{paymentsEnabled ? `Choose ${tier.name}` : 'Starts after profile setup'}</Button> : null}</AppCard></View>)}</View>
+  return <Screen title="Plans and payouts" subtitle="Every new trader gets a free trial first. Stripe subscriptions and payouts can be set up when you are ready.">
+    <AppCard>
+      <Text variant="titleLarge">{TRADER_TRIAL_DAYS}-day trader trial</Text>
+      <Text>New trader profiles get {TRADER_TRIAL_DAYS} days of Basic listing and lead access without needing a paid subscription. If you choose a paid plan during the trial, Stripe will not bill before the free period ends.</Text>
+    </AppCard>
+    <View style={styles.grid}>{Object.entries(SUBSCRIPTION_TIERS).map(([key, tier]) => <View key={key} style={styles.plan}><AppCard><Text variant="headlineSmall">{tier.name}</Text><Text variant="headlineMedium">{key === 'free' ? tier.price : `${tier.price} after trial`}</Text>{tier.features.map((feature) => <Text key={feature}>✓ {feature}</Text>)}{key !== 'free' ? <Button mode="contained" disabled={!paymentsEnabled} onPress={() => openEndpoint('/api/stripe/subscription', { tier: key })}>{paymentsEnabled ? `Choose ${tier.name}` : 'Subscriptions available after beta'}</Button> : null}</AppCard></View>)}</View>
     <AppCard><Text variant="titleLarge">Receive job payments</Text><Text>Complete Stripe Express onboarding so deposits and balances can be routed to your bank. BuildMate never handles raw card numbers.</Text><Button mode="contained" icon="bank" disabled={!paymentsEnabled} onPress={() => openEndpoint('/api/stripe/connect')}>{paymentsEnabled ? 'Set up Stripe payouts' : 'Payouts paused during beta'}</Button></AppCard>
     <Button mode="outlined" disabled={!paymentsEnabled} onPress={() => openEndpoint('/api/stripe/billing-portal')}>Manage or cancel subscription</Button>
   </Screen>;
