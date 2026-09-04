@@ -1,8 +1,9 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { traderProfiles, users } from '@/db/schema';
 import { InvalidPostcodeError, lookupPostcode } from '@/lib/postcode';
 import { accountAccess, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
+import { trialEndsAt } from '@/lib/subscription';
 import { roleSchema, traderProfileSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -47,10 +48,23 @@ export async function PUT(request: Request) {
       latitude: location.latitude,
       longitude: location.longitude,
     };
+    const trialListing = process.env.STRIPE_SECRET_KEY?.trim()
+      ? {}
+      : { subscriptionTier: 'basic' as const, isSubscriptionActive: true, trialEndsAt: trialEndsAt() };
 
-    const [profile] = await getDb().insert(traderProfiles).values({ userId, ...values }).onConflictDoUpdate({
+    const [profile] = await getDb().insert(traderProfiles).values({ userId, ...values, ...trialListing }).onConflictDoUpdate({
       target: traderProfiles.userId,
-      set: { ...values, updatedAt: new Date() },
+      set: {
+        ...values,
+        ...(process.env.STRIPE_SECRET_KEY?.trim()
+          ? {}
+          : {
+              subscriptionTier: 'basic' as const,
+              isSubscriptionActive: true,
+              trialEndsAt: sql`coalesce(${traderProfiles.trialEndsAt}, excluded.trial_ends_at)`,
+            }),
+        updatedAt: new Date(),
+      },
     }).returning();
     return Response.json(profile);
   } catch (error) { return jsonError(error); }
