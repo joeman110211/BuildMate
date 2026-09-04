@@ -11,11 +11,17 @@ export function PhotoUploader({
   photos,
   onChange,
   max,
+  title = 'Photos',
+  emptyText = 'Add clear photos from your phone or computer.',
+  buttonLabel = 'Add photo',
 }: {
   kind: MediaKind;
   photos: string[];
   onChange: (photos: string[]) => void;
   max: number;
+  title?: string;
+  emptyText?: string;
+  buttonLabel?: string;
 }) {
   const { getToken } = useAuth();
   const [busy, setBusy] = useState(false);
@@ -38,17 +44,17 @@ export function PhotoUploader({
   return <View style={styles.wrap}>
     <View style={styles.header}>
       <View style={styles.heading}>
-        <Text variant="titleMedium">Photos</Text>
+        <Text variant="titleMedium">{title}</Text>
         <Text style={styles.muted}>{photos.length}/{max}</Text>
       </View>
-      <Button mode="outlined" icon="image-plus" loading={busy} disabled={busy || photos.length >= max} onPress={addPhoto}>Add photo</Button>
+      <Button mode="outlined" icon="image-plus" loading={busy} disabled={busy || photos.length >= max} onPress={addPhoto}>{buttonLabel}</Button>
     </View>
     {photos.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gallery}>
-      {photos.map((uri, index) => <View key={uri} style={styles.photoWrap}>
+      {photos.map((uri, index) => <View key={`${uri}-${index}`} style={styles.photoWrap}>
         <Image source={{ uri }} style={styles.photo} />
         <Button compact onPress={() => onChange(photos.filter((_, i) => i !== index))}>Remove</Button>
       </View>)}
-    </ScrollView> : <Text style={styles.muted}>Add clear photos from your phone or computer.</Text>}
+    </ScrollView> : <Text style={styles.muted}>{emptyText}</Text>}
     <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
   </View>;
 }
