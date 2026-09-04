@@ -2,6 +2,8 @@ import { Platform } from 'react-native';
 
 type TokenGetter = () => Promise<string | null>;
 
+const DEFAULT_API_TIMEOUT_MS = 12000;
+
 function baseUrl() {
   if (Platform.OS === 'web') return process.env.EXPO_PUBLIC_API_URL ?? '';
   const url = process.env.EXPO_PUBLIC_API_URL;
@@ -16,25 +18,38 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, options: RequestInit = {}, getToken?: TokenGetter): Promise<T> {
-  const token = getToken ? await getToken() : null;
-  const response = await fetch(`${baseUrl()}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_API_TIMEOUT_MS);
 
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new ApiError(response.status, body?.error ?? 'Request failed', body?.details);
+  try {
+    const token = getToken ? await getToken() : null;
+    const response = await fetch(`${baseUrl()}${path}`, {
+      ...options,
+      signal: options.signal ?? controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new ApiError(response.status, body?.error ?? 'Request failed', body?.details);
+    }
+    return body as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError(408, 'BuildMate could not reach the account service. Please try again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return body as T;
 }
 
 type ClerkLikeError = {
-  errors?: Array<{ longMessage?: string; message?: string; code?: string }>;
+  errors?: { longMessage?: string; message?: string; code?: string }[];
   message?: string;
 };
 
