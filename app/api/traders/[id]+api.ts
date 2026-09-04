@@ -20,8 +20,8 @@ const defaultShowcase = {
 export async function GET(request: Request, { id }: { id: string }) {
   try {
     const db = getDb();
-    const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${traderProfiles.createdAt} + interval '14 days' > now())`;
-    const trialEndsAt = sql<Date>`${traderProfiles.createdAt} + interval '14 days'`;
+    const effectiveTrialEnd = sql<Date>`coalesce(${traderProfiles.trialEndsAt}, ${traderProfiles.createdAt} + interval '14 days')`;
+    const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
     const [profile] = await db.select({
       id: traderProfiles.id,
       userId: traderProfiles.userId,
@@ -36,7 +36,7 @@ export async function GET(request: Request, { id }: { id: string }) {
       photos: traderProfiles.photos,
       subscriptionTier: traderProfiles.subscriptionTier,
       isSubscriptionActive: activeLeadAccess,
-      trialEndsAt,
+      trialEndsAt: effectiveTrialEnd,
       createdAt: traderProfiles.createdAt,
       averageRating: sql<number>`coalesce(avg(${reviews.rating}), 0)::float`,
       reviewCount: sql<number>`count(${reviews.id})::int`,
