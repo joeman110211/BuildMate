@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/expo';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { Button, Chip, HelperText, Text, TextInput } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
 // Metro and TypeScript resolve the .native/.web implementation; ESLint's generic resolver does not.
@@ -36,6 +36,7 @@ export default function JobDetailScreen() {
   const reviewAllowed = data.job.status === 'completed' && data.milestones.some((m) => m.title !== 'Deposit' && m.status === 'paid') && !data.existingReview;
   return <Screen title={data.job.title} subtitle={`${data.job.category} · ${data.job.status.replace('_', ' ')}`}>
     <AppCard><View style={styles.row}><Chip>{data.job.propertyType}</Chip><Chip>{data.job.urgency}</Chip><Chip>{data.job.budgetRange}</Chip></View><Text>{data.job.description}</Text>{data.job.aiGeneratedSpec ? <Text variant="bodySmall" style={styles.muted}>Drafted with AI and approved by the customer.</Text> : null}</AppCard>
+    {data.job.photos?.length ? <View style={styles.gallery}>{data.job.photos.map((uri) => <Image key={uri} source={{ uri }} style={styles.photo} />)}</View> : null}
     {data.acceptedQuote ? <><Text variant="titleLarge">Awarded to {data.trader?.businessName ?? 'tradesperson'}</Text><AppCard><Text>Total: {formatMoney(data.acceptedQuote.totalAmount)}</Text><Text>{data.acceptedQuote.paymentTerms}</Text></AppCard>
       <Text variant="titleLarge">Payments</Text>{data.milestones.map((milestone) => <AppCard key={milestone.id}><View style={styles.row}><View><Text variant="titleMedium">{milestone.title}</Text><Text style={styles.muted}>{formatMoney(milestone.amount)}</Text></View><Chip>{milestone.status}</Chip></View>{milestone.status !== 'paid' && (milestone.title === 'Deposit' || milestone.status === 'completed') ? <PayMilestoneButton milestoneId={milestone.id} onPaid={() => setTimeout(load, 1500)} /> : null}</AppCard>)}
     </> : <EmptyState title="No quote accepted" body="Compare quotes when they arrive, then accept the best fit—not just the cheapest number." />}
@@ -44,4 +45,4 @@ export default function JobDetailScreen() {
   </Screen>;
 }
 
-const styles = StyleSheet.create({ row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }, muted: { color: colors.muted }, stars: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' } });
+const styles = StyleSheet.create({ row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }, muted: { color: colors.muted }, stars: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' }, gallery: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, photo: { width: 180, height: 135, borderRadius: 10, backgroundColor: colors.border } });
