@@ -67,3 +67,20 @@ jobs:
           jq -e '.status == "ok" and .database == "ok"' "$health_file" > /dev/null
           curl --fail --show-error --silent --retry 8 --retry-delay 3 "$BASE_URL/api/traders" > /dev/null
           echo "Production API, Neon database and public trader endpoint are responding."
+
+      - name: Verify production integration configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          readiness_file=$(mktemp)
+          readiness_status=$(curl --silent --show-error --retry 4 --retry-delay 3 \
+            -o "$readiness_file" -w '%{http_code}' "$BASE_URL/api/readiness" || true)
+          cat "$readiness_file"
+          printf '\n'
+          if [ "$readiness_status" != "200" ]; then
+            missing=$(jq -r '.missing // [] | join(", ")' "$readiness_file" 2>/dev/null || true)
+            echo "::error::Production integration configuration incomplete${missing:+: $missing}"
+            exit 1
+          fi
+          jq -e '.ready == true and .status == "ready"' "$readiness_file" > /dev/null
+          echo "Production Clerk, Stripe, Gemini, Resend and Cloudinary configuration is present."
