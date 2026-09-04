@@ -18,6 +18,9 @@ type ConversationRow = {
   lastMessageAt: string;
 };
 
+type JobRow = { id: string; customerId: string; targetTraderId: string | null };
+type CreatedConversation = { id: string; jobId: string; customerId: string; traderId: string; lastMessageAt: string };
+
 export async function GET(request: Request) {
   try {
     const userId = await authenticatedUserId(request);
@@ -37,7 +40,7 @@ export async function GET(request: Request) {
       WHERE c.customer_id = ${userId} OR c.trader_id = ${userId}
       ORDER BY c.last_message_at DESC
       LIMIT 100
-    ` as ConversationRow[];
+    ` as unknown as ConversationRow[];
     return Response.json(rows);
   } catch (error) { return jsonError(error); }
 }
@@ -49,7 +52,7 @@ export async function POST(request: Request) {
     if (!user.role) throw new HttpError(403, 'Choose an account type first');
     const payload = createConversationSchema.parse(await request.json());
     const sql = getSql();
-    const jobs = await sql`SELECT id, customer_id AS "customerId", target_trader_id AS "targetTraderId" FROM jobs WHERE id = ${payload.jobId} LIMIT 1` as { id: string; customerId: string; targetTraderId: string | null }[];
+    const jobs = await sql`SELECT id, customer_id AS "customerId", target_trader_id AS "targetTraderId" FROM jobs WHERE id = ${payload.jobId} LIMIT 1` as unknown as JobRow[];
     const job = jobs[0];
     if (!job) throw new HttpError(404, 'Job not found');
 
@@ -59,11 +62,11 @@ export async function POST(request: Request) {
     if (user.role === 'trader' && traderId !== userId) throw new HttpError(403, 'Invalid trader');
 
     const eligible = await sql`
-      SELECT 1 FROM quotes WHERE job_id = ${payload.jobId} AND trader_id = ${traderId}
+      SELECT 1 AS allowed FROM quotes WHERE job_id = ${payload.jobId} AND trader_id = ${traderId}
       UNION ALL
-      SELECT 1 WHERE ${job.targetTraderId} = ${traderId}
+      SELECT 1 AS allowed WHERE ${job.targetTraderId} = ${traderId}
       LIMIT 1
-    `;
+    ` as unknown as { allowed: number }[];
     if (!eligible.length) throw new HttpError(403, 'Messaging opens after a quote or direct job request');
 
     const rows = await sql`
@@ -72,7 +75,7 @@ export async function POST(request: Request) {
       ON CONFLICT (job_id, customer_id, trader_id)
       DO UPDATE SET updated_at = now()
       RETURNING id, job_id AS "jobId", customer_id AS "customerId", trader_id AS "traderId", last_message_at AS "lastMessageAt"
-    `;
+    ` as unknown as CreatedConversation[];
     return Response.json(rows[0], { status: 201 });
   } catch (error) { return jsonError(error); }
 }
