@@ -19,7 +19,8 @@ export default function TraderProfileScreen() {
   useEffect(() => { (async () => { try { setProfile(await apiFetch(`/api/traders/${id}`, {}, isSignedIn ? getToken : undefined)); } catch (e) { setError(errorMessage(e)); } })(); }, [getToken, id, isSignedIn]);
   if (error) return <Screen><EmptyState title="Profile unavailable" body={error} /></Screen>;
   if (!profile) return <LoadingScreen />;
-  return <Screen title={profile.businessName} subtitle={`${profile.tradeCategory} · Works within ${profile.radiusMiles} miles`}>
+  const area = profile.locationLabel ? ` · ${profile.locationLabel}` : '';
+  return <Screen title={profile.businessName} subtitle={`${profile.tradeCategory}${area} · Works within ${profile.radiusMiles} miles`}>
     <View style={styles.meta}><Chip icon="star">{profile.averageRating.toFixed(1)} · {profile.reviewCount} reviews</Chip>{profile.subscriptionTier === 'featured' ? <Chip icon="check-decagram">Featured</Chip> : null}</View>
     <Text variant="bodyLarge">{profile.bio}</Text>
     <Text variant="titleMedium">Skills</Text><View style={styles.meta}>{profile.subSkills.map((skill) => <Chip key={skill}>{skill}</Chip>)}</View>
@@ -32,7 +33,7 @@ export default function TraderProfileScreen() {
     <Text variant="titleMedium">Verified customer reviews</Text>
     {profile.reviews.length ? profile.reviews.map((review) => <AppCard key={review.id}><Text style={styles.stars}>{'★'.repeat(review.rating)}</Text><Text>{review.comment}</Text><Text variant="bodySmall" style={styles.muted}>Verified paid BuildMate job</Text></AppCard>) : <Text>No verified reviews yet.</Text>}
     <Divider />
-    {profile.contact ? <AppCard><Text variant="titleMedium">Contact {profile.businessName}</Text>{profile.contact.phone ? <Button icon="phone" mode="contained" onPress={() => Linking.openURL(`tel:${profile.contact?.phone}`)}>Call</Button> : null}{profile.contact.email ? <Button icon="email" mode="outlined" onPress={() => Linking.openURL(`mailto:${profile.contact?.email}`)}>Email</Button> : null}<Link href={{ pathname: '/customer/new-job', params: { traderId: profile.userId, traderName: profile.businessName } } as Href} asChild><Button mode="contained">Request direct quote</Button></Link></AppCard> : <AppCard><Text variant="titleMedium">Contact details locked</Text><Text style={styles.muted}>{isSignedIn ? 'This trader needs an active lead subscription before direct contact can be enabled.' : 'Sign in to request a quote and view contact options from subscribed tradespeople.'}</Text>{!isSignedIn ? <Link href="/auth/sign-in" asChild><Button mode="contained">Sign in</Button></Link> : null}</AppCard>}
+    {profile.contact ? <AppCard><Text variant="titleMedium">Contact {profile.businessName}</Text>{profile.contact.phone ? <Button icon="phone" mode="contained" onPress={() => Linking.openURL(`tel:${profile.contact?.phone}`)}>Call</Button> : null}{profile.contact.email ? <Button icon="email" mode="outlined" onPress={() => Linking.openURL(`mailto:${profile.contact?.email}`)}>Email</Button> : null}<Link href={{ pathname: '/customer/new-job', params: { traderId: profile.userId, traderName: profile.businessName, tradeCategory: profile.tradeCategory } } as Href} asChild><Button mode="contained">Request direct quote</Button></Link></AppCard> : <AppCard><Text variant="titleMedium">Contact details locked</Text><Text style={styles.muted}>{isSignedIn ? 'This trader needs an active lead subscription before direct contact can be enabled.' : 'Sign in to request a quote and view contact options from subscribed tradespeople.'}</Text>{!isSignedIn ? <Link href="/auth/sign-in" asChild><Button mode="contained">Sign in</Button></Link> : null}</AppCard>}
   </Screen>;
 }
 
