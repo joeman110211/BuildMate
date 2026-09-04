@@ -2,11 +2,16 @@ import { createClerkClient, verifyToken } from '@clerk/backend';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { users } from '@/db/schema';
+import { getSql } from '@/lib/sql';
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) {
     super(message);
   }
+}
+
+function bootstrapAdminIds() {
+  return new Set((process.env.ADMIN_CLERK_USER_IDS ?? '').split(',').map((value) => value.trim()).filter(Boolean));
 }
 
 export async function authenticatedUserId(request: Request) {
@@ -20,10 +25,32 @@ export async function authenticatedUserId(request: Request) {
   return payload.sub;
 }
 
+export async function accountAccess(userId: string) {
+  const rows = await getSql()`
+    SELECT is_admin AS "isAdmin", is_suspended AS "isSuspended", suspension_reason AS "suspensionReason"
+    FROM users WHERE id = ${userId} LIMIT 1
+  ` as { isAdmin: boolean; isSuspended: boolean; suspensionReason: string }[];
+  const row = rows[0];
+  return {
+    isAdmin: Boolean(row?.isAdmin || bootstrapAdminIds().has(userId)),
+    isSuspended: Boolean(row?.isSuspended),
+    suspensionReason: row?.suspensionReason ?? '',
+  };
+}
+
+async function assertAccountActive(userId: string) {
+  const access = await accountAccess(userId);
+  if (access.isSuspended) throw new HttpError(403, access.suspensionReason ? `Account suspended: ${access.suspensionReason}` : 'Account suspended');
+  return access;
+}
+
 export async function ensureDbUser(userId: string) {
   const db = getDb();
   const existing = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  if (existing) return existing;
+  if (existing) {
+    await assertAccountActive(userId);
+    return existing;
+  }
 
   const secretKey = process.env.CLERK_SECRET_KEY;
   if (!secretKey) throw new Error('CLERK_SECRET_KEY is not configured');
@@ -34,10 +61,10 @@ export async function ensureDbUser(userId: string) {
     email: identity.primaryEmailAddress?.emailAddress ?? null,
     phone: identity.primaryPhoneNumber?.phoneNumber ?? null,
   }).onConflictDoNothing().returning();
-  if (created) return created;
-  const raced = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  if (!raced) throw new Error('Unable to synchronize user');
-  return raced;
+  const user = created ?? await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!user) throw new Error('Unable to synchronize user');
+  await assertAccountActive(userId);
+  return user;
 }
 
 export async function requireRole(request: Request, role: 'customer' | 'trader') {
@@ -45,6 +72,14 @@ export async function requireRole(request: Request, role: 'customer' | 'trader')
   const user = await ensureDbUser(id);
   if (user.role !== role) throw new HttpError(403, `${role} account required`);
   return user;
+}
+
+export async function requireAdmin(request: Request) {
+  const id = await authenticatedUserId(request);
+  const user = await ensureDbUser(id);
+  const access = await accountAccess(id);
+  if (!access.isAdmin) throw new HttpError(403, 'Administrator access required');
+  return { user, access };
 }
 
 export function jsonError(error: unknown) {

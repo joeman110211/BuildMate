@@ -7,10 +7,11 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const trade = url.searchParams.get('trade');
-    const db = getDb();
+    const activeAccount = sql`NOT EXISTS (SELECT 1 FROM users u WHERE u.id = ${traderProfiles.userId} AND u.is_suspended = true)`;
     const where = trade
-      ? and(eq(traderProfiles.isSubscriptionActive, true), eq(traderProfiles.tradeCategory, trade))
-      : eq(traderProfiles.isSubscriptionActive, true);
+      ? and(eq(traderProfiles.isSubscriptionActive, true), eq(traderProfiles.tradeCategory, trade), activeAccount)
+      : and(eq(traderProfiles.isSubscriptionActive, true), activeAccount);
+    const db = getDb();
     const rows = await db.select({
       id: traderProfiles.id,
       userId: traderProfiles.userId,

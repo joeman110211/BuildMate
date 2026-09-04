@@ -11,8 +11,6 @@ const reportSchema = z.object({
   details: z.string().trim().max(2000).default(''),
 }).refine((value) => Boolean(value.subjectUserId || value.messageId || value.reviewId || value.jobId), 'A report target is required');
 
-type ReportRow = { id: string; status: string; createdAt: string };
-
 export async function GET(request: Request) {
   try {
     const userId = await authenticatedUserId(request);
@@ -24,7 +22,7 @@ export async function GET(request: Request) {
       WHERE reporter_id = ${userId}
       ORDER BY created_at DESC
       LIMIT 100
-    ` as unknown as Record<string, unknown>[];
+    `;
     return Response.json(rows);
   } catch (error) { return jsonError(error); }
 }
@@ -35,25 +33,29 @@ export async function POST(request: Request) {
     await ensureDbUser(userId);
     const payload = reportSchema.parse(await request.json());
     const sql = getSql();
+    let subjectUserId = payload.subjectUserId ?? null;
 
     if (payload.messageId) {
       const access = await sql`
-        SELECT m.id
+        SELECT m.id, m.sender_id AS "senderId"
         FROM messages m
         JOIN conversations c ON c.id = m.conversation_id
         WHERE m.id = ${payload.messageId}
           AND (c.customer_id = ${userId} OR c.trader_id = ${userId})
           AND m.sender_id <> ${userId}
         LIMIT 1
-      ` as unknown as { id: string }[];
-      if (!access.length) throw new HttpError(403, 'You cannot report this message');
+      ` as { id: string; senderId: string }[];
+      if (!access[0]) throw new HttpError(403, 'You cannot report this message');
+      subjectUserId = access[0].senderId;
     }
+
+    if (subjectUserId === userId) throw new HttpError(400, 'You cannot report your own account');
 
     const rows = await sql`
       INSERT INTO moderation_reports(reporter_id, subject_user_id, message_id, review_id, job_id, reason, details)
-      VALUES (${userId}, ${payload.subjectUserId ?? null}, ${payload.messageId ?? null}, ${payload.reviewId ?? null}, ${payload.jobId ?? null}, ${payload.reason}, ${payload.details})
+      VALUES (${userId}, ${subjectUserId}, ${payload.messageId ?? null}, ${payload.reviewId ?? null}, ${payload.jobId ?? null}, ${payload.reason}, ${payload.details})
       RETURNING id, status, created_at AS "createdAt"
-    ` as unknown as ReportRow[];
+    ` as { id: string; status: string; createdAt: string }[];
     return Response.json(rows[0], { status: 201 });
   } catch (error) { return jsonError(error); }
 }
