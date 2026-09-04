@@ -70,10 +70,10 @@ export async function GET(request: Request, { id }: { id: string }) {
       });
     }
 
-    let showcase: typeof defaultShowcase | undefined;
+    let showcase: Record<string, unknown> = {};
     try {
       const [storedShowcase] = await db.select().from(traderProfileShowcase).where(eq(traderProfileShowcase.userId, profile.userId)).limit(1);
-      showcase = storedShowcase ? { ...defaultShowcase, ...storedShowcase } : undefined;
+      showcase = storedShowcase ?? {};
     } catch (error) {
       if (!missingShowcaseTable(error)) throw error;
     }
@@ -91,6 +91,6 @@ export async function GET(request: Request, { id }: { id: string }) {
       }
     } catch { /* guest or suspended viewer: deliberately no contact details */ }
 
-    return Response.json({ ...profile, ...defaultShowcase, ...(showcase ?? {}), reviews: verifiedReviews, contact, contactLocked: !contact });
+    return Response.json({ ...profile, ...defaultShowcase, ...showcase, reviews: verifiedReviews, contact, contactLocked: !contact });
   } catch (error) { return jsonError(error); }
 }
