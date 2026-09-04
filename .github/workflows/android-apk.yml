@@ -33,6 +33,50 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Resolve public runtime configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          api_url="${EXPO_PUBLIC_API_URL:-https://buildmate-nine.vercel.app}"
+          clerk_key="${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
+          stripe_key="${EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}"
+
+          if [ -z "$clerk_key" ] || [ -z "$stripe_key" ]; then
+            html="$(curl -fsSL "$api_url")"
+            js_path="$(printf '%s' "$html" | grep -oE '/_expo/static/js/web/entry-[^"[:space:]]+\.js' | head -n 1)"
+            test -n "$js_path" || { echo "Could not locate BuildMate web bundle"; exit 1; }
+
+            bundle_file="$(mktemp)"
+            curl -fsSL "$api_url$js_path" -o "$bundle_file"
+
+            while IFS= read -r key; do
+              suffix="${key#pk_test_}"
+              suffix="${suffix#pk_live_}"
+              normalized="$(printf '%s' "$suffix" | tr '_-' '/+')"
+              case $((${#normalized} % 4)) in
+                2) normalized="${normalized}==" ;;
+                3) normalized="${normalized}=" ;;
+              esac
+              decoded="$(printf '%s' "$normalized" | base64 -d 2>/dev/null || true)"
+
+              if printf '%s' "$decoded" | grep -qi 'clerk'; then
+                clerk_key="$key"
+              elif [ -z "$stripe_key" ]; then
+                stripe_key="$key"
+              fi
+            done < <(grep -oE 'pk_(test|live)_[A-Za-z0-9_-]+' "$bundle_file" | sort -u)
+          fi
+
+          test -n "$clerk_key" || { echo "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"; exit 1; }
+          test -n "$stripe_key" || { echo "Missing EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY"; exit 1; }
+
+          {
+            echo "EXPO_PUBLIC_API_URL=$api_url"
+            echo "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=$clerk_key"
+            echo "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=$stripe_key"
+          } >> "$GITHUB_ENV"
+
       - name: Require runtime configuration
         shell: bash
         run: |
