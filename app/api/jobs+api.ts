@@ -85,7 +85,10 @@ export async function POST(request: Request) {
                tp.subscription_tier AS "subscriptionTier",
                (
                  tp.is_subscription_active = true
-                 AND (tp.stripe_subscription_id IS NOT NULL OR tp.created_at + interval '14 days' > now())
+                 AND (
+                   tp.stripe_subscription_id IS NOT NULL
+                   OR coalesce(tp.trial_ends_at, tp.created_at + interval '14 days') > now()
+                 )
                ) AS "isSubscriptionActive"
         FROM trader_profiles tp
         JOIN users u ON u.id = tp.user_id
