@@ -40,46 +40,22 @@ jobs:
 
           api_url="${EXPO_PUBLIC_API_URL:-https://buildmate-nine.vercel.app}"
           clerk_key="${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
-          stripe_key="${EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}"
 
-          if [ -z "$clerk_key" ] || [ -z "$stripe_key" ]; then
+          if [ -z "$clerk_key" ]; then
             html="$(curl -fsSL "$api_url")"
             js_path="$(printf '%s' "$html" | grep -oE '/_expo/static/js/web/entry-[^"[:space:]]+\.js' | head -n 1)"
             test -n "$js_path" || { echo "Could not locate BuildMate web bundle"; exit 1; }
 
             bundle_file="$(mktemp)"
             curl -fsSL "$api_url$js_path" -o "$bundle_file"
-            mapfile -t public_keys < <(grep -oE 'pk_(test|live)_[A-Za-z0-9_-]+' "$bundle_file" | sort -u)
-
-            if [ -z "$clerk_key" ]; then
-              for key in "${public_keys[@]}"; do
-                suffix="${key#pk_test_}"
-                suffix="${suffix#pk_live_}"
-                decoded="$(node -e "try { process.stdout.write(Buffer.from(process.argv[1], 'base64url').toString('utf8')) } catch {}" "$suffix")"
-                if [[ "$decoded" == *.* && "$decoded" == *'$' ]]; then
-                  clerk_key="$key"
-                  break
-                fi
-              done
-            fi
-
-            if [ -z "$stripe_key" ]; then
-              for key in "${public_keys[@]}"; do
-                if [ "$key" != "$clerk_key" ]; then
-                  stripe_key="$key"
-                  break
-                fi
-              done
-            fi
+            clerk_key="$(node -e "const fs=require('fs'); const b=fs.readFileSync(process.argv[1],'utf8'); const marker=b.indexOf('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is missing'); const rx=/pk_(?:test|live)_[A-Za-z0-9_-]+/g; const hits=[...b.matchAll(rx)]; hits.sort((a,c)=>Math.abs(a.index-marker)-Math.abs(c.index-marker)); if(hits.length) process.stdout.write(hits[0][0]);" "$bundle_file")"
           fi
 
           test -n "$clerk_key" || { echo "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"; exit 1; }
-          test -n "$stripe_key" || { echo "Missing EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY"; exit 1; }
 
           {
             echo "EXPO_PUBLIC_API_URL=$api_url"
             echo "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=$clerk_key"
-            echo "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=$stripe_key"
           } >> "$GITHUB_ENV"
 
       - name: Require runtime configuration
@@ -87,7 +63,6 @@ jobs:
         run: |
           test -n "$EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY" || { echo "Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"; exit 1; }
           test -n "$EXPO_PUBLIC_API_URL" || { echo "Missing EXPO_PUBLIC_API_URL"; exit 1; }
-          test -n "$EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY" || { echo "Missing EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY"; exit 1; }
 
       - run: npm ci --no-audit --no-fund --prefer-offline
 
