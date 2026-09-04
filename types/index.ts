@@ -33,6 +33,7 @@ export interface TraderProfile {
 export interface Job {
   id: string;
   customerId: string;
+  targetTraderId: string | null;
   title: string;
   category: string;
   propertyType: string;
@@ -42,6 +43,7 @@ export interface Job {
   budgetRange: string;
   photos: string[];
   status: JobStatus;
+  acceptedQuoteId?: string | null;
   createdAt: string;
   quotes?: Quote[];
 }
