@@ -44,7 +44,7 @@ buildmate/
 
 ## 1. Local setup
 
-Requirements: Node 22.12+ (Node 24 recommended), npm, Git, an Expo account, and Android Studio for a local Android emulator.
+Requirements: Node 22.12+ (Node 24 recommended), npm, Git, an Expo account, and Android Studio for native Android emulator/device work.
 
 ```bash
 git clone https://github.com/joeman110211/BuildMate.git
@@ -54,7 +54,7 @@ cp .env.example .env
 npx expo start
 ```
 
-For a physical Android phone, Expo Go is enough for most UI work. Stripe’s native module requires a development build for complete payment testing:
+Android Studio is useful for emulator testing, Logcat, Gradle/native debugging and validating installable Android builds against the same GitHub source. For most UI work Expo Go is enough; Stripe’s native module requires a development build for complete payment testing:
 
 ```bash
 npx eas-cli@latest build --profile development --platform android
