@@ -21,6 +21,10 @@ export interface TraderProfile {
   subSkills: string[];
   bio: string;
   radiusMiles: number;
+  postcode?: string | null;
+  locationLabel?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   externalLinks: Record<string, string>;
   photos: string[];
   subscriptionTier: SubscriptionTier;
@@ -37,6 +41,10 @@ export interface Job {
   title: string;
   category: string;
   propertyType: string;
+  postcode: string | null;
+  locationLabel: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   urgency: string;
   description: string;
   aiGeneratedSpec: string | null;
