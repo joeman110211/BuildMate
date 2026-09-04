@@ -35,7 +35,7 @@ export default function NewJobScreen() {
         method: 'POST',
         body: JSON.stringify({ targetTraderId: traderId ?? null, title, category, propertyType, urgency, budgetRange, description, aiGeneratedSpec, photos }),
       }, getToken);
-      router.replace('/(customer)/dashboard');
+      router.replace('/customer/dashboard');
     } catch (e) { setError(errorMessage(e)); }
     finally { setBusy(false); }
   }

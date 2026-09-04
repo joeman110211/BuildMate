@@ -40,7 +40,7 @@ export default function TraderOnboarding() {
       setBusy(true); setError('');
       const links = { gasSafe, trustMark, facebook, instagram, tiktok, whatsapp };
       await apiFetch('/api/me', { method: 'PUT', body: JSON.stringify({ businessName, tradeCategory, subSkills, bio, radiusMiles: Number(radius), qualifications: qualificationsText.split('\n').map((x) => x.trim()).filter(Boolean), externalLinks: links, photos, selfCertified: certified }) }, getToken);
-      router.replace('/(trader)/dashboard');
+      router.replace('/trader/dashboard');
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   }
 

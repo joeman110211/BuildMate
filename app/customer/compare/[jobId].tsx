@@ -19,7 +19,7 @@ export default function CompareQuotesScreen() {
   const load = useCallback(async () => { try { setData(await apiFetch(`/api/jobs/${jobId}/quotes`, {}, getToken)); } catch (e) { setError(errorMessage(e)); } }, [getToken, jobId]);
   useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
   async function accept(quote: Quote) {
-    try { setAccepting(quote.id); await apiFetch(`/api/quotes/${quote.id}`, { method: 'PATCH', body: JSON.stringify({ action: 'accept' }) }, getToken); router.replace(`/(customer)/jobs/${jobId}`); }
+    try { setAccepting(quote.id); await apiFetch(`/api/quotes/${quote.id}`, { method: 'PATCH', body: JSON.stringify({ action: 'accept' }) }, getToken); router.replace(`/customer/jobs/${jobId}`); }
     catch (e) { setError(errorMessage(e)); } finally { setAccepting(undefined); }
   }
   async function message(quote: Quote) {
@@ -27,7 +27,7 @@ export default function CompareQuotesScreen() {
       setMessaging(quote.id);
       setError('');
       const conversation = await apiFetch<{ id: string }>('/api/conversations', { method: 'POST', body: JSON.stringify({ jobId, traderId: quote.traderId }) }, getToken);
-      router.push(`/(customer)/messages/${conversation.id}` as Href);
+      router.push(`/customer/messages/${conversation.id}` as Href);
     } catch (e) { setError(errorMessage(e)); }
     finally { setMessaging(undefined); }
   }

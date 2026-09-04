@@ -34,7 +34,7 @@ export default function NewInvoiceScreen() {
       setBusy(true); setError('');
       const result = await apiFetch<{ deliveryWarning?: string }>('/api/invoices', { method: 'POST', body: JSON.stringify({ invoiceNumber, customerName, customerEmail, items: items.map((item) => ({ description: item.description, quantity: Number(item.quantity), unitPrice: poundsToPence(item.unitPrice) })), vatAmount: totals.vatAmount, depositAmount: poundsToPence(deposit), notes, sendNow: sendNow === 'yes' }) }, getToken);
       if (result.deliveryWarning) alert(result.deliveryWarning);
-      router.replace('/(trader)/dashboard');
+      router.replace('/trader/dashboard');
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   }
   const valid = invoiceNumber && customerName.length >= 2 && customerEmail.includes('@') && items.every((item) => item.description.length >= 2 && Number(item.quantity) > 0) && totals.total > 0 && poundsToPence(deposit) <= totals.total;
