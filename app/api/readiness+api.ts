@@ -1,4 +1,6 @@
 import { getSql } from '@/lib/sql';
+import { previewDataEnabled } from '@/lib/preview';
+import { betaLeadGraceEnabled } from '@/lib/subscription';
 
 const requiredEnvironment = [
   'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY',
@@ -17,6 +19,8 @@ const optionalEnvironment = [
   'APP_URL',
   'SUPPORT_EMAIL',
   'CLOUDINARY_CLOUD_NAME',
+  'BUILDPAIR_BETA_LEAD_GRACE',
+  'BUILDPAIR_PREVIEW_DATA_ENABLED',
   'EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY',
   'STRIPE_SECRET_KEY',
   'STRIPE_BASIC_PRICE_ID',
@@ -75,6 +79,12 @@ export async function GET() {
       missing,
       missingSchema,
       optionalMissing,
+      features: {
+        previewDataEnabled: previewDataEnabled(),
+        betaLeadGraceEnabled: betaLeadGraceEnabled(),
+        stripeClientConfigured: configured('EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY'),
+        stripeServerConfigured: configured('STRIPE_SECRET_KEY'),
+      },
       timestamp: new Date().toISOString(),
     },
     {
