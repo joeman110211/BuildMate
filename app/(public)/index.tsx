@@ -1,6 +1,6 @@
 import type { Href } from 'expo-router';
 import { Link, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, ImageBackground, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Button, Chip, Icon, Text, TextInput } from 'react-native-paper';
 import { PublicFooter } from '@/components/PublicFooter';
@@ -54,13 +54,15 @@ export default function LandingPage() {
   const [problem, setProblem] = useState('');
   const [traderCount, setTraderCount] = useState<number | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const floatAnim = useRef(new Animated.Value(0)).current;
+  const [floatAnim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
-    Animated.loop(Animated.sequence([
+    const animation = Animated.loop(Animated.sequence([
       Animated.timing(floatAnim, { toValue: -9, duration: 1600, useNativeDriver: false }),
       Animated.timing(floatAnim, { toValue: 0, duration: 1600, useNativeDriver: false }),
-    ])).start();
+    ]));
+    animation.start();
+    return () => animation.stop();
   }, [floatAnim]);
 
   useEffect(() => {
@@ -285,7 +287,7 @@ const styles = StyleSheet.create({
   heroVisualWide: { flex: 0.95, minHeight: 560 },
   heroImage: { flex: 1, minHeight: 390, justifyContent: 'flex-end', overflow: 'hidden', borderRadius: 34 },
   heroImageRadius: { borderRadius: 34 },
-  heroImageShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(22,25,28,0.23)' },
+  heroImageShade: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(22,25,28,0.23)' },
   imageCaption: { margin: 22, marginBottom: 28, gap: 3 },
   imageCaptionSmall: { color: '#FFFFFF', fontWeight: '700', opacity: 0.9 },
   imageCaptionBig: { color: '#FFFFFF', fontSize: 21, lineHeight: 27, fontWeight: '900', maxWidth: 420 },
