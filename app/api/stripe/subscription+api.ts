@@ -10,8 +10,8 @@ import { trialEndsAt } from '@/lib/subscription';
 const inputSchema = z.object({ tier: z.enum(['basic', 'featured']) });
 
 const plans = {
-  basic: { name: 'BuildPair Basic', unitAmount: 1999 },
-  featured: { name: 'BuildPair Featured', unitAmount: 2999 },
+  basic: { name: 'BuildPair Basic', unitAmount: 1999, priceEnv: 'STRIPE_BASIC_PRICE_ID' },
+  featured: { name: 'BuildPair Featured', unitAmount: 2999, priceEnv: 'STRIPE_FEATURED_PRICE_ID' },
 } as const;
 
 export async function POST(request: Request) {
@@ -51,11 +51,10 @@ export async function POST(request: Request) {
     }
 
     const plan = plans[tier];
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      customer: customerId,
-      line_items: [
-        {
+    const configuredPriceId = process.env[plan.priceEnv]?.trim();
+    const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = configuredPriceId
+      ? { price: configuredPriceId, quantity: 1 }
+      : {
           price_data: {
             currency: 'gbp',
             unit_amount: plan.unitAmount,
@@ -63,8 +62,13 @@ export async function POST(request: Request) {
             product_data: { name: plan.name },
           },
           quantity: 1,
-        },
-      ],
+        };
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: customerId,
+      client_reference_id: trader.id,
+      line_items: [lineItem],
       allow_promotion_codes: true,
       success_url: providerReturnUrl('subscription', 'complete'),
       cancel_url: providerReturnUrl('subscription', 'cancelled'),
