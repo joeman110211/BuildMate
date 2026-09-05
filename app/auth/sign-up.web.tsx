@@ -2,17 +2,25 @@ import { SignUp } from '@clerk/expo/web';
 import { useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
 import { Text } from 'react-native-paper';
+import { colors } from '@/constants/theme';
 import { modeSetupHref, parseAccountMode, signInHref } from '@/lib/account-mode';
 
 const appearance = {
   variables: {
     colorPrimary: '#D35400',
-    borderRadius: '14px',
+    colorBackground: '#FFFFFF',
+    colorText: '#20252B',
+    colorTextSecondary: '#66707C',
+    colorInputBackground: '#F8F9FA',
+    colorInputText: '#20252B',
+    borderRadius: '16px',
   },
   elements: {
     rootBox: { width: '100%', alignItems: 'flex-start', justifyContent: 'flex-start' },
     cardBox: { width: '100%', boxShadow: 'none' },
-    card: { width: '100%', maxWidth: '480px', margin: '8px auto 24px', boxShadow: 'none', border: '1px solid #E5E7EB' },
+    card: { width: '100%', maxWidth: '480px', margin: '10px auto 28px', boxShadow: '0 8px 28px rgba(37,42,49,0.08)', border: '1px solid #D4D9DE' },
+    formButtonPrimary: { minHeight: '48px', fontWeight: '800' },
+    socialButtonsBlockButton: { minHeight: '46px', borderColor: '#D4D9DE', backgroundColor: '#F8F9FA' },
   },
 } as const;
 
@@ -21,11 +29,11 @@ export default function SignUpWebScreen() {
   const mode = parseAccountMode(params.mode);
   const redirectUrl = String(modeSetupHref(mode));
   const loginUrl = mode ? String(signInHref(mode)) : '/auth/account';
-  const title = mode === 'trader' ? '🔨 Create Tradesperson Account' : mode === 'customer' ? '🏠 Create Homeowner Account' : 'Create your BuildPair account';
+  const title = mode === 'trader' ? '🔨 Create Tradesperson Account' : mode === 'customer' ? '🏠 Create Homeowner Account' : 'Create your BuildMate account';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FAFAFA', paddingTop: 16 }}>
-      <Text variant="headlineSmall" style={{ textAlign: 'center', fontWeight: '800' }}>{title}</Text>
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: 18, paddingHorizontal: 12 }}>
+      <Text variant="headlineSmall" style={{ textAlign: 'center', fontWeight: '900', color: colors.charcoal }}>{title}</Text>
       <SignUp
         routing="path"
         path="/auth/sign-up"
