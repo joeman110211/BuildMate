@@ -19,16 +19,33 @@ const defaultShowcase = {
   beforeAfterProjects: [] as { before: string; after: string; caption?: string }[],
 };
 
-function missingShowcaseTable(error: unknown) {
-  const candidate = error as { code?: string; message?: string; cause?: { code?: string; message?: string } };
-  return candidate?.code === '42P01'
-    || candidate?.cause?.code === '42P01'
-    || candidate?.message?.includes('trader_profile_showcase')
-    || candidate?.cause?.message?.includes('trader_profile_showcase');
+function previewProfile(id: string) {
+  if (!previewDataEnabled()) return null;
+  const demoProfile = demoTraders.find((trader) => trader.id === id);
+  if (!demoProfile) return null;
+  return {
+    ...demoProfile,
+    averageRating: 0,
+    reviewCount: 0,
+    isPreview: true,
+    ...defaultShowcase,
+    yearsExperience: 12,
+    serviceAreas: demoProfile.locationLabel ? [demoProfile.locationLabel] : [],
+    createdAt: '2026-08-01T10:00:00.000Z',
+    qualifications: ['Preview profile for BuildPair beta demonstration'],
+    reviews: [],
+    contact: null,
+    contactLocked: true,
+  };
 }
 
 export async function GET(request: Request, { id }: { id: string }) {
   try {
+    // Preview profiles are static beta content. Resolve them before touching the database so a
+    // database migration or optional profile-extension issue cannot break a public preview card.
+    const preview = previewProfile(id);
+    if (preview) return Response.json(preview);
+
     const db = getDb();
     const createdTrialEnd = sql<Date>`${traderProfiles.createdAt} + (${TRADER_TRIAL_DAYS} * interval '1 day')`;
     const effectiveTrialEnd = sql<Date>`greatest(coalesce(${traderProfiles.trialEndsAt}, ${createdTrialEnd}), ${createdTrialEnd})`;
@@ -56,35 +73,26 @@ export async function GET(request: Request, { id }: { id: string }) {
     }).from(traderProfiles).leftJoin(reviews, and(eq(reviews.traderId, traderProfiles.userId), eq(reviews.verifiedCompletion, true)))
       .where(and(eq(traderProfiles.id, id), sql`NOT EXISTS (SELECT 1 FROM users u WHERE u.id = ${traderProfiles.userId} AND u.is_suspended = true)`))
       .groupBy(traderProfiles.id).limit(1);
-    if (!profile) {
-      const demoProfile = previewDataEnabled() ? demoTraders.find((trader) => trader.id === id) : undefined;
-      if (!demoProfile) throw new HttpError(404, 'Trader profile not found');
-      return Response.json({
-        ...demoProfile,
-        averageRating: 0,
-        reviewCount: 0,
-        isPreview: true,
-        ...defaultShowcase,
-        yearsExperience: 12,
-        serviceAreas: demoProfile.locationLabel ? [demoProfile.locationLabel] : [],
-        createdAt: '2026-08-01T10:00:00.000Z',
-        qualifications: ['Preview profile for BuildPair beta demonstration'],
-        reviews: [],
-        contact: null,
-        contactLocked: true,
-      });
-    }
+    if (!profile) throw new HttpError(404, 'Trader profile not found');
 
+    // Showcase fields are an optional profile extension. A missing/out-of-date extension must not
+    // turn an otherwise valid public trader profile into a 500 page.
     let showcase: Record<string, unknown> = {};
     try {
       const [storedShowcase] = await db.select().from(traderProfileShowcase).where(eq(traderProfileShowcase.userId, profile.userId)).limit(1);
       showcase = storedShowcase ?? {};
-    } catch (error) {
-      if (!missingShowcaseTable(error)) throw error;
+    } catch {
+      console.warn('[buildpair-profile] Optional showcase data unavailable', { profileId: profile.id });
     }
 
-    const verifiedReviews = await db.select({ id: reviews.id, rating: reviews.rating, comment: reviews.comment, createdAt: reviews.createdAt })
+    const loadVerifiedReviews = () => db.select({ id: reviews.id, rating: reviews.rating, comment: reviews.comment, createdAt: reviews.createdAt })
       .from(reviews).where(and(eq(reviews.traderId, profile.userId), eq(reviews.verifiedCompletion, true))).limit(50);
+    let verifiedReviews: Awaited<ReturnType<typeof loadVerifiedReviews>> = [];
+    try {
+      verifiedReviews = await loadVerifiedReviews();
+    } catch {
+      console.warn('[buildpair-profile] Verified reviews unavailable', { profileId: profile.id });
+    }
 
     let contact: { email: string | null; phone: string | null } | null = null;
     try {
