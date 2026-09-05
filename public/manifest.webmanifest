@@ -1,13 +1,13 @@
 {
   "id": "/",
-  "name": "BuildPair",
-  "short_name": "BuildPair",
+  "name": "BuildMate",
+  "short_name": "BuildMate",
   "description": "Find trusted local tradespeople, compare quotes and manage building work.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#FAFAFA",
+  "background_color": "#ECEFF1",
   "theme_color": "#D35400",
   "categories": ["business", "lifestyle", "productivity"],
   "icons": [
