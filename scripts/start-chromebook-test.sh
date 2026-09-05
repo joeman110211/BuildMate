@@ -105,9 +105,11 @@ BUILDPAIR_PREVIEW_DATA_ENABLED=false \
 npm run build:web
 
 echo "[BuildPair] Starting application server on port $PORT..."
+NODE_ENV=production \
 EXPO_PUBLIC_API_URL="$PUBLIC_URL" \
 APP_URL="$PUBLIC_URL" \
 BUILDPAIR_PREVIEW_DATA_ENABLED=false \
+BUILDPAIR_NOINDEX=true \
 PORT="$PORT" \
 node --env-file="$ENV_FILE" server.mjs >"$APP_LOG" 2>&1 &
 APP_PID=$!
