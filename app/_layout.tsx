@@ -6,7 +6,8 @@ import { StatusBar } from 'expo-status-bar';
 // Metro and TypeScript resolve the .native/.web implementation; ESLint's generic resolver does not.
 // eslint-disable-next-line import/no-unresolved
 import { AppStripeProvider } from '@/components/AppStripeProvider';
-import { paperTheme } from '@/constants/theme';
+import { PaperIcon } from '@/components/PaperIcon';
+import { colors, paperTheme } from '@/constants/theme';
 import { tokenCache } from '@/lib/token-cache';
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -14,10 +15,10 @@ const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 function AppShell() {
   return (
     <SafeAreaProvider>
-      <PaperProvider theme={paperTheme}>
+      <PaperProvider theme={paperTheme} settings={{ icon: PaperIcon }}>
         <AppStripeProvider>
           <StatusBar style="dark" />
-          <Stack screenOptions={{ headerTintColor: '#D35400', headerShadowVisible: false, contentStyle: { backgroundColor: '#FAFAFA' } }}>
+          <Stack screenOptions={{ headerTintColor: colors.primary, headerShadowVisible: false, contentStyle: { backgroundColor: colors.background } }}>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(public)" options={{ headerShown: false }} />
             <Stack.Screen name="auth" options={{ headerShown: false }} />
