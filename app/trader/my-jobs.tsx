@@ -53,7 +53,7 @@ export default function TraderMyJobs() {
   return <Screen title="My Jobs" subtitle="Your quoted, active and completed work in one clean pipeline.">
     <SegmentedButtons value={tab} onValueChange={(value) => setTab(value as Tab)} buttons={[{ value: 'quoted', label: 'Quoted' }, { value: 'active', label: 'Active' }, { value: 'completed', label: 'Completed' }]} />
     {error ? <EmptyState title="Couldn’t load your jobs" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
-    {!error && !visible.length ? <EmptyState title={`No ${tab} jobs`} body={tab === 'quoted' ? 'Quotes you send will be organised here while you wait for customers to respond.' : tab === 'active' ? 'Accepted work will appear here while the job is in progress.' : 'Completed BuildPair jobs will build up here over time.'} /> : visible.map((job) => {
+    {!error && !visible.length ? <EmptyState title={`No ${tab} jobs`} body={tab === 'quoted' ? 'Quotes you send will be organised here while you wait for customers to respond.' : tab === 'active' ? 'Accepted work will appear here while the job is in progress.' : 'Completed BuildMate jobs will build up here over time.'} /> : visible.map((job) => {
       const ownQuote = quotes.find((quote) => quote.jobId === job.id && ['pending', 'accepted'].includes(quote.status));
       return <AppCard key={job.id}>
         <View style={styles.row}><View style={styles.flex}><Text variant="titleLarge" style={styles.title}>{job.title}</Text><Text style={styles.muted}>📍 {job.postcode || job.locationLabel || 'Location available'} · {job.category}</Text></View><Chip>{job.status.replace('_', ' ')}</Chip></View>
@@ -72,7 +72,7 @@ export default function TraderMyJobs() {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' },
   flex: { flex: 1, minWidth: 220, gap: 4 },
-  title: { fontWeight: '900', color: colors.text },
+  title: { fontWeight: '900', color: colors.charcoal },
   muted: { color: colors.muted, lineHeight: 21 },
   priceLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   price: { color: colors.primary, fontWeight: '900' },
