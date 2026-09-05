@@ -2,20 +2,25 @@ name: BuildPair End-to-End
 
 on:
   workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'HTTPS BuildPair URL to test'
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: buildpair-production-e2e
+  group: buildpair-e2e-${{ inputs.base_url }}
   cancel-in-progress: false
 
 jobs:
-  production-e2e:
+  e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      E2E_BASE_URL: https://buildmate-nine.vercel.app
+      E2E_BASE_URL: ${{ inputs.base_url }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
     steps:
       - uses: actions/checkout@v5
@@ -24,24 +29,29 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Require protected Clerk test access
+      - name: Validate target and Clerk test access
         shell: bash
         run: |
+          set -euo pipefail
+          case "$E2E_BASE_URL" in
+            https://*) ;;
+            *) echo "::error::base_url must start with https://"; exit 1 ;;
+          esac
           if [ -z "$CLERK_SECRET_KEY" ]; then
-            echo "::error::Add CLERK_SECRET_KEY to this repository's Actions secrets before running production E2E."
+            echo "::error::Add CLERK_SECRET_KEY to this repository's Actions secrets before running E2E."
             exit 1
           fi
 
       - run: npm ci --no-audit --no-fund --prefer-offline
 
-      - name: Load production Clerk publishable key
+      - name: Load target Clerk publishable key
         shell: bash
         run: |
           set -euo pipefail
           config=$(curl --fail --silent --show-error --retry 4 --retry-delay 2 "$E2E_BASE_URL/api/client-config")
           key=$(printf '%s' "$config" | jq -r '.clerkPublishableKey // empty')
           if [ -z "$key" ]; then
-            echo "::error::Production Clerk publishable key is missing"
+            echo "::error::Target Clerk publishable key is missing"
             exit 1
           fi
           echo "CLERK_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
@@ -52,7 +62,7 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run BuildPair production lifecycle and mobile regressions
+      - name: Run BuildPair lifecycle and mobile regressions
         run: npx playwright test --project=desktop-core-flow --project=small-android-public-ui
 
       - name: Upload E2E evidence on failure
