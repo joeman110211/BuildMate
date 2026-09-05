@@ -7,7 +7,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-export function BuildMateLogo({ compact = false, tagline = false, style }: Props) {
+export function BuildPairLogo({ compact = false, tagline = false, style }: Props) {
   const size = compact ? 34 : 58;
   const wordSize = compact ? 22 : 36;
 

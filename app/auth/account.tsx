@@ -2,7 +2,7 @@ import { Link, Redirect } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { Button, Chip, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
-import { BuildMateLogo } from '@/components/BuildMateLogo';
+import { BuildPairLogo } from '@/components/BuildPairLogo';
 import { LoadingScreen, Screen } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { dashboardHref, signInHref, signUpHref } from '@/lib/account-mode';
@@ -17,7 +17,7 @@ export default function AccountEntryScreen() {
 
   return <Screen>
     <View style={styles.hero}>
-      <BuildMateLogo tagline />
+      <BuildPairLogo tagline />
       <Text variant="headlineSmall" style={styles.heading}>One login. Two ways to use BuildPair.</Text>
       <Text style={styles.subheading}>Choose the profile you need today. You can add the other later without creating another login.</Text>
     </View>

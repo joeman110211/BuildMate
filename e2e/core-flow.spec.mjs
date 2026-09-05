@@ -74,7 +74,7 @@ test('homeowner to tradesperson job lifecycle works end to end', async ({ browse
       }),
     });
     expect(profile.isSubscriptionActive).toBe(true);
-    expect(profile.trialDays).toBe(28);
+    expect(profile.trialDays).toBe(14);
 
     const unique = Date.now();
     const job = await api(customer.token, '/api/jobs', {

@@ -1,93 +1,140 @@
 # BuildPair
 
-BuildPair is a single-codebase marketplace for UK customers and tradespeople. It runs as a native Android/iOS Expo app and as a web PWA, with an Expo Router server API, Clerk authentication, Neon Postgres through Drizzle, Stripe Billing/Connect, Gemini job-spec assistance, job messaging and moderation.
+BuildPair is a UK-focused homeowner and tradesperson marketplace built from one Expo / React Native codebase for Android, iOS and web.
 
-## What is implemented
+The product uses Expo Router, Clerk authentication, Neon Postgres with Drizzle, Cloudinary media, Resend email, Google Gemini assistance and Stripe code paths for subscriptions / marketplace payments.
 
-- Public paid-trader directory with featured ordering, self-certified qualifications, public register/social links, galleries and verified reviews.
-- Email/password registration with email-code verification, plus mobile phone OTP registration/sign-in.
-- Locked customer/trader roles and role-protected routes.
-- Three-step trader onboarding, free shareable profiles, £19.99 Basic and £29.99 Featured subscription checkout.
-- Stripe Express onboarding, destination payments, platform fees, deposits/balances and idempotent webhook updates.
-- Customer job posting with controlled pickers and a four-question Gemini 2.5 Flash job-spec writer.
-- Structured quote creation, side-by-side quote comparison and atomic quote acceptance.
-- Job-scoped customer/trader messaging with participant checks, read timestamps and report actions.
-- Admin moderation queue with auditable outcomes plus account suspension/restoration.
-- Itemised invoice drafting and sending through Resend.
-- Database-enforced verified reviews only after an accepted job has completed and a non-deposit milestone has been paid.
+## Current beta product
 
-Money is stored as integer pennies throughout. Secret keys are server-only and are never exposed using an `EXPO_PUBLIC_` prefix.
+### Public marketplace
+- Public BuildPair landing site with responsive navigation and legal / information pages.
+- Smart trade search that understands related job terms rather than requiring an exact trade name.
+- 50+ trade categories with specialist skills.
+- Public tradesperson directory and detailed profiles.
+- Public job browsing with privacy-safe location information.
+- Contact form delivered through Resend.
+- PWA manifest, icons and installable web experience.
 
-## Project structure
+### Accounts and authentication
+- Email + password registration with email-code verification.
+- Google and Facebook social sign-in through Clerk.
+- Phone OTP is intentionally not required for the current beta.
+- One Clerk login identity can enable a Homeowner profile, a Tradesperson profile, or both.
+- Users can switch between enabled account modes instead of maintaining unrelated logins.
+- Suspended accounts are rejected by protected server routes.
 
-```text
-buildpair/
-├── app/
-│   ├── auth/                   sign-in, sign-up and role selection
-│   ├── (public)/               directory and public trader profiles
-│   ├── customer/               dashboard, job posting, job detail, comparisons, messages
-│   ├── trader/                 onboarding, dashboard, plans, quotes, invoices, messages
-│   ├── admin/                  moderation queue
-│   └── api/                    authenticated Expo Router server endpoints
-├── components/                 shared cross-platform UI
-├── constants/                  palette, trades and controlled options
-├── db/
-│   ├── schema.ts               Drizzle schema
-│   └── migrations/             ordered production SQL migrations
-├── hooks/                      authenticated app state
-├── lib/                        API, validation, money, server auth, Stripe
-├── types/                      shared domain types
-├── docs/                       production and Stripe notes
-├── eas.json                    APK and Play Store build profiles
-└── drizzle.config.ts           direct-connection migration config
-```
+### Homeowners
+- Create and manage jobs.
+- Add job photos and postcode-based location data.
+- Use Gemini to help turn a rough description into a clearer job specification.
+- Contact tradespeople directly from appropriate listings.
+- Receive and compare quotes.
+- Accept one quote atomically.
+- Message the selected tradesperson in a job-scoped conversation.
+- Confirm external milestone payments while Stripe marketplace payments remain optional during beta.
+- Leave verified reviews only after qualifying completed work.
 
-## 1. Local setup
+### Tradespeople
+- Four-step profile onboarding.
+- Minimum 50-character business bio.
+- Primary trade, specialist skills, service radius and service areas.
+- Cover image, profile image, logo, work gallery and before / after projects.
+- Qualifications, register links and social links.
+- 14-day free Basic lead-access period for new profiles without requiring Stripe during onboarding.
+- Job board, quote creation, messaging, job management and invoices.
+- Subscription and Stripe Express screens remain available but are disabled when Stripe client configuration is not enabled.
 
-Requirements: Node 22.12+ (Node 24 recommended), npm, Git, an Expo account, and Android Studio for native Android emulator/device work.
+### Operations
+- Admin moderation queue and account suspension / restoration.
+- User reporting flows.
+- Resend invoice email support.
+- Readiness and health endpoints.
+- Database migrations tracked and applied in order.
+- GitHub Actions quality checks for lint, TypeScript, unit tests, web export, Android export, iOS export and production dependency audit.
+- Playwright production E2E coverage for the homeowner → job → trader → quote → acceptance → messaging → completion → payment confirmation → review lifecycle.
+- GitHub Actions Android release APK build.
+
+## Trial policy
+
+`TRADER_TRIAL_DAYS` is the product source of truth and is currently **14 days**.
+
+Existing beta profiles that were previously granted a longer stored trial keep that existing end date. Editing a profile does not restart its trial.
+
+## Local development
+
+Requirements:
+- Node 22.12+ (Node 24 recommended)
+- npm
+- Git
+- Expo account for native cloud builds
+- Android Studio when local Android emulator / Gradle debugging is needed
 
 ```bash
-git clone https://github.com/joeman110211/BuildMate.git
-cd BuildMate
 npm install
 cp .env.example .env
 npx expo start
 ```
 
-Android Studio is useful for emulator testing, Logcat, Gradle/native debugging and validating installable Android builds against the same GitHub source. For most UI work Expo Go is enough; Stripe’s native module requires a development build for complete payment testing:
+Useful checks:
 
 ```bash
-npx eas-cli@latest build --profile development --platform android
+npm run lint
+npm run typecheck
+npm test
+npm run build:web
 ```
 
-Native builds must set `EXPO_PUBLIC_API_URL` to the HTTPS origin hosting the Expo Router server routes. A phone cannot call a relative `/api` URL from its installed bundle.
+Native installed apps require `EXPO_PUBLIC_API_URL` to point at the HTTPS deployment that hosts the Expo Router server API. Relative `/api` URLs only work when the web client and server share an origin.
 
-## 2. Clerk authentication
+## Environment
 
-1. Create a Clerk application.
-2. In **User & Authentication → Email, Phone, Username**, enable email address, password and email verification code.
-3. Enable phone number plus SMS verification code. Clerk phone OTP requires a paid plan for production, though development testing is available.
-4. Put the publishable key in `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` and the secret key in the server environment as `CLERK_SECRET_KEY`.
-5. Add `buildpair://` and the production web origin to allowed redirect/origin settings.
+Copy `.env.example` and configure the services needed by the environment.
 
-Users are lazily synchronized from Clerk into `users`; the Clerk user ID is the Postgres primary key. The API derives email and phone from Clerk’s server SDK, never from editable client input.
+### Required for the core connected beta
+- `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `DATABASE_URL`
+- `DATABASE_URL_UNPOOLED` for migrations
 
-## 3. Neon database and Drizzle
+### Feature-specific
+- Gemini: `GEMINI_API_KEY`
+- Resend: `RESEND_API_KEY`, `INVOICE_FROM_EMAIL`, `SUPPORT_EMAIL`
+- Cloudinary: `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+- Stripe when payments are enabled: publishable key, secret key, price IDs and webhook secrets
 
-1. Create a Neon project in a region close to the primary audience (for a UK launch, choose an available European region).
-2. Copy both Neon connection strings:
-   - pooled hostname containing `-pooler` → `DATABASE_URL` for application requests;
-   - direct hostname without `-pooler` → `DATABASE_URL_UNPOOLED` for migrations.
-3. Apply the checked-in migrations:
+Never put a server secret into an `EXPO_PUBLIC_` variable.
+
+## Database
+
+Apply checked-in migrations using the direct / unpooled Neon connection:
 
 ```bash
 npm run db:migrate
 ```
 
-The migration runner uses `DATABASE_URL_UNPOOLED`, tracks applied migrations and executes new numbered SQL files in order inside a transaction. The initial migration creates constraints, indexes, the atomic `accept_job_quote` function and the review-eligibility trigger. Later migrations add messaging and moderation state. Use `npm run db:generate` for later Drizzle schema changes and review generated SQL before merging it with custom functions/triggers.
+The migration runner records applied filenames so historical migration files must not be casually renamed after production has applied them.
 
-Recommended release workflow: create a Neon branch for each Git branch, apply migrations there, run tests, inspect the schema diff, and only then migrate production.
+## Authentication configuration
 
-## 4. Media storage
+For the current beta, configure Clerk for:
+- email address
+- password
+- email verification code
+- Google OAuth
+- Facebook OAuth
 
-BuildPair uses Cloudinary for production media. Current media folders are separated into trader galleries and job photos. Upload signatures must be generated server-side so the Cloudinary API secret is never embedded in the Android/iOS/web client.
+Add the BuildPair production web origin and the `buildpair://` native callback scheme to the relevant Clerk / OAuth redirect configuration.
+
+Phone OTP can be added later if the production Clerk plan and UK SMS setup make it worthwhile, but it is not a dependency for launch.
+
+## Payments
+
+Stripe integration code exists for subscriptions, billing portal access, Connect onboarding and job PaymentIntents. The beta is deliberately able to operate with Stripe client configuration disabled.
+
+Before enabling live payments, complete end-to-end Stripe test-mode verification for subscription start / cancel, webhook handling, Connect onboarding, deposits, balances, refunds, failures and idempotency.
+
+## Release rule
+
+A change is not considered release-ready merely because it renders. Before production promotion it should pass the GitHub Quality workflow, relevant native build checks and the production Playwright lifecycle test once the production deployment is available.
+
+See `docs/PRODUCTION_CHECKLIST.md` for the remaining operational and store-launch checks.
