@@ -5,7 +5,7 @@ import { demoJobs } from '@/lib/demo-data';
 import { InvalidPostcodeError, lookupPostcode, outwardCode } from '@/lib/postcode';
 import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
-import { hasActiveLeadAccess } from '@/lib/subscription';
+import { hasActiveLeadAccess, TRADER_TRIAL_DAYS } from '@/lib/subscription';
 import { jobSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -17,13 +17,15 @@ export async function GET(request: Request) {
     const db = getDb();
     let rows;
     if (activeMode === 'customer' && modes.customerEnabled) {
-      rows = await db.select().from(jobs).where(eq(jobs.customerId, user.id)).orderBy(desc(jobs.createdAt));
+      rows = (await db.select().from(jobs).where(eq(jobs.customerId, user.id)).orderBy(desc(jobs.createdAt)))
+        .map((job) => ({ ...job, isPreview: false }));
     } else if (activeMode === 'trader' && modes.traderEnabled) {
       const [profile] = await db.select({
         tradeCategory: traderProfiles.tradeCategory,
         subscriptionTier: traderProfiles.subscriptionTier,
         isSubscriptionActive: traderProfiles.isSubscriptionActive,
         stripeSubscriptionId: traderProfiles.stripeSubscriptionId,
+        trialEndsAt: traderProfiles.trialEndsAt,
         latitude: traderProfiles.latitude,
         longitude: traderProfiles.longitude,
         radiusMiles: traderProfiles.radiusMiles,
@@ -69,10 +71,13 @@ export async function GET(request: Request) {
         )!;
       }
 
-      rows = await db.select().from(jobs).where(access).orderBy(desc(jobs.createdAt)).limit(100);
-      if (!rows.length && activeLeadAccess) {
-        rows = demoJobs.filter((job) => profile.subscriptionTier === 'featured' || job.category === profile.tradeCategory);
-      }
+      const databaseRows = await db.select().from(jobs).where(access).orderBy(desc(jobs.createdAt)).limit(100);
+      const previewRows = activeLeadAccess
+        ? demoJobs
+            .filter((job) => profile.subscriptionTier === 'featured' || job.category === profile.tradeCategory)
+            .map((job) => ({ ...job, isPreview: true }))
+        : [];
+      rows = [...databaseRows.map((job) => ({ ...job, isPreview: false })), ...previewRows].slice(0, 100);
       rows = rows.map((job) => {
         const openMarketplaceJob = job.targetTraderId == null && ['open', 'quoted'].includes(job.status);
         return openMarketplaceJob
@@ -98,7 +103,10 @@ export async function POST(request: Request) {
                  tp.is_subscription_active = true
                  AND (
                    tp.stripe_subscription_id IS NOT NULL
-                   OR tp.created_at + interval '14 days' > now()
+                   OR greatest(
+                     coalesce(tp.trial_ends_at, tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')),
+                     tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')
+                   ) > now()
                  )
                ) AS "isSubscriptionActive"
         FROM trader_profiles tp
@@ -108,7 +116,7 @@ export async function POST(request: Request) {
         LIMIT 1
       ` as unknown as { tradeCategory: string; subscriptionTier: string; isSubscriptionActive: boolean }[];
       const target = targets[0];
-      if (!target || !target.isSubscriptionActive || target.subscriptionTier === 'free') throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildMate leads');
+      if (!target || !target.isSubscriptionActive || target.subscriptionTier === 'free') throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildPair leads');
       if (target.tradeCategory !== payload.category) throw new HttpError(400, `This direct request must use the tradesperson's listed category: ${target.tradeCategory}`);
     }
 
@@ -142,6 +150,6 @@ export async function POST(request: Request) {
       conversationId = conversations[0]?.id ?? null;
     }
 
-    return Response.json({ ...job, conversationId }, { status: 201 });
+    return Response.json({ ...job, isPreview: false, conversationId }, { status: 201 });
   } catch (error) { return jsonError(error); }
 }
