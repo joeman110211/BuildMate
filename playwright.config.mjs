@@ -25,6 +25,16 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     {
+      name: 'small-android-core-flow',
+      testMatch: /core-flow\.spec\.mjs/,
+      use: {
+        ...devices['Pixel 5'],
+        viewport: { width: 360, height: 640 },
+        screen: { width: 360, height: 640 },
+      },
+      dependencies: ['setup'],
+    },
+    {
       name: 'small-android-320-public',
       testMatch: /mobile-layout\.spec\.mjs/,
       use: {
