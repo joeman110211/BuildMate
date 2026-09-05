@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   apply:
-    if: github.event.head_commit.message == 'Add one-shot BuildPair rebrand apply workflow'
+    if: github.event.head_commit.message == 'Retry BuildPair rebrand without workflow edits'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -19,13 +19,12 @@ jobs:
       - name: Replace legacy brand identifiers
         run: |
           set -euo pipefail
-          git grep -Il -e 'BuildMate' -e 'buildmate' -e 'BUILDMATE' -- ':!/.github/workflows/rebrand-audit.yml' ':!/.github/workflows/rebrand-apply.yml' | while IFS= read -r file; do
+          git grep -Il -e 'BuildMate' -e 'buildmate' -e 'BUILDMATE' -- ':!/.github/workflows/**' | while IFS= read -r file; do
             perl -0pi -e 's/BuildMate/BuildPair/g; s/buildmate/buildpair/g; s/BUILDMATE/BUILDPAIR/g' "$file"
           done
 
           # Keep live infrastructure compatibility until those resources are renamed.
           perl -0pi -e 's#https://github\.com/joeman110211/BuildPair\.git#https://github.com/joeman110211/BuildMate.git#g; s#cd BuildPair#cd BuildMate#g' README.md
-          perl -0pi -e 's#https://buildpair-nine\.vercel\.app#https://buildmate-nine.vercel.app#g' .github/workflows/deploy-web.yml .github/workflows/android-apk.yml
           perl -0pi -e 's/buildpair_migrations/buildmate_migrations/g' scripts/migrate.mjs
 
           git config user.name 'github-actions[bot]'
