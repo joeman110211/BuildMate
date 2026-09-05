@@ -1,0 +1,48 @@
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: infra/production/Dockerfile
+      args:
+        EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-https://www.buildpair.co.uk}
+        EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+        EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME: ${EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME:-qrrcn7ma}
+    env_file:
+      - ../../.env.production
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    restart: unless-stopped
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  caddy:
+    image: caddy:2.11.3-alpine
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../../downloads:/srv/downloads:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,162 @@
+#!/usr/bin/env node
+
+import http from 'node:http';
+import path from 'node:path';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { createRequestHandler } from 'expo-server/adapter/http';
+
+const PORT = Number(process.env.PORT || 3000);
+const CLIENT_BUILD_DIR = path.resolve(process.cwd(), 'dist/client');
+const SERVER_BUILD_DIR = path.resolve(process.cwd(), 'dist/server');
+
+const expoHandler = createRequestHandler({
+  build: SERVER_BUILD_DIR,
+  environment: process.env.NODE_ENV === 'production' ? null : process.env.NODE_ENV,
+});
+
+const MIME_TYPES = new Map([
+  ['.avif', 'image/avif'],
+  ['.css', 'text/css; charset=utf-8'],
+  ['.gif', 'image/gif'],
+  ['.html', 'text/html; charset=utf-8'],
+  ['.ico', 'image/x-icon'],
+  ['.jpeg', 'image/jpeg'],
+  ['.jpg', 'image/jpeg'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.json', 'application/json; charset=utf-8'],
+  ['.map', 'application/json; charset=utf-8'],
+  ['.png', 'image/png'],
+  ['.svg', 'image/svg+xml'],
+  ['.txt', 'text/plain; charset=utf-8'],
+  ['.webp', 'image/webp'],
+  ['.woff', 'font/woff'],
+  ['.woff2', 'font/woff2'],
+]);
+
+function safeCandidates(requestPath) {
+  let decoded;
+  try {
+    decoded = decodeURIComponent(requestPath.split('?')[0] || '/');
+  } catch {
+    return [];
+  }
+
+  const relative = decoded.replace(/^\/+/, '');
+  if (!relative) return ['index.html'];
+
+  const normalized = path.normalize(relative);
+  if (normalized.startsWith('..') || path.isAbsolute(normalized)) return [];
+
+  const candidates = [normalized];
+  if (!path.extname(normalized)) {
+    candidates.push(`${normalized}.html`);
+    candidates.push(path.join(normalized, 'index.html'));
+  }
+  return candidates;
+}
+
+async function resolveStaticFile(requestPath) {
+  for (const candidate of safeCandidates(requestPath)) {
+    const absolute = path.resolve(CLIENT_BUILD_DIR, candidate);
+    if (absolute !== CLIENT_BUILD_DIR && !absolute.startsWith(`${CLIENT_BUILD_DIR}${path.sep}`)) {
+      continue;
+    }
+
+    try {
+      const fileStat = await stat(absolute);
+      if (fileStat.isFile()) return { absolute, size: fileStat.size, candidate };
+    } catch {
+      // Try the next candidate, then fall through to Expo's server handler.
+    }
+  }
+  return null;
+}
+
+async function serveStatic(req, res) {
+  if (!req.url || (req.method !== 'GET' && req.method !== 'HEAD')) return false;
+
+  const file = await resolveStaticFile(req.url);
+  if (!file) return false;
+
+  const extension = path.extname(file.absolute).toLowerCase();
+  res.statusCode = 200;
+  res.setHeader('Content-Type', MIME_TYPES.get(extension) || 'application/octet-stream');
+  res.setHeader('Content-Length', String(file.size));
+
+  if (extension === '.html') {
+    res.setHeader('Cache-Control', 'no-cache');
+  } else if (file.candidate.includes('_expo/static/')) {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  } else {
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+  }
+
+  if (req.method === 'HEAD') {
+    res.end();
+    return true;
+  }
+
+  await new Promise((resolve, reject) => {
+    const stream = createReadStream(file.absolute);
+    stream.on('error', reject);
+    stream.on('end', resolve);
+    stream.pipe(res);
+  });
+  return true;
+}
+
+const server = http.createServer(async (req, res) => {
+  try {
+    if (await serveStatic(req, res)) return;
+
+    // Caddy terminates TLS. The Expo Node adapter checks socket.encrypted when
+    // constructing request URLs, so trust the local reverse proxy's HTTPS flag.
+    if (req.headers['x-forwarded-proto'] === 'https') {
+      req.socket.encrypted = true;
+    }
+
+    await expoHandler(req, res, (error) => {
+      if (res.writableEnded) return;
+      if (error) {
+        console.error('[BuildPair] Request failed:', error);
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.end(JSON.stringify({ error: 'Internal server error' }));
+        return;
+      }
+      res.statusCode = 404;
+      res.end('Not Found');
+    });
+  } catch (error) {
+    console.error('[BuildPair] Server error:', error);
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    }
+    if (!res.writableEnded) res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+});
+
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 70_000;
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[BuildPair] Production server listening on port ${PORT}`);
+});
+
+function shutdown(signal) {
+  console.log(`[BuildPair] ${signal} received, shutting down.`);
+  server.close((error) => {
+    if (error) {
+      console.error('[BuildPair] Shutdown failed:', error);
+      process.exit(1);
+    }
+    process.exit(0);
+  });
+
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

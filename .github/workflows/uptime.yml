@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      BASE_URL: ${{ vars.PRODUCTION_URL || 'https://buildpair.co.uk' }}
+      BASE_URL: ${{ vars.PRODUCTION_URL || 'https://www.buildpair.co.uk' }}
     steps:
       - name: Check homepage
         run: curl --fail --silent --show-error --max-time 20 "$BASE_URL/" >/dev/null

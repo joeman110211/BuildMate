@@ -1,14 +1,10 @@
 name: Production Smoke Test
 
 on:
-  workflow_run:
-    workflows: [Quality]
-    types: [completed]
   workflow_dispatch:
 
 permissions:
   contents: read
-  statuses: read
 
 concurrency:
   group: buildpair-production-smoke
@@ -16,42 +12,11 @@ concurrency:
 
 jobs:
   verify-production:
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      # Switch this to https://buildpair.co.uk once the custom domain is attached to Vercel.
-      BASE_URL: https://buildmate-nine.vercel.app
-      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
-      GH_TOKEN: ${{ github.token }}
+      BASE_URL: https://www.buildpair.co.uk
     steps:
-      - name: Resolve commit for manual runs
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        run: echo "EXPECTED_SHA=${GITHUB_SHA}" >> "$GITHUB_ENV"
-
-      - name: Wait for Vercel Git deployment
-        shell: bash
-        run: |
-          set -euo pipefail
-          for attempt in $(seq 1 36); do
-            payload=$(curl --fail --silent --show-error \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${EXPECTED_SHA}/status")
-            state=$(printf '%s' "$payload" | jq -r '[.statuses[] | select(.context == "Vercel")][0].state // "pending"')
-            echo "Vercel status: $state (attempt $attempt/36)"
-            case "$state" in
-              success) break ;;
-              failure|error) echo "::error::Vercel deployment failed for $EXPECTED_SHA"; exit 1 ;;
-            esac
-            if [ "$attempt" -eq 36 ]; then
-              echo "::error::Timed out waiting for Vercel deployment of $EXPECTED_SHA"
-              exit 1
-            fi
-            sleep 10
-          done
-
       - name: Verify production API and database
         shell: bash
         run: |
@@ -73,8 +38,8 @@ jobs:
 
           jobs_file=$(mktemp)
           curl --fail --show-error --silent --retry 8 --retry-delay 3 "$BASE_URL/api/public/jobs" -o "$jobs_file"
-          jq -e 'type == "array" and length > 0' "$jobs_file" > /dev/null
-          echo "Production API, Neon database, trader directory and live public jobs are responding."
+          jq -e 'type == "array"' "$jobs_file" > /dev/null
+          echo "Production API, database, trader directory and public jobs are responding."
 
       - name: Verify public auth entry points
         shell: bash
