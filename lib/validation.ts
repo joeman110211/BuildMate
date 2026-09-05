@@ -46,6 +46,7 @@ export const jobSchema = z.object({
   aiGeneratedSpec: z.string().trim().max(5000).nullable().optional(),
   budgetRange: z.enum(BUDGET_OPTIONS),
   photos: z.array(z.url()).max(8).default([]),
+  isEmergency: z.boolean().default(false),
 });
 
 export const quoteSchema = z.object({
@@ -54,8 +55,13 @@ export const quoteSchema = z.object({
   materialsCost: z.number().int().nonnegative(),
   vatAmount: z.number().int().nonnegative(),
   depositAmount: z.number().int().nonnegative(),
-  paymentTerms: z.string().trim().min(5).max(1000),
-  notes: z.string().trim().max(2000).optional(),
+  paymentTerms: z.string().trim().min(5).max(2000),
+  scope: z.string().trim().max(4000).optional(),
+  exclusions: z.string().trim().max(3000).optional(),
+  notes: z.string().trim().max(3000).optional(),
+  durationDays: z.number().int().min(1).max(3650).optional(),
+  warrantyMonths: z.number().int().min(0).max(240).optional(),
+  proposedStartAt: z.iso.datetime().optional(),
   validUntil: z.iso.datetime().optional(),
 }).superRefine((data, ctx) => {
   const total = data.laborCost + data.materialsCost + data.vatAmount;
