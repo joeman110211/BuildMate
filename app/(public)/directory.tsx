@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Chip, Searchbar, Text } from 'react-native-paper';
@@ -12,10 +13,17 @@ import type { TraderProfile } from '@/types';
 
 const EXAMPLE_SEARCHES = ['tiler', 'bathroom', 'boiler', 'roof leak', 'kitchen', 'driveway'];
 
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function DirectoryScreen() {
+  const params = useLocalSearchParams<{ q?: string | string[]; trade?: string | string[] }>();
+  const initialQuery = firstParam(params.q) || '';
+  const initialTrade = firstParam(params.trade);
   const [traders, setTraders] = useState<TraderProfile[]>([]);
-  const [trade, setTrade] = useState<string>();
-  const [query, setQuery] = useState('');
+  const [trade, setTrade] = useState<string | undefined>(initialTrade);
+  const [query, setQuery] = useState(initialQuery);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -32,7 +40,7 @@ export default function DirectoryScreen() {
   }
 
   useEffect(() => {
-    const timer = setTimeout(() => void load(), 0);
+    const timer = setTimeout(() => void load(initialTrade), 0);
     return () => clearTimeout(timer);
   }, []);
 
