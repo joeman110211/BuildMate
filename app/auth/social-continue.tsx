@@ -34,7 +34,7 @@ export default function SocialContinueScreen() {
   async function navigateAfterAuth(session: { currentTask?: { key?: unknown } | null } | null | undefined) {
     if (session?.currentTask) {
       setStage('blocked');
-      setError(`Your account needs another security step before BuildPair can continue (${String(session.currentTask.key ?? 'session task')}).`);
+      setError(`Your account needs another security step before BuildMate can continue (${String(session.currentTask.key ?? 'session task')}).`);
       return;
     }
     router.replace(modeSetupHref(mode));
@@ -79,7 +79,7 @@ export default function SocialContinueScreen() {
         }
       }
 
-      // A social sign-in for someone who does not have a BuildPair account yet
+      // A social sign-in for someone who does not have a BuildMate account yet
       // transfers into Clerk's sign-up flow and preserves the selected app mode.
       if (signIn.isTransferable) {
         const transferred = await signUp.create({ transfer: true });
@@ -183,7 +183,7 @@ export default function SocialContinueScreen() {
   }
 
   if (stage === 'working') {
-    return <Screen title="Finishing sign in" subtitle="Connecting your social account to BuildPair…"><Text>Please wait…</Text><View nativeID="clerk-captcha" /></Screen>;
+    return <Screen title="Finishing sign in" subtitle="Connecting your social account to BuildMate…"><Text>Please wait…</Text><View nativeID="clerk-captcha" /></Screen>;
   }
 
   if (stage === 'email-code') {
