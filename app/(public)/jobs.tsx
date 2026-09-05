@@ -28,7 +28,7 @@ export default function PublicJobsScreen() {
   useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, []);
 
   if (loading) return <LoadingScreen label="Loading local job requests..." />;
-  return <Screen title="Latest job requests" subtitle="Live open jobs customers are posting through BuildPair.">
+  return <Screen title="Latest job requests" subtitle="Live open jobs customers are posting through BuildMate.">
     {error ? <EmptyState title="Jobs unavailable" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
     {!error && !jobs.length ? <EmptyState title="No job requests yet" body="New customer requests will appear here." /> : null}
     {!error ? jobs.map((job) => <AppCard key={job.id}>
@@ -48,6 +48,6 @@ export default function PublicJobsScreen() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  title: { flex: 1, minWidth: 220, fontWeight: '800' },
+  title: { flex: 1, minWidth: 220, fontWeight: '900', color: colors.charcoal },
   muted: { color: colors.muted },
 });
