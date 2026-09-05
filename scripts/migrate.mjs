@@ -48,7 +48,7 @@ try {
   }
 
   await client.query('COMMIT');
-  console.log(appliedCount ? `Applied ${appliedCount} BuildMate migration(s).` : 'Database is already up to date.');
+  console.log(appliedCount ? `Applied ${appliedCount} BuildPair migration(s).` : 'Database is already up to date.');
 } catch (error) {
   await client.query('ROLLBACK');
   throw error;

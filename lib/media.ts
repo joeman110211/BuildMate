@@ -40,7 +40,7 @@ export async function pickAndUploadImage(kind: MediaKind, getToken: TokenGetter)
   } else {
     form.append('file', {
       uri: asset.uri,
-      name: asset.fileName ?? `buildmate-${Date.now()}.jpg`,
+      name: asset.fileName ?? `buildpair-${Date.now()}.jpg`,
       type: asset.mimeType ?? 'image/jpeg',
     } as unknown as Blob);
   }

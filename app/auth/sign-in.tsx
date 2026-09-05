@@ -25,13 +25,13 @@ export default function SignInScreen() {
     ? 'Sign in to find work, manage quotes and run your trade profile.'
     : mode === 'customer'
       ? 'Sign in to post work, compare quotes and manage your jobs.'
-      : 'Sign in to BuildMate.';
+      : 'Sign in to BuildPair.';
 
   async function finishSignIn() {
     await signIn.finalize({
       navigate: async ({ session }) => {
         if (session?.currentTask) {
-          throw new Error('Your account needs another Clerk setup step before BuildMate can continue.');
+          throw new Error('Your account needs another Clerk setup step before BuildPair can continue.');
         }
         router.replace(modeSetupHref(mode));
       },
@@ -139,7 +139,7 @@ export default function SignInScreen() {
         Sign in with email
       </Button>
       <View style={styles.footer}>
-        <Text>New to BuildMate?</Text>
+        <Text>New to BuildPair?</Text>
         <Link href={mode ? signUpHref(mode) : '/auth/account'} asChild><Button>Create account</Button></Link>
       </View>
       <Link href="/auth/account" asChild><Button>Back to account options</Button></Link>

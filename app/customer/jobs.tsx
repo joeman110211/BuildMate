@@ -33,7 +33,7 @@ export default function CustomerJobs() {
   if (loading) return <LoadingScreen />;
 
   const visible = jobs.filter((job) => tab === 'active' ? job.status === 'in_progress' : tab === 'pending' ? ['open', 'quoted'].includes(job.status) : job.status === 'completed');
-  return <Screen title="My Jobs" subtitle="Everything you’ve posted, hired and completed on BuildMate.">
+  return <Screen title="My Jobs" subtitle="Everything you’ve posted, hired and completed on BuildPair.">
     <View style={styles.topRow}><SegmentedButtons style={styles.tabs} value={tab} onValueChange={(value) => setTab(value as Tab)} buttons={[{ value: 'active', label: 'Active' }, { value: 'pending', label: 'Getting Quotes' }, { value: 'completed', label: 'Completed' }]} /><Link href="/customer/new-job" asChild><Button mode="contained" icon="plus">Post Job</Button></Link></View>
     {error ? <EmptyState title="Couldn’t load your jobs" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
     {!error && !visible.length ? <EmptyState title={`No ${tab === 'pending' ? 'jobs getting quotes' : tab} jobs`} body={tab === 'pending' ? 'Post a job and incoming quotes will be kept together here.' : 'Jobs will move here automatically as their status changes.'} /> : visible.map((job) => <AppCard key={job.id}>

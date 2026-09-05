@@ -28,7 +28,7 @@ export default function PublicJobsScreen() {
   useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, []);
 
   if (loading) return <LoadingScreen label="Loading local job requests..." />;
-  return <Screen title="Latest job requests" subtitle="Live open jobs customers are posting through BuildMate.">
+  return <Screen title="Latest job requests" subtitle="Live open jobs customers are posting through BuildPair.">
     {error ? <EmptyState title="Jobs unavailable" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
     {!error && !jobs.length ? <EmptyState title="No job requests yet" body="New customer requests will appear here." /> : null}
     {!error ? jobs.map((job) => <AppCard key={job.id}>

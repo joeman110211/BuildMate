@@ -1,4 +1,4 @@
-# BuildMate production checklist
+# BuildPair production checklist
 
 ## Beta readiness
 
@@ -27,7 +27,7 @@
 - Test successful, declined, 3DS, cancelled, duplicate-webhook and refunded payments before enabling paid plans or job payments.
 - Test Connect accounts with incomplete verification and disabled charges.
 - Test subscription upgrade, downgrade, cancellation, failed renewal and customer portal access.
-- Decide who absorbs Stripe fees and document BuildMate's platform fee.
+- Decide who absorbs Stripe fees and document BuildPair's platform fee.
 
 ## App stores and devices
 

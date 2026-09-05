@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     const stripe = getStripe();
     const feePercent = Math.min(20, Math.max(0, Number(process.env.PLATFORM_FEE_PERCENT ?? 5)));
     const fee = Math.round(row.milestone.amount * feePercent / 100);
-    const metadata = { buildmateJobId: row.job.id, milestoneId: row.milestone.id, customerId: customer.id, traderId: row.quote.traderId };
+    const metadata = { buildpairJobId: row.job.id, milestoneId: row.milestone.id, customerId: customer.id, traderId: row.quote.traderId };
     if (input.platform === 'web') {
       const session = await stripe.checkout.sessions.create({ mode: 'payment', customer_email: customer.email ?? undefined, line_items: [{ price_data: { currency: 'gbp', product_data: { name: `${row.milestone.title}: ${row.job.title}` }, unit_amount: row.milestone.amount }, quantity: 1 }], payment_intent_data: { application_fee_amount: fee, transfer_data: { destination: row.profile.stripeAccountId }, metadata }, success_url: providerReturnUrl('payment', 'complete'), cancel_url: providerReturnUrl('payment', 'cancelled'), metadata });
       return Response.json({ url: session.url });

@@ -31,7 +31,7 @@ export default function TraderProfileHub() {
   if (loading) return <LoadingScreen />;
   if (!profile) return <Screen title="Your Tradesperson Profile"><EmptyState title="No public profile yet" body="Complete your profile setup so homeowners can see your work and request quotes." action={<Link href="/trader/onboarding" asChild><Button mode="contained">Create Profile</Button></Link>} /></Screen>;
 
-  return <Screen title="Your Profile" subtitle="This is the business identity homeowners see on BuildMate.">
+  return <Screen title="Your Profile" subtitle="This is the business identity homeowners see on BuildPair.">
     <AppCard style={styles.profileCard}>
       {profile.coverPhotoUrl ? <Image source={{ uri: profile.coverPhotoUrl }} style={styles.cover} /> : <View style={styles.coverFallback} />}
       <View style={styles.identity}>

@@ -10,8 +10,8 @@ import { trialEndsAt } from '@/lib/subscription';
 const inputSchema = z.object({ tier: z.enum(['basic', 'featured']) });
 
 const plans = {
-  basic: { name: 'BuildMate Basic', unitAmount: 1999 },
-  featured: { name: 'BuildMate Featured', unitAmount: 2999 },
+  basic: { name: 'BuildPair Basic', unitAmount: 1999 },
+  featured: { name: 'BuildPair Featured', unitAmount: 2999 },
 } as const;
 
 export async function POST(request: Request) {
@@ -31,14 +31,14 @@ export async function POST(request: Request) {
       const customer = await stripe.customers.create({
         email: trader.email ?? undefined,
         phone: trader.phone ?? undefined,
-        metadata: { buildmateUserId: trader.id },
+        metadata: { buildpairUserId: trader.id },
       });
       customerId = customer.id;
       await db.update(traderProfiles).set({ stripeCustomerId: customerId }).where(eq(traderProfiles.userId, trader.id));
     }
 
     const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {
-      metadata: { buildmateUserId: trader.id, tier },
+      metadata: { buildpairUserId: trader.id, tier },
     };
     const freeTrialEnd = trialEndsAt(profile.createdAt);
     const trialEndMs = freeTrialEnd.getTime();
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       allow_promotion_codes: true,
       success_url: providerReturnUrl('subscription', 'complete'),
       cancel_url: providerReturnUrl('subscription', 'cancelled'),
-      metadata: { buildmateUserId: trader.id, tier },
+      metadata: { buildpairUserId: trader.id, tier },
       subscription_data: subscriptionData,
     });
 

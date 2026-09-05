@@ -50,7 +50,7 @@ export default function TraderJobBoard() {
   }), [directOnly, jobs, profile?.userId, search, urgentOnly]);
 
   if (loading) return <LoadingScreen label="Finding suitable jobs…" />;
-  return <Screen title="Job Board" subtitle="New work matching your trade, service area and BuildMate plan.">
+  return <Screen title="Job Board" subtitle="New work matching your trade, service area and BuildPair plan.">
     <Searchbar placeholder="Search jobs or locations" value={search} onChangeText={setSearch} style={styles.search} />
     <View style={styles.filters}>
       <Chip selected={!directOnly && !urgentOnly} showSelectedCheck onPress={() => { setDirectOnly(false); setUrgentOnly(false); }}>All</Chip>
