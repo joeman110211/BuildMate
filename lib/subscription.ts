@@ -1,4 +1,4 @@
-export const TRADER_TRIAL_DAYS = 28;
+export const TRADER_TRIAL_DAYS = 14;
 
 export function trialEndsAt(from: Date | string = new Date()) {
   const startedAt = from instanceof Date ? from : new Date(from);
@@ -20,6 +20,8 @@ export function hasActiveLeadAccess(profile: {
     ? Math.max(createdMinimum, storedEnd)
     : createdMinimum ?? storedEnd;
 
+  // Existing beta accounts may already have been granted a longer stored trial.
+  // Honour that commitment while new accounts use the 14-day product rule.
   if (effectiveEnd == null) return true;
   return effectiveEnd > Date.now();
 }
