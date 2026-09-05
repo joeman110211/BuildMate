@@ -3,8 +3,9 @@ import { getDb } from '@/db/client';
 import { reviews, traderProfiles, users } from '@/db/schema';
 import { traderProfileShowcase } from '@/db/showcase-schema';
 import { demoTraders } from '@/lib/demo-data';
+import { previewDataEnabled } from '@/lib/preview';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
-import { TRADER_TRIAL_DAYS } from '@/lib/subscription';
+import { betaLeadGraceEnabled, TRADER_TRIAL_DAYS } from '@/lib/subscription';
 
 const defaultShowcase = {
   template: 'classic' as const,
@@ -31,7 +32,9 @@ export async function GET(request: Request, { id }: { id: string }) {
     const db = getDb();
     const createdTrialEnd = sql<Date>`${traderProfiles.createdAt} + (${TRADER_TRIAL_DAYS} * interval '1 day')`;
     const effectiveTrialEnd = sql<Date>`greatest(coalesce(${traderProfiles.trialEndsAt}, ${createdTrialEnd}), ${createdTrialEnd})`;
-    const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
+    const activeLeadAccess = betaLeadGraceEnabled()
+      ? sql`${traderProfiles.isSubscriptionActive} = true`
+      : sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
     const [profile] = await db.select({
       id: traderProfiles.id,
       userId: traderProfiles.userId,
@@ -54,7 +57,7 @@ export async function GET(request: Request, { id }: { id: string }) {
       .where(and(eq(traderProfiles.id, id), sql`NOT EXISTS (SELECT 1 FROM users u WHERE u.id = ${traderProfiles.userId} AND u.is_suspended = true)`))
       .groupBy(traderProfiles.id).limit(1);
     if (!profile) {
-      const demoProfile = demoTraders.find((trader) => trader.id === id);
+      const demoProfile = previewDataEnabled() ? demoTraders.find((trader) => trader.id === id) : undefined;
       if (!demoProfile) throw new HttpError(404, 'Trader profile not found');
       return Response.json({
         ...demoProfile,
