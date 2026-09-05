@@ -1,0 +1,142 @@
+name: E2E Regression
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_authenticated_core:
+        description: Run the mutating homeowner-to-trader regression against E2E_BASE_URL
+        required: false
+        default: false
+        type: boolean
+      run_production_services:
+        description: Exercise deployed Gemini, Cloudinary and Resend configuration
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: '1'
+  EXPO_NO_TELEMETRY: '1'
+  PLAYWRIGHT_VERSION: '1.62.1'
+  CLERK_TESTING_VERSION: '2.2.28'
+
+jobs:
+  small-android-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund --prefer-offline
+      - name: Install pinned E2E runner dependencies
+        run: npm install --no-save --no-audit --no-fund @playwright/test@${PLAYWRIGHT_VERSION} @clerk/testing@${CLERK_TESTING_VERSION}
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start branch-local Expo web server
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx expo start --web --port 8081 > /tmp/buildpair-expo.log 2>&1 &
+          echo $! > /tmp/buildpair-expo.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8081/directory >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/buildpair-expo.log
+          exit 1
+      - name: Run 320px and Pixel 5 layout regressions
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8081
+        run: npx playwright test --project=small-android-320-public --project=small-android-pixel5-public
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-small-android
+          path: playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
+
+  authenticated-core:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_authenticated_core
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+      CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+      E2E_CUSTOMER_EMAIL: ${{ secrets.E2E_CUSTOMER_EMAIL }}
+      E2E_TRADER_EMAIL: ${{ secrets.E2E_TRADER_EMAIL }}
+      E2E_ALLOW_MUTATIONS: 'true'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund --prefer-offline
+      - name: Require approved E2E target and Clerk secret
+        shell: bash
+        run: |
+          test -n "$E2E_BASE_URL" || { echo 'E2E_BASE_URL secret is required'; exit 1; }
+          test -n "$CLERK_SECRET_KEY" || { echo 'E2E_CLERK_SECRET_KEY secret is required'; exit 1; }
+      - name: Install pinned E2E runner dependencies
+        run: npm install --no-save --no-audit --no-fund @playwright/test@${PLAYWRIGHT_VERSION} @clerk/testing@${CLERK_TESTING_VERSION}
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --project=desktop-core-flow
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-authenticated-core
+          path: playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
+
+  production-services:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_production_services
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+      CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+      E2E_CUSTOMER_EMAIL: ${{ secrets.E2E_CUSTOMER_EMAIL }}
+      E2E_TRADER_EMAIL: ${{ secrets.E2E_TRADER_EMAIL }}
+      E2E_RESEND_SINK_EMAIL: ${{ secrets.E2E_RESEND_SINK_EMAIL }}
+      RUN_PRODUCTION_SMOKES: 'true'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund --prefer-offline
+      - name: Require approved deployed target and Clerk secret
+        shell: bash
+        run: |
+          test -n "$E2E_BASE_URL" || { echo 'E2E_BASE_URL secret is required'; exit 1; }
+          test -n "$CLERK_SECRET_KEY" || { echo 'E2E_CLERK_SECRET_KEY secret is required'; exit 1; }
+      - name: Install pinned E2E runner dependencies
+        run: npm install --no-save --no-audit --no-fund @playwright/test@${PLAYWRIGHT_VERSION} @clerk/testing@${CLERK_TESTING_VERSION}
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --project=production-services
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-production-services
+          path: playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
