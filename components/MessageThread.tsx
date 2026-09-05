@@ -53,14 +53,14 @@ export function MessageThread({ conversationId }: { conversationId: string }) {
         return <View key={message.id} style={[styles.messageRow, mine && styles.messageRowMine]}>
           <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
             <Text style={[styles.messageText, mine && styles.mineText]}>{message.body}</Text>
-            <View style={styles.meta}><Text style={[styles.time, mine && styles.mineTime]}>{new Date(message.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</Text>{!mine ? <Button compact textColor={colors.muted} onPress={() => report(message.id)}>Report</Button> : null}</View>
+            <View style={styles.meta}><Text style={[styles.time, mine && styles.mineTime]}>{new Date(message.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</Text>{!mine ? <Button compact textColor={colors.muted} onPress={() => void report(message.id)}>Report</Button> : null}</View>
           </View>
         </View>;
       })}
     </View>
     <View style={styles.composer}>
       <TextInput style={styles.input} mode="outlined" placeholder="Write a message…" value={body} onChangeText={setBody} multiline maxLength={4000} />
-      <IconButton icon="send" mode="contained" containerColor={colors.primary} iconColor="#FFFFFF" size={24} loading={sending} disabled={sending || !body.trim()} onPress={send} accessibilityLabel="Send message" />
+      <IconButton icon="send" mode="contained" containerColor={colors.primary} iconColor="#FFFFFF" size={24} loading={sending} disabled={sending || !body.trim()} onPress={() => void send()} accessibilityLabel="Send message" />
     </View>
   </Screen>;
 }
