@@ -28,7 +28,12 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "origin": "https://www.buildpair.co.uk"
+        }
+      ],
       "expo-secure-store",
       [
         "expo-splash-screen",
