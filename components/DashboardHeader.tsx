@@ -23,7 +23,7 @@ export function DashboardHeader({ home }: { home: '/customer/dashboard' | '/trad
   const compact = width < 900;
 
   return <View style={styles.header}>
-    <Link href={home} asChild><Pressable style={styles.brandButton} accessibilityLabel="BuildMate home"><BuildMateLogo compact /></Pressable></Link>
+    <Link href={home} asChild><Pressable style={styles.brandButton} accessibilityLabel="BuildPair home"><BuildMateLogo compact /></Pressable></Link>
     <View style={styles.actions}>
       {!compact ? <Link href="/(public)/directory" asChild><Button>Find Trades</Button></Link> : null}
       {!compact ? <Link href={messagesHref} asChild><Button>Messages</Button></Link> : null}
