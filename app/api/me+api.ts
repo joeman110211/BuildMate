@@ -5,6 +5,7 @@ import { traderProfileShowcase } from '@/db/showcase-schema';
 import { InvalidPostcodeError, lookupPostcode } from '@/lib/postcode';
 import { getSql } from '@/lib/sql';
 import { accountAccess, accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
+import { trialEndsAt, TRADER_TRIAL_DAYS } from '@/lib/subscription';
 import { roleSchema, traderProfileSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -83,15 +84,18 @@ export async function PUT(request: Request) {
     const db = getDb();
     const existingProfile = await db.query.traderProfiles.findFirst({
       where: eq(traderProfiles.userId, userId),
-      columns: { stripeSubscriptionId: true },
+      columns: { stripeSubscriptionId: true, createdAt: true, trialEndsAt: true },
     });
 
-    // Every new trader gets Basic lead access for the first 14 days. Until the
-    // explicit trial_ends_at migration is applied, created_at is the source of
-    // truth for that window, so no Stripe setup is required during onboarding.
+    const minimumTrialEnd = existingProfile?.createdAt ? trialEndsAt(existingProfile.createdAt) : trialEndsAt();
+    const storedTrialEnd = existingProfile?.trialEndsAt ? new Date(existingProfile.trialEndsAt) : null;
+    const effectiveTrialEnd = storedTrialEnd && storedTrialEnd > minimumTrialEnd ? storedTrialEnd : minimumTrialEnd;
+
+    // BuildPair beta traders receive at least 28 days of Basic lead access from
+    // first profile publication. Editing a profile never restarts that clock.
     const trialListing = existingProfile?.stripeSubscriptionId
       ? {}
-      : { subscriptionTier: 'basic' as const, isSubscriptionActive: true };
+      : { subscriptionTier: 'basic' as const, isSubscriptionActive: true, trialEndsAt: effectiveTrialEnd };
 
     const [profile] = await db.insert(traderProfiles).values({ userId, ...values, ...trialListing }).onConflictDoUpdate({
       target: traderProfiles.userId,
@@ -103,6 +107,7 @@ export async function PUT(request: Request) {
       tradeCategory: traderProfiles.tradeCategory,
       subscriptionTier: traderProfiles.subscriptionTier,
       isSubscriptionActive: traderProfiles.isSubscriptionActive,
+      trialEndsAt: traderProfiles.trialEndsAt,
       createdAt: traderProfiles.createdAt,
       updatedAt: traderProfiles.updatedAt,
     });
@@ -125,13 +130,10 @@ export async function PUT(request: Request) {
           set: { ...showcaseValues, updatedAt: new Date() },
         });
       } catch (error) {
-        // Early production databases pre-date the showcase table. Do not make
-        // basic trader onboarding fail while the idempotent migration is awaiting
-        // approval; all showcase fields will save normally once it is applied.
         if (!missingShowcaseTable(error)) throw error;
       }
     }
 
-    return Response.json(profile);
+    return Response.json({ ...profile, trialDays: TRADER_TRIAL_DAYS });
   } catch (error) { return jsonError(error); }
 }
