@@ -1,7 +1,9 @@
 import Stripe from 'stripe';
+import { paymentsEnabled } from '@/lib/subscription';
 
 let stripeClient: Stripe | undefined;
 export function getStripe() {
+  if (!paymentsEnabled()) throw new Error('BuildPair payments are disabled');
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error('STRIPE_SECRET_KEY is not configured');
   stripeClient ??= new Stripe(key);
