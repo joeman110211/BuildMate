@@ -3,6 +3,7 @@ import { Link } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { Button, Chip, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
+import { DeleteAccountCard } from '@/components/DeleteAccountCard';
 import { LoadingScreen, Screen } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -27,9 +28,17 @@ export default function CustomerProfile() {
     </AppCard>
 
     <AppCard>
-      <Text variant="titleLarge" style={styles.title}>Quick links</Text>
-      <View style={styles.actions}><Link href="/(public)/directory" asChild><Button mode="outlined" icon="magnify">Find Trades</Button></Link><Link href="/customer/new-job" asChild><Button mode="outlined" icon="plus">Post a Job</Button></Link><Link href="/customer/messages" asChild><Button mode="outlined" icon="message-text-outline">Messages</Button></Link></View>
+      <Text variant="titleLarge" style={styles.title}>Homeowner tools</Text>
+      <View style={styles.actions}>
+        <Link href="/(public)/directory" asChild><Button mode="outlined" icon="magnify">Find Trades</Button></Link>
+        <Link href="/customer/saved-trades" asChild><Button mode="outlined" icon="heart-outline">Saved Trades</Button></Link>
+        <Link href="/customer/new-job" asChild><Button mode="outlined" icon="plus">Post a Job</Button></Link>
+        <Link href="/customer/messages" asChild><Button mode="outlined" icon="message-text-outline">Messages</Button></Link>
+        <Link href="/customer/notifications" asChild><Button mode="outlined" icon="bell-outline">Notifications</Button></Link>
+      </View>
     </AppCard>
+
+    <DeleteAccountCard />
   </Screen>;
 }
 
