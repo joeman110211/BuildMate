@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "BuildMate",
+    "name": "BuildPair",
     "slug": "buildpair",
     "version": "1.0.0",
     "icon": "./assets/icon.png",
@@ -21,8 +21,8 @@
     "web": {
       "bundler": "metro",
       "output": "server",
-      "name": "BuildMate",
-      "shortName": "BuildMate",
+      "name": "BuildPair",
+      "shortName": "BuildPair",
       "themeColor": "#D35400",
       "backgroundColor": "#ECEFF1",
       "favicon": "./assets/favicon.png"
@@ -49,7 +49,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "BuildMate uses your photos to add job images and trade portfolio photos.",
+          "photosPermission": "BuildPair uses your photos to add job images and trade portfolio photos.",
           "microphonePermission": false
         }
       ],
