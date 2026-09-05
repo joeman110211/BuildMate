@@ -3,7 +3,7 @@ import { getDb } from '@/db/client';
 import { traderProfiles } from '@/db/schema';
 import { traderProfileShowcase } from '@/db/showcase-schema';
 import { HttpError, jsonError, requireRole } from '@/lib/server';
-import { hasActiveLeadAccess, trialEndsAt } from '@/lib/subscription';
+import { effectiveTrialEndsAt, hasActiveLeadAccess } from '@/lib/subscription';
 
 function missingShowcaseTable(error: unknown) {
   const candidate = error as { code?: string; message?: string; cause?: { code?: string; message?: string } };
@@ -35,6 +35,7 @@ export async function GET(request: Request) {
       stripeCustomerId: traderProfiles.stripeCustomerId,
       stripeAccountId: traderProfiles.stripeAccountId,
       stripeChargesEnabled: traderProfiles.stripeChargesEnabled,
+      trialEndsAt: traderProfiles.trialEndsAt,
       postcode: traderProfiles.postcode,
       locationLabel: traderProfiles.locationLabel,
       latitude: traderProfiles.latitude,
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
     return Response.json({
       ...profile,
       ...(showcase ?? {}),
-      trialEndsAt: trialEndsAt(profile.createdAt),
+      trialEndsAt: effectiveTrialEndsAt(profile),
       isSubscriptionActive: hasActiveLeadAccess(profile),
     });
   } catch (error) { return jsonError(error); }
