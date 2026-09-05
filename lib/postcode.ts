@@ -30,6 +30,21 @@ export async function lookupPostcode(input: string): Promise<PostcodeLocation> {
   const postcode = input.trim().toUpperCase().replace(/\s+/g, ' ');
   if (postcode.length < 5 || postcode.length > 8) throw new InvalidPostcodeError();
 
+  // Deterministic CI fixture. Never active on Vercel, including previews.
+  if (
+    process.env.CI === 'true'
+    && process.env.BUILDPAIR_E2E_MODE === '1'
+    && !process.env.VERCEL_ENV
+    && postcode === 'TW18 4AB'
+  ) {
+    return {
+      postcode,
+      latitude: 51.4335,
+      longitude: -0.5155,
+      locationLabel: 'Spelthorne',
+    };
+  }
+
   let response: Response;
   try {
     response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`, {
