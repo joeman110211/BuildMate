@@ -1,12 +1,12 @@
 import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { jobMilestones, jobs, quotes, reviews, traderProfiles } from '@/db/schema';
-import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
+import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
 
 export async function GET(request: Request, { id }: { id: string }) {
   try {
     const userId = await authenticatedUserId(request);
-    const user = await ensureDbUser(userId);
+    await ensureDbUser(userId);
     const db = getDb();
     const job = await db.query.jobs.findFirst({ where: eq(jobs.id, id) });
     if (!job) throw new HttpError(404, 'Job not found');
@@ -14,7 +14,7 @@ export async function GET(request: Request, { id }: { id: string }) {
     const allowed = job.customerId === userId || accepted?.traderId === userId;
     if (!allowed) throw new HttpError(403, 'You cannot access this job');
     const milestones = await db.select().from(jobMilestones).where(eq(jobMilestones.jobId, id));
-    const existingReview = user.role === 'customer' ? await db.query.reviews.findFirst({ where: and(eq(reviews.jobId, id), eq(reviews.customerId, userId)) }) : null;
+    const existingReview = job.customerId === userId ? await db.query.reviews.findFirst({ where: and(eq(reviews.jobId, id), eq(reviews.customerId, userId)) }) : null;
     let trader = null;
     if (accepted) trader = await db.query.traderProfiles.findFirst({ where: eq(traderProfiles.userId, accepted.traderId) });
     return Response.json({ job, acceptedQuote: accepted, milestones, trader, existingReview });
@@ -24,12 +24,13 @@ export async function GET(request: Request, { id }: { id: string }) {
 export async function PATCH(request: Request, { id }: { id: string }) {
   try {
     const userId = await authenticatedUserId(request);
-    const user = await ensureDbUser(userId);
+    await ensureDbUser(userId);
+    const modes = await accountModes(userId);
     const payload = await request.json() as { action?: string };
     const db = getDb();
 
     if (payload.action === 'cancel') {
-      if (user.role !== 'customer') throw new HttpError(403, 'Customer account required');
+      if (!modes.customerEnabled) throw new HttpError(403, 'Customer account required');
       const [cancelled] = await db.update(jobs).set({ status: 'cancelled', updatedAt: new Date() })
         .where(and(eq(jobs.id, id), eq(jobs.customerId, userId), isNull(jobs.acceptedQuoteId), inArray(jobs.status, ['open', 'quoted'])))
         .returning();
@@ -40,7 +41,7 @@ export async function PATCH(request: Request, { id }: { id: string }) {
     }
 
     if (payload.action !== 'complete') throw new HttpError(400, 'Unsupported job action');
-    if (user.role !== 'trader') throw new HttpError(403, 'Trader account required');
+    if (!modes.traderEnabled) throw new HttpError(403, 'Trader account required');
     const [owned] = await db.select({ job: jobs, quote: quotes }).from(jobs).innerJoin(quotes, eq(quotes.id, jobs.acceptedQuoteId))
       .where(and(eq(jobs.id, id), eq(quotes.traderId, userId))).limit(1);
     if (!owned) throw new HttpError(404, 'Job not found');
