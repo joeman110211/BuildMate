@@ -50,7 +50,7 @@ export default function TraderJobBoard() {
   }), [directOnly, jobs, profile?.userId, search, urgentOnly]);
 
   if (loading) return <LoadingScreen label="Finding suitable jobs…" />;
-  return <Screen title="Job Board" subtitle="New work matching your trade, service area and BuildMate plan.">
+  return <Screen title="Job Board" subtitle="New work matching your trade, service area and BuildPair access, with beta examples clearly marked.">
     <Searchbar placeholder="Search jobs or locations" value={search} onChangeText={setSearch} style={styles.search} />
     <View style={styles.filters}>
       <Chip selected={!directOnly && !urgentOnly} showSelectedCheck onPress={() => { setDirectOnly(false); setUrgentOnly(false); }}>All</Chip>
@@ -63,16 +63,20 @@ export default function TraderJobBoard() {
     {error ? <EmptyState title="Couldn’t load the job board" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
     {!error && !opportunities.length ? <EmptyState title="No matching jobs right now" body="Try clearing the filters. New jobs matching your trade and area will appear here automatically." /> : opportunities.map((job) => {
       const direct = job.targetTraderId === profile?.userId;
-      const ownQuote = quotes.find((quote) => quote.jobId === job.id && quote.status === 'pending');
-      const canQuote = Boolean(profile?.isSubscriptionActive && (direct || profile.subscriptionTier === 'featured'));
+      const ownQuote = job.isPreview ? undefined : quotes.find((quote) => quote.jobId === job.id && quote.status === 'pending');
+      const canQuote = Boolean(!job.isPreview && profile?.isSubscriptionActive && (direct || profile.subscriptionTier === 'featured'));
       return <AppCard key={job.id}>
-        <View style={styles.cardTop}><View style={styles.titleBlock}><Text variant="titleLarge" style={styles.title}>{job.title}</Text><Text style={styles.muted}>📍 {job.postcode || job.locationLabel || 'Location available'} · {job.budgetRange}</Text></View><View style={styles.badges}>{direct ? <Chip compact icon="account-arrow-left">Direct request</Chip> : null}{ownQuote ? <Chip compact icon="check">Quoted</Chip> : <Chip compact>New</Chip>}</View></View>
+        <View style={styles.cardTop}><View style={styles.titleBlock}><Text variant="titleLarge" style={styles.title}>{job.title}</Text><Text style={styles.muted}>📍 {job.postcode || job.locationLabel || 'Location available'} · {job.budgetRange}</Text></View><View style={styles.badges}>{job.isPreview ? <Chip compact icon="flask-outline">Preview job</Chip> : null}{direct ? <Chip compact icon="account-arrow-left">Direct request</Chip> : null}{ownQuote ? <Chip compact icon="check">Quoted</Chip> : !job.isPreview ? <Chip compact>New</Chip> : null}</View></View>
         {job.photos?.[0] ? <Image source={{ uri: job.photos[0] }} style={styles.photo} /> : null}
         <View style={styles.meta}><Chip compact icon="home-outline">{job.propertyType}</Chip><Chip compact icon="clock-outline">{job.urgency}</Chip></View>
         <Text numberOfLines={4} style={styles.description}>{job.description}</Text>
         <View style={styles.actions}>
-          {ownQuote ? <Button mode="contained" icon="file-edit-outline" onPress={() => router.push({ pathname: '/trader/quotes/new', params: { jobId: job.id, title: job.title } })}>Update Quote</Button> : <Button mode="contained" icon="file-document-edit-outline" disabled={!canQuote} onPress={() => router.push({ pathname: '/trader/quotes/new', params: { jobId: job.id, title: job.title } })}>{direct ? 'Quote Direct Lead' : 'Send Quote'}</Button>}
-          {!canQuote && !ownQuote ? <Button mode="text" onPress={() => router.push('/trader/subscription')}>Check plan access</Button> : null}
+          {job.isPreview
+            ? <Button mode="outlined" disabled>Example only</Button>
+            : ownQuote
+              ? <Button mode="contained" icon="file-edit-outline" onPress={() => router.push({ pathname: '/trader/quotes/new', params: { jobId: job.id, title: job.title } })}>Update Quote</Button>
+              : <Button mode="contained" icon="file-document-edit-outline" disabled={!canQuote} onPress={() => router.push({ pathname: '/trader/quotes/new', params: { jobId: job.id, title: job.title } })}>{direct ? 'Quote Direct Lead' : 'Send Quote'}</Button>}
+          {!job.isPreview && !canQuote && !ownQuote ? <Button mode="text" onPress={() => router.push('/trader/subscription')}>Check plan access</Button> : null}
         </View>
       </AppCard>;
     })}
