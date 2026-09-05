@@ -39,7 +39,7 @@ export function MessageThread({ conversationId }: { conversationId: string }) {
 
   const report = async (messageId: string) => {
     try {
-      await apiFetch('/api/reports', { method: 'POST', body: JSON.stringify({ messageId, reason: 'abuse_or_harassment', details: 'Reported from a BuildPair job conversation.' }) }, () => getTokenRef.current());
+      await apiFetch('/api/reports', { method: 'POST', body: JSON.stringify({ messageId, reason: 'abuse_or_harassment', details: 'Reported from a BuildMate job conversation.' }) }, () => getTokenRef.current());
       Alert.alert('Report received', 'The message has been added to the moderation queue.');
     } catch (e) { Alert.alert('Could not report message', errorMessage(e)); }
   };
@@ -66,18 +66,18 @@ export function MessageThread({ conversationId }: { conversationId: string }) {
 }
 
 const styles = StyleSheet.create({
-  thread: { minHeight: 320, backgroundColor: '#FBFBF9', borderRadius: 18, padding: 12, gap: 10, borderWidth: 1, borderColor: colors.border },
+  thread: { minHeight: 320, backgroundColor: colors.surfaceSoft, borderRadius: 20, padding: 12, gap: 10, borderWidth: 1, borderColor: colors.border },
   messageRow: { flexDirection: 'row', justifyContent: 'flex-start' },
   messageRowMine: { justifyContent: 'flex-end' },
   bubble: { maxWidth: '82%', paddingHorizontal: 14, paddingTop: 11, paddingBottom: 7, borderRadius: 18, gap: 4 },
   mine: { backgroundColor: colors.primary, borderBottomRightRadius: 5 },
-  theirs: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 5 },
+  theirs: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 5 },
   messageText: { color: colors.text, lineHeight: 22 },
   mineText: { color: '#FFFFFF' },
   meta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   time: { color: colors.muted, fontSize: 11 },
   mineTime: { color: '#FFE3D2' },
-  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, backgroundColor: colors.surface, borderRadius: 18 },
-  input: { flex: 1, backgroundColor: colors.surface },
+  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, backgroundColor: colors.surfaceRaised, borderRadius: 18 },
+  input: { flex: 1, backgroundColor: colors.surfaceRaised },
   error: { color: colors.danger },
 });
