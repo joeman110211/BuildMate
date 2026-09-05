@@ -3,6 +3,7 @@ import { getDb } from '@/db/client';
 import { reviews, traderProfiles, users } from '@/db/schema';
 import { traderProfileShowcase } from '@/db/showcase-schema';
 import { demoTraders } from '@/lib/demo-data';
+import { previewDataEnabled } from '@/lib/preview-data';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
 import { TRADER_TRIAL_DAYS } from '@/lib/subscription';
 
@@ -54,6 +55,7 @@ export async function GET(request: Request, { id }: { id: string }) {
       .where(and(eq(traderProfiles.id, id), sql`NOT EXISTS (SELECT 1 FROM users u WHERE u.id = ${traderProfiles.userId} AND u.is_suspended = true)`))
       .groupBy(traderProfiles.id).limit(1);
     if (!profile) {
+      if (!previewDataEnabled()) throw new HttpError(404, 'Trader profile not found');
       const demoProfile = demoTraders.find((trader) => trader.id === id);
       if (!demoProfile) throw new HttpError(404, 'Trader profile not found');
       return Response.json({
