@@ -12,7 +12,7 @@ import type { UserRole } from '@/types';
 const authConfigured = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 function HeaderBrand() {
-  return <Link href="/(public)/directory" asChild><Pressable style={styles.brandPressable} accessibilityLabel="BuildMate"><BuildMateLogo compact /></Pressable></Link>;
+  return <Link href="/(public)/directory" asChild><Pressable style={styles.brandPressable} accessibilityLabel="BuildPair"><BuildMateLogo compact /></Pressable></Link>;
 }
 
 function AuthenticatedHeader() {
