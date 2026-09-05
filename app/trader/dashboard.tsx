@@ -19,6 +19,7 @@ export default function TraderDashboard() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [now] = useState(() => Date.now());
 
   useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
   const load = useCallback(async () => {
@@ -45,7 +46,7 @@ export default function TraderDashboard() {
   const completedJobs = jobs.filter((job) => job.status === 'completed');
   const pendingQuotes = quotes.filter((quote) => quote.status === 'pending');
   const trialEnds = profile.trialEndsAt ? new Date(profile.trialEndsAt) : null;
-  const trialDays = trialEnds ? Math.max(0, Math.ceil((trialEnds.getTime() - Date.now()) / 86400000)) : 0;
+  const trialDays = trialEnds ? Math.max(0, Math.ceil((trialEnds.getTime() - now) / 86400000)) : 0;
 
   return <Screen title={`Hello, ${profile.businessName}`} subtitle={`${profile.tradeCategory}${profile.locationLabel ? ` · ${profile.locationLabel}` : ''}`}>
     {profile.isSubscriptionActive && trialEnds ? <AppCard style={styles.trialCard}>
