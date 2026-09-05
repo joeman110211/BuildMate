@@ -5,6 +5,7 @@ REPO_DIR="${BUILDPAIR_REPO_DIR:-/home/jloveridge1102/BuildPair}"
 BRANCH="${BUILDPAIR_DEPLOY_BRANCH:-main}"
 HEALTH_URL="${BUILDPAIR_HEALTH_URL:-https://staging.buildpair.co.uk/api/health}"
 LOCK_FILE="${BUILDPAIR_DEPLOY_LOCK:-/tmp/buildpair-deploy.lock}"
+FAILED_SHA_FILE="${BUILDPAIR_FAILED_SHA_FILE:-/home/jloveridge1102/.buildpair-last-failed-sha}"
 
 log() {
   printf '[%s] %s\n' "$(date -Is)" "$*"
@@ -37,6 +38,11 @@ if [[ "$LOCAL_SHA" == "$REMOTE_SHA" ]]; then
   exit 0
 fi
 
+if [[ -f "$FAILED_SHA_FILE" ]] && [[ "$(cat "$FAILED_SHA_FILE")" == "$REMOTE_SHA" ]]; then
+  log "Skipping ${REMOTE_SHA:0:12}; this revision previously failed deployment. Waiting for a newer commit."
+  exit 0
+fi
+
 # Only accept a fast-forward from the deployed checkout.
 if ! git merge-base --is-ancestor "$LOCAL_SHA" "$REMOTE_SHA"; then
   log "Local branch has diverged from origin/$BRANCH; refusing automatic deployment."
@@ -44,13 +50,15 @@ if ! git merge-base --is-ancestor "$LOCAL_SHA" "$REMOTE_SHA"; then
 fi
 
 rollback() {
-  log "Deployment failed after switching revisions. Rolling back to ${LOCAL_SHA:0:12}..."
+  log "Deployment failed after switching revisions. Marking ${REMOTE_SHA:0:12} as failed and rolling back to ${LOCAL_SHA:0:12}..."
+  printf '%s\n' "$REMOTE_SHA" > "$FAILED_SHA_FILE"
+  chmod 600 "$FAILED_SHA_FILE"
   git reset --hard "$LOCAL_SHA"
   npm ci
   npm run build:web
   pm2 restart buildpair --update-env >/dev/null || true
   pm2 save >/dev/null || true
-  log "Rollback completed. Inspect the deployment logs before retrying."
+  log "Rollback completed. This failed revision will not be retried unless GitHub changes again."
 }
 
 DEPLOY_SWITCHED=false
@@ -95,6 +103,7 @@ if [[ "$PUBLIC_HEALTH" != *'"status":"ok"'* || "$PUBLIC_HEALTH" != *'"database":
   false
 fi
 
+rm -f "$FAILED_SHA_FILE"
 DEPLOY_SWITCHED=false
 trap - ERR
 log "Deployment complete: ${REMOTE_SHA:0:12} is live."
