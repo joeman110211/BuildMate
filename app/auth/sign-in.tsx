@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { Button, HelperText, Text, TextInput } from 'react-native-paper';
 import { Screen } from '@/components/Screen';
 import { SocialAuthButtons } from '@/components/SocialAuthButtons';
-import { modeSetupHref, parseAccountMode, signUpHref } from '@/lib/account-mode';
+import { forgotPasswordHref, modeSetupHref, parseAccountMode, signUpHref } from '@/lib/account-mode';
 import { errorMessage } from '@/lib/api';
 
 export default function SignInScreen() {
@@ -128,6 +128,7 @@ export default function SignInScreen() {
         autoComplete="current-password"
         mode="outlined"
       />
+      <Link href={forgotPasswordHref(mode)} asChild><Button compact>Forgot password?</Button></Link>
       <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
       <Button
         mode="contained"
