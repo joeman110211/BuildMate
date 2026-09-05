@@ -87,6 +87,7 @@ export const jobs = pgTable(
     budgetRange: text('budget_range').notNull(),
     photos: text('photos').array().notNull().default(sql`ARRAY[]::text[]`),
     status: jobStatusEnum('status').notNull().default('open'),
+    requiresPlatformPayment: boolean('requires_platform_payment').notNull().default(false),
     acceptedQuoteId: uuid('accepted_quote_id').references((): AnyPgColumn => quotes.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
