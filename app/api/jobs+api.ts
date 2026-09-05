@@ -3,7 +3,7 @@ import { getDb } from '@/db/client';
 import { jobs, traderProfiles } from '@/db/schema';
 import { demoJobs } from '@/lib/demo-data';
 import { InvalidPostcodeError, lookupPostcode, outwardCode } from '@/lib/postcode';
-import { authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
+import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
 import { hasActiveLeadAccess } from '@/lib/subscription';
 import { jobSchema } from '@/lib/validation';
@@ -12,11 +12,13 @@ export async function GET(request: Request) {
   try {
     const userId = await authenticatedUserId(request);
     const user = await ensureDbUser(userId);
+    const modes = await accountModes(userId);
+    const activeMode = modes.activeMode ?? user.role;
     const db = getDb();
     let rows;
-    if (user.role === 'customer') {
+    if (activeMode === 'customer' && modes.customerEnabled) {
       rows = await db.select().from(jobs).where(eq(jobs.customerId, user.id)).orderBy(desc(jobs.createdAt));
-    } else if (user.role === 'trader') {
+    } else if (activeMode === 'trader' && modes.traderEnabled) {
       const [profile] = await db.select({
         tradeCategory: traderProfiles.tradeCategory,
         subscriptionTier: traderProfiles.subscriptionTier,
@@ -77,7 +79,7 @@ export async function GET(request: Request) {
           ? { ...job, postcode: outwardCode(job.postcode), latitude: null, longitude: null }
           : job;
       });
-    } else throw new HttpError(403, 'Choose an account type first');
+    } else throw new HttpError(403, 'Choose an account mode first');
     return Response.json(rows);
   } catch (error) { return jsonError(error); }
 }
