@@ -71,7 +71,7 @@ export default function NewJobScreen() {
     {step === 1 ? <AppCard>
       <Text variant="titleLarge" style={styles.title}>Tell tradespeople what needs doing</Text>
       <TextInput label="Short job title" value={title} onChangeText={setTitle} mode="outlined" maxLength={120} placeholder="e.g. Retile bathroom floor" />
-      <SegmentedButtons value={mode} onValueChange={setMode} buttons={[{ value: 'manual', label: 'Write it myself' }, { value: 'ai', label: 'BuildPair AI helper' }]} />
+      <SegmentedButtons value={mode} onValueChange={setMode} buttons={[{ value: 'manual', label: 'Write it myself' }, { value: 'ai', label: 'BuildMate AI helper' }]} />
       {mode === 'ai' ? <Button mode="outlined" icon="creation" disabled={!readyForAi} onPress={() => setShowAi(true)}>{aiGeneratedSpec ? 'Improve with AI again' : 'Help me write the job'}</Button> : null}
       {mode === 'ai' && !readyForAi ? <HelperText type="info">Choose a category and property type first.</HelperText> : null}
       <TextInput label="Detailed job description" value={description} onChangeText={(value) => { setDescription(value); if (value !== aiGeneratedSpec) setAiGeneratedSpec(null); }} mode="outlined" multiline numberOfLines={10} maxLength={5000} />
@@ -97,7 +97,7 @@ export default function NewJobScreen() {
       <View style={styles.reviewHeader}><View style={styles.flex}><Text variant="headlineSmall" style={styles.title}>{title || 'Your job'}</Text><Text style={styles.muted}>{category} · {propertyType}</Text></View>{traderName ? <Chip icon="account-arrow-right">Direct request</Chip> : <Chip icon="account-group-outline">Marketplace job</Chip>}</View>
       <View style={styles.reviewMeta}><Chip icon="map-marker-outline">{postcode}</Chip><Chip icon="cash">{budgetRange}</Chip><Chip icon="clock-outline">{urgency}</Chip></View>
       <Text style={styles.description}>{description}</Text>
-      <Text style={styles.muted}>{photos.length} photo{photos.length === 1 ? '' : 's'} attached{aiGeneratedSpec ? ' · description assisted by BuildPair AI' : ''}</Text>
+      <Text style={styles.muted}>{photos.length} photo{photos.length === 1 ? '' : 's'} attached{aiGeneratedSpec ? ' · description assisted by BuildMate AI' : ''}</Text>
     </AppCard> : null}
 
     <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
@@ -109,9 +109,9 @@ export default function NewJobScreen() {
 const styles = StyleSheet.create({
   progressBlock: { gap: 8 },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
-  progress: { height: 8, borderRadius: 8, backgroundColor: '#F2E7DF' },
+  progress: { height: 8, borderRadius: 8, backgroundColor: colors.surfaceStrong },
   step: { color: colors.primary, fontWeight: '900' },
-  title: { fontWeight: '900', color: colors.text },
+  title: { fontWeight: '900', color: colors.charcoal },
   muted: { color: colors.muted, lineHeight: 22 },
   actions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   button: { minHeight: 50 },
