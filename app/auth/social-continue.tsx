@@ -1,9 +1,11 @@
 import { useClerk, useSignIn, useSignUp } from '@clerk/expo';
-import { useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, HelperText, Text, TextInput } from 'react-native-paper';
 import { Screen } from '@/components/Screen';
+import { modeSetupHref, parseAccountMode, signInHref } from '@/lib/account-mode';
 import { errorMessage } from '@/lib/api';
 
 type Stage = 'working' | 'requirements' | 'email-code' | 'blocked';
@@ -11,6 +13,8 @@ type Stage = 'working' | 'requirements' | 'email-code' | 'blocked';
 export default function SocialContinueScreen() {
   const clerk = useClerk();
   const router = useRouter();
+  const params = useLocalSearchParams<{ mode?: string | string[] }>();
+  const mode = parseAccountMode(params.mode);
   const { signIn, fetchStatus: signInFetchStatus } = useSignIn();
   const { signUp, fetchStatus: signUpFetchStatus } = useSignUp();
   const started = useRef(false);
@@ -33,7 +37,7 @@ export default function SocialContinueScreen() {
       setError(`Your account needs another security step before BuildMate can continue (${String(session.currentTask.key ?? 'session task')}).`);
       return;
     }
-    router.replace('/auth/choose-role');
+    router.replace(modeSetupHref(mode));
   }
 
   async function finalizeSignIn() {
@@ -75,8 +79,8 @@ export default function SocialContinueScreen() {
         }
       }
 
-      // This is the important case from the reported needs_identifier error:
-      // a social sign-in for someone who does not have a BuildMate account yet.
+      // A social sign-in for someone who does not have a BuildMate account yet
+      // transfers into Clerk's sign-up flow and preserves the selected app mode.
       if (signIn.isTransferable) {
         const transferred = await signUp.create({ transfer: true });
         if (transferred.error) throw transferred.error;
@@ -210,7 +214,7 @@ export default function SocialContinueScreen() {
   return (
     <Screen title="Couldn't finish sign in" subtitle="The social provider returned, but Clerk still needs another authentication step.">
       <HelperText type="error" visible>{error || 'Please return to sign in and try again.'}</HelperText>
-      <Button mode="contained" onPress={() => router.replace('/auth/sign-in')}>Back to sign in</Button>
+      <Button mode="contained" onPress={() => router.replace((mode ? signInHref(mode) : '/auth/account') as Href)}>Back to sign in</Button>
     </Screen>
   );
 }

@@ -1,17 +1,18 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { jobs, quotes } from '@/db/schema';
-import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
+import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
 
 export async function PATCH(request: Request, { id }: { id: string }) {
   try {
     const userId = await authenticatedUserId(request);
-    const user = await ensureDbUser(userId);
+    await ensureDbUser(userId);
+    const modes = await accountModes(userId);
     const payload = await request.json() as { action?: string };
     const db = getDb();
 
     if (payload.action === 'withdraw') {
-      if (user.role !== 'trader') throw new HttpError(403, 'Trader account required');
+      if (!modes.traderEnabled) throw new HttpError(403, 'Trader account required');
       const [candidate] = await db.select({ quote: quotes, job: jobs }).from(quotes).innerJoin(jobs, eq(jobs.id, quotes.jobId))
         .where(and(eq(quotes.id, id), eq(quotes.traderId, userId))).limit(1);
       if (!candidate) throw new HttpError(404, 'Quote not found');
@@ -27,7 +28,7 @@ export async function PATCH(request: Request, { id }: { id: string }) {
     }
 
     if (payload.action !== 'accept') throw new HttpError(400, 'Unsupported quote action');
-    if (user.role !== 'customer') throw new HttpError(403, 'Customer account required');
+    if (!modes.customerEnabled) throw new HttpError(403, 'Customer account required');
     const [candidate] = await db.select({ quote: quotes, job: jobs }).from(quotes).innerJoin(jobs, eq(jobs.id, quotes.jobId))
       .where(and(eq(quotes.id, id), eq(jobs.customerId, userId))).limit(1);
     if (!candidate) throw new HttpError(404, 'Quote not found');

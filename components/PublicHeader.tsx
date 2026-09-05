@@ -1,9 +1,12 @@
 import { useClerk } from '@clerk/expo';
+import type { Href } from 'expo-router';
 import { Link, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
 import { colors } from '@/constants/theme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { dashboardHref } from '@/lib/account-mode';
+import type { UserRole } from '@/types';
 
 const authConfigured = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
@@ -15,7 +18,14 @@ function AuthenticatedHeader() {
   const { user, isSignedIn } = useCurrentUser();
   const { signOut } = useClerk();
   const router = useRouter();
-  const dashboard = user?.role === 'trader' ? '/trader/dashboard' : user?.role === 'customer' ? '/customer/dashboard' : '/auth/choose-role';
+
+  let mode: UserRole | null = null;
+  if (user?.activeMode === 'customer' && user.customerEnabled) mode = 'customer';
+  else if (user?.activeMode === 'trader' && user.traderEnabled) mode = 'trader';
+  else if (user?.customerEnabled) mode = 'customer';
+  else if (user?.traderEnabled) mode = 'trader';
+
+  const dashboard = (mode ? dashboardHref(mode) : '/auth/choose-role') as Href;
 
   return <View style={styles.header}>
     <HeaderBrand />
@@ -23,10 +33,10 @@ function AuthenticatedHeader() {
       <Link href="/(public)/jobs" asChild><Button>Jobs</Button></Link>
       {isSignedIn ? <>
         <Button mode="contained" onPress={() => router.push(dashboard)}>Dashboard</Button>
-        <Button onPress={() => signOut(() => router.replace('/(public)/directory'))}>Sign out</Button>
+        <Button onPress={() => signOut(() => router.replace('/auth/account'))}>Sign out</Button>
       </> : <>
-        <Link href="/auth/sign-in" asChild><Button>Sign in</Button></Link>
-        <Link href="/auth/sign-up" asChild><Button mode="contained">Join</Button></Link>
+        <Link href="/auth/account" asChild><Button>Sign in</Button></Link>
+        <Link href="/auth/account" asChild><Button mode="contained">Join</Button></Link>
       </>}
     </View>
   </View>;

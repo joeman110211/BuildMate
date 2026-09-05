@@ -9,7 +9,7 @@ export function RoleGate({ role, children }: PropsWithChildren<{ role: UserRole 
   const { user, loading, error, refresh, isSignedIn } = useCurrentUser();
 
   if (loading) return <LoadingScreen label="Checking your account…" />;
-  if (!isSignedIn) return <Redirect href="/auth/sign-in" />;
+  if (!isSignedIn) return <Redirect href="/auth/account" />;
 
   if (error) {
     return (
@@ -20,7 +20,8 @@ export function RoleGate({ role, children }: PropsWithChildren<{ role: UserRole 
     );
   }
 
-  if (!user?.role) return <Redirect href="/auth/choose-role" />;
-  if (user.role !== role) return <Redirect href={user.role === 'trader' ? '/trader/dashboard' : '/customer/dashboard'} />;
+  if (!user) return <Redirect href="/auth/account" />;
+  const enabled = role === 'customer' ? user.customerEnabled : user.traderEnabled;
+  if (!enabled) return <Redirect href={{ pathname: '/auth/choose-role', params: { mode: role } }} />;
   return children;
 }

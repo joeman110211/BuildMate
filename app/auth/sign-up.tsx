@@ -1,15 +1,18 @@
 import { useSignUp } from '@clerk/expo';
-import { Link, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, HelperText, Text, TextInput } from 'react-native-paper';
 import { Screen } from '@/components/Screen';
 import { SocialAuthButtons } from '@/components/SocialAuthButtons';
+import { modeSetupHref, parseAccountMode, signInHref } from '@/lib/account-mode';
 import { errorMessage } from '@/lib/api';
 
 export default function SignUpScreen() {
   const { signUp, fetchStatus } = useSignUp();
   const router = useRouter();
+  const params = useLocalSearchParams<{ mode?: string | string[] }>();
+  const mode = parseAccountMode(params.mode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -17,6 +20,12 @@ export default function SignUpScreen() {
   const [error, setError] = useState('');
 
   const busy = fetchStatus === 'fetching';
+  const title = mode === 'trader' ? 'Create Tradesperson Account' : mode === 'customer' ? 'Create Homeowner Account' : 'Create your account';
+  const subtitle = mode === 'trader'
+    ? 'Build your trade profile and start with a 14-day free trial.'
+    : mode === 'customer'
+      ? 'Post work, compare quotes and hire trusted trades.'
+      : 'One BuildMate login can hold both Homeowner and Tradesperson profiles.';
 
   async function startEmailSignUp() {
     try {
@@ -47,7 +56,7 @@ export default function SignUpScreen() {
           if (session?.currentTask) {
             throw new Error('Account needs another Clerk setup step before BuildMate can continue.');
           }
-          router.replace('/auth/choose-role');
+          router.replace(modeSetupHref(mode));
         },
       });
     } catch (e) {
@@ -86,8 +95,8 @@ export default function SignUpScreen() {
   }
 
   return (
-    <Screen title="Create your account" subtitle="Customers post work free. Tradespeople get a 14-day free trial before billing is required.">
-      <SocialAuthButtons onError={setError} />
+    <Screen title={title} subtitle={subtitle}>
+      <SocialAuthButtons onError={setError} mode={mode} />
       <TextInput
         label="Email address"
         value={email}
@@ -119,8 +128,9 @@ export default function SignUpScreen() {
       </Button>
       <View style={styles.footer}>
         <Text>Already registered?</Text>
-        <Link href="/auth/sign-in" asChild><Button>Sign in</Button></Link>
+        <Link href={mode ? signInHref(mode) : '/auth/account'} asChild><Button>Sign in</Button></Link>
       </View>
+      <Link href="/auth/account" asChild><Button>Back to account options</Button></Link>
     </Screen>
   );
 }
