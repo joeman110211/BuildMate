@@ -1,8 +1,9 @@
 import { useClerk } from '@clerk/expo';
 import type { Href } from 'expo-router';
 import { Link, useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Button, Text } from 'react-native-paper';
+import { BuildMateLogo } from '@/components/BuildMateLogo';
 import { colors } from '@/constants/theme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { dashboardHref } from '@/lib/account-mode';
@@ -11,7 +12,7 @@ import type { UserRole } from '@/types';
 const authConfigured = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 function HeaderBrand() {
-  return <Link href="/(public)/directory" asChild><Button><Text variant="titleLarge" style={styles.brand}>BuildPair</Text></Button></Link>;
+  return <Link href="/(public)/directory" asChild><Pressable style={styles.brandPressable} accessibilityLabel="BuildMate"><BuildMateLogo compact /></Pressable></Link>;
 }
 
 function AuthenticatedHeader() {
@@ -59,8 +60,8 @@ export function PublicHeader() {
 }
 
 const styles = StyleSheet.create({
-  header: { minHeight: 68, paddingHorizontal: 14, borderBottomWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  brand: { color: colors.primary, fontWeight: '900' },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  header: { minHeight: 68, paddingHorizontal: 14, borderBottomWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceRaised, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  brandPressable: { minHeight: 54, justifyContent: 'center', paddingHorizontal: 3 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 2, flexWrap: 'wrap', justifyContent: 'flex-end' },
   preview: { opacity: 0.6, marginRight: 4 },
 });
