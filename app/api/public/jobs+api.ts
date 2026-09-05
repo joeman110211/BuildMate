@@ -3,6 +3,7 @@ import { getDb } from '@/db/client';
 import { jobs } from '@/db/schema';
 import { demoJobs } from '@/lib/demo-data';
 import { outwardCode } from '@/lib/postcode';
+import { previewDataEnabled } from '@/lib/preview-data';
 import { jsonError } from '@/lib/server';
 
 export async function GET() {
@@ -13,9 +14,12 @@ export async function GET() {
       .limit(50);
 
     const realIds = new Set(rows.map((job) => job.id));
+    const previewJobs = previewDataEnabled()
+      ? demoJobs.filter((job) => !realIds.has(job.id)).map((job) => ({ ...job, isPreview: true }))
+      : [];
     const combined = [
       ...rows.map((job) => ({ ...job, isPreview: false })),
-      ...demoJobs.filter((job) => !realIds.has(job.id)).map((job) => ({ ...job, isPreview: true })),
+      ...previewJobs,
     ].slice(0, 50);
     const publicRows = combined.map((job) => ({
       ...job,
