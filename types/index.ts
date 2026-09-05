@@ -24,6 +24,39 @@ export interface BeforeAfterProject {
   caption?: string;
 }
 
+export interface TraderCredential {
+  id: string;
+  credentialType: string;
+  name: string;
+  issuer?: string | null;
+  referenceNumber?: string | null;
+  documentUrl?: string | null;
+  expiresAt?: string | null;
+  status: 'submitted' | 'verified' | 'rejected' | 'expired';
+  verifiedAt?: string | null;
+  rejectionReason?: string | null;
+}
+
+export interface AvailabilitySlot {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  status: 'available' | 'busy' | 'unavailable';
+  note?: string | null;
+}
+
+export interface ProjectStory {
+  id: string;
+  title: string;
+  locationLabel?: string | null;
+  summary: string;
+  beforePhotos: string[];
+  afterPhotos: string[];
+  durationDays?: number | null;
+  completedAt?: string | null;
+  createdAt?: string;
+}
+
 export interface TraderProfile {
   id: string;
   userId: string;
@@ -48,6 +81,8 @@ export interface TraderProfile {
   yearEstablished?: number | null;
   serviceAreas?: string[];
   beforeAfterProjects?: BeforeAfterProject[];
+  verifiedCredentialCount?: number;
+  availabilitySummary?: string | null;
   createdAt?: string;
   subscriptionTier: SubscriptionTier;
   isSubscriptionActive: boolean;
@@ -74,6 +109,8 @@ export interface Job {
   aiGeneratedSpec: string | null;
   budgetRange: string;
   photos: string[];
+  isEmergency?: boolean;
+  scheduledStartAt?: string | null;
   status: JobStatus;
   acceptedQuoteId?: string | null;
   createdAt: string;
@@ -92,7 +129,57 @@ export interface Quote {
   depositAmount: number;
   totalAmount: number;
   paymentTerms: string;
+  scope?: string | null;
+  exclusions?: string | null;
   notes?: string | null;
+  durationDays?: number | null;
+  warrantyMonths?: number | null;
+  proposedStartAt?: string | null;
   validUntil?: string | null;
   status: QuoteStatus;
+}
+
+export interface JobVariation {
+  id: string;
+  jobId: string;
+  traderId: string;
+  customerId: string;
+  title: string;
+  description: string;
+  amountDelta: number;
+  durationDeltaDays: number;
+  status: 'pending' | 'accepted' | 'declined' | 'withdrawn';
+  createdAt: string;
+  respondedAt?: string | null;
+}
+
+export interface JobTimelineEvent {
+  id: string;
+  eventType: string;
+  title: string;
+  description?: string | null;
+  metadata: Record<string, unknown>;
+  actorId?: string | null;
+  createdAt: string;
+}
+
+export interface BuildPairNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  href?: string | null;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface SavedJobSearch {
+  id: string;
+  name: string;
+  category?: string | null;
+  keywords?: string | null;
+  postcode?: string | null;
+  radiusMiles: number;
+  emergencyOnly: boolean;
+  enabled: boolean;
 }
