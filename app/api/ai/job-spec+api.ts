@@ -1,10 +1,12 @@
 import { GoogleGenAI } from '@google/genai';
-import { aiSpecSchema } from '@/lib/validation';
+import { assertRateLimit } from '@/lib/rate-limit';
 import { jsonError, requireRole } from '@/lib/server';
+import { aiSpecSchema } from '@/lib/validation';
 
 export async function POST(request: Request) {
   try {
-    await requireRole(request, 'customer');
+    const customer = await requireRole(request, 'customer');
+    await assertRateLimit(request, 'ai-job-spec', 20, 3600, customer.id);
     const input = aiSpecSchema.parse(await request.json());
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error('GEMINI_API_KEY is not configured');
