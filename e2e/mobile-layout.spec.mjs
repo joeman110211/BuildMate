@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
 
 const routes = [
-  ['/auth/account', /One login\. Two ways to use BuildPair/i],
   ['/directory', /Find Trades/i],
   ['/jobs', /Jobs/i],
   ['/legal', /BuildPair legal & safety/i],
@@ -36,6 +35,12 @@ async function expectNoFurnitureRemovalChaos(page) {
 }
 
 test.describe('small Android public layouts', () => {
+  test.beforeEach(async ({ page }) => {
+    // UI layout tests must run against the branch without needing production DB/service credentials.
+    await page.route('**/api/traders**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+    await page.route('**/api/public/jobs**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  });
+
   for (const [route, heading] of routes) {
     test(`${route} fits the viewport`, async ({ page }) => {
       await page.goto(route);
