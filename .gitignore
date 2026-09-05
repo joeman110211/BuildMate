@@ -13,3 +13,6 @@ web-build/
 *.key
 coverage/
 drizzle/meta/_journal.json.bak
+playwright/.e2e-users.json
+playwright-report/
+test-results/
