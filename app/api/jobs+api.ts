@@ -6,7 +6,7 @@ import { InvalidPostcodeError, lookupPostcode, outwardCode } from '@/lib/postcod
 import { previewDataEnabled } from '@/lib/preview-data';
 import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
-import { hasActiveLeadAccess, TRADER_TRIAL_DAYS } from '@/lib/subscription';
+import { hasActiveLeadAccess, paymentsEnabled, TRADER_TRIAL_DAYS } from '@/lib/subscription';
 import { jobSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -34,18 +34,19 @@ export async function GET(request: Request) {
       }).from(traderProfiles).where(eq(traderProfiles.userId, user.id)).limit(1);
       if (!profile) throw new HttpError(409, 'Complete your trader profile first');
       const activeLeadAccess = hasActiveLeadAccess(profile);
+      const effectiveTier = paymentsEnabled() ? profile.subscriptionTier : 'featured';
 
       const acceptedWork = sql`${jobs.acceptedQuoteId} in (select id from quotes where trader_id = ${user.id})`;
       let access = acceptedWork;
 
-      if (activeLeadAccess && profile.subscriptionTier === 'basic') {
+      if (activeLeadAccess && effectiveTier === 'basic') {
         access = or(
           acceptedWork,
           and(eq(jobs.targetTraderId, user.id), inArray(jobs.status, ['open', 'quoted'])),
         )!;
       }
 
-      if (activeLeadAccess && profile.subscriptionTier === 'featured') {
+      if (activeLeadAccess && effectiveTier === 'featured') {
         const withinRadius = profile.latitude != null && profile.longitude != null
           ? sql`${jobs.latitude} is not null and ${jobs.longitude} is not null and (
               3959 * acos(least(1, greatest(-1,
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
       const databaseRows = await db.select().from(jobs).where(access).orderBy(desc(jobs.createdAt)).limit(100);
       const previewRows = activeLeadAccess && previewDataEnabled()
         ? demoJobs
-            .filter((job) => profile.subscriptionTier === 'featured' || job.category === profile.tradeCategory)
+            .filter((job) => job.category === profile.tradeCategory)
             .map((job) => ({ ...job, isPreview: true }))
         : [];
       rows = [...databaseRows.map((job) => ({ ...job, isPreview: false })), ...previewRows].slice(0, 100);
@@ -95,6 +96,7 @@ export async function POST(request: Request) {
     const user = await requireRole(request, 'customer');
     const payload = jobSchema.parse(await request.json());
     const db = getDb();
+    const billingEnabled = paymentsEnabled();
 
     if (payload.targetTraderId) {
       const targets = await getSql()`
@@ -117,7 +119,7 @@ export async function POST(request: Request) {
         LIMIT 1
       ` as unknown as { tradeCategory: string; subscriptionTier: string; isSubscriptionActive: boolean }[];
       const target = targets[0];
-      if (!target || !target.isSubscriptionActive || target.subscriptionTier === 'free') throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildPair leads');
+      if (!target || (billingEnabled && (!target.isSubscriptionActive || target.subscriptionTier === 'free'))) throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildPair leads');
       if (target.tradeCategory !== payload.category) throw new HttpError(400, `This direct request must use the tradesperson's listed category: ${target.tradeCategory}`);
     }
 
@@ -136,6 +138,7 @@ export async function POST(request: Request) {
       locationLabel: location.locationLabel,
       latitude: location.latitude,
       longitude: location.longitude,
+      requiresPlatformPayment: billingEnabled,
     }).returning();
     if (!job) throw new Error('Job could not be created');
 
