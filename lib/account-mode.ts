@@ -18,6 +18,10 @@ export function signUpHref(mode: UserRole): Href {
   return `/auth/sign-up?mode=${mode}` as Href;
 }
 
+export function forgotPasswordHref(mode: UserRole | null): Href {
+  return mode ? (`/auth/forgot-password?mode=${mode}` as Href) : '/auth/forgot-password';
+}
+
 export function dashboardHref(mode: UserRole): Href {
   return mode === 'trader' ? '/trader/dashboard' : '/customer/dashboard';
 }
