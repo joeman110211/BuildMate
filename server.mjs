@@ -9,6 +9,7 @@ import { createRequestHandler } from 'expo-server/adapter/http';
 const PORT = Number(process.env.PORT || 3000);
 const CLIENT_BUILD_DIR = path.resolve(process.cwd(), 'dist/client');
 const SERVER_BUILD_DIR = path.resolve(process.cwd(), 'dist/server');
+const NOINDEX = /^(1|true|yes)$/i.test(process.env.BUILDPAIR_NOINDEX || '');
 
 const expoHandler = createRequestHandler({
   build: SERVER_BUILD_DIR,
@@ -33,6 +34,14 @@ const MIME_TYPES = new Map([
   ['.woff', 'font/woff'],
   ['.woff2', 'font/woff2'],
 ]);
+
+function applySecurityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'microphone=(), geolocation=(self), payment=(self)');
+  if (NOINDEX) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+}
 
 function safeCandidates(requestPath) {
   let decoded;
@@ -108,10 +117,12 @@ async function serveStatic(req, res) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    applySecurityHeaders(res);
+
     if (await serveStatic(req, res)) return;
 
-    // Caddy terminates TLS. The Expo Node adapter checks socket.encrypted when
-    // constructing request URLs, so trust the local reverse proxy's HTTPS flag.
+    // TLS may terminate at Caddy or Cloudflare. The Expo Node adapter checks
+    // socket.encrypted when constructing request URLs, so trust the proxy flag.
     if (req.headers['x-forwarded-proto'] === 'https') {
       req.socket.encrypted = true;
     }
@@ -142,7 +153,7 @@ server.keepAliveTimeout = 65_000;
 server.headersTimeout = 70_000;
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[BuildPair] Production server listening on port ${PORT}`);
+  console.log(`[BuildPair] Server listening on port ${PORT}`);
 });
 
 function shutdown(signal) {
