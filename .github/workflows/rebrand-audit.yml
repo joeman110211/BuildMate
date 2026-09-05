@@ -10,9 +10,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Find legacy BuildMate references
+      - name: Reject unintended legacy brand references
+        shell: bash
         run: |
-          echo "=== Legacy brand references ==="
-          grep -RInE 'BuildMate|buildmate|BUILDMATE' . \
+          set -euo pipefail
+          matches=$(grep -RInE 'BuildMate|buildmate|BUILDMATE' . \
             --exclude-dir=.git \
-            --exclude='rebrand-audit.yml' || true
+            --exclude='rebrand-audit.yml' \
+            --exclude='rebrand-apply.yml' || true)
+
+          # Intentional compatibility references while infrastructure is migrated:
+          # - current GitHub repository path
+          # - current Vercel production hostname
+          # - existing production migration-history table
+          # - legacy Stripe metadata keys accepted by webhooks during transition
+          unexpected=$(printf '%s\n' "$matches" \
+            | grep -v 'https://github.com/joeman110211/BuildMate.git' \
+            | grep -v 'cd BuildMate' \
+            | grep -v 'buildmate-nine.vercel.app' \
+            | grep -v 'buildmate_migrations' \
+            | grep -v 'buildmateUserId' \
+            | grep -v 'buildmateJobId' \
+            || true)
+
+          if [ -n "$unexpected" ]; then
+            echo '::error::Unexpected legacy BuildMate references remain:'
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+
+          echo 'BuildPair brand audit passed. Only approved compatibility references remain.'
