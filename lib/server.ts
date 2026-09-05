@@ -23,7 +23,23 @@ function bootstrapAdminIds() {
   return new Set((process.env.ADMIN_CLERK_USER_IDS ?? '').split(',').map((value) => value.trim()).filter(Boolean));
 }
 
+function e2eAuthenticatedUserId(request: Request) {
+  // This bypass exists only for the ephemeral GitHub Actions integration test
+  // server. It is disabled on every Vercel environment, even previews.
+  if (process.env.CI !== 'true' || process.env.BUILDPAIR_E2E_MODE !== '1' || process.env.VERCEL_ENV) return null;
+  const expectedToken = process.env.BUILDPAIR_E2E_TOKEN;
+  const suppliedToken = request.headers.get('x-buildpair-e2e-token');
+  const userId = request.headers.get('x-buildpair-e2e-user');
+  if (!expectedToken || suppliedToken !== expectedToken || !userId?.startsWith('e2e-')) {
+    throw new HttpError(401, 'Invalid E2E authentication');
+  }
+  return userId;
+}
+
 export async function authenticatedUserId(request: Request) {
+  const e2eUserId = e2eAuthenticatedUserId(request);
+  if (e2eUserId) return e2eUserId;
+
   const header = request.headers.get('authorization');
   if (!header?.startsWith('Bearer ')) throw new HttpError(401, 'Authentication required');
   const token = header.slice(7);
