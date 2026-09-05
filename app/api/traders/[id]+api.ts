@@ -3,7 +3,9 @@ import { getDb } from '@/db/client';
 import { reviews, traderProfiles, users } from '@/db/schema';
 import { traderProfileShowcase } from '@/db/showcase-schema';
 import { demoTraders } from '@/lib/demo-data';
+import { previewDataEnabled } from '@/lib/preview';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
+import { getSql } from '@/lib/sql';
 import { TRADER_TRIAL_DAYS } from '@/lib/subscription';
 
 const defaultShowcase = {
@@ -19,12 +21,18 @@ const defaultShowcase = {
 };
 
 function previewProfile(id: string) {
+  if (!previewDataEnabled()) return null;
   const demoProfile = demoTraders.find((trader) => trader.id === id);
   if (!demoProfile) return null;
   return {
     ...demoProfile,
     averageRating: 0,
     reviewCount: 0,
+    verifiedCredentialCount: 0,
+    credentials: [],
+    availability: [],
+    stories: [],
+    savedByViewer: false,
     isPreview: true,
     ...defaultShowcase,
     yearsExperience: 12,
@@ -39,8 +47,6 @@ function previewProfile(id: string) {
 
 export async function GET(request: Request, { id }: { id: string }) {
   try {
-    // Demo profiles are static public beta content, so they should never depend on a database query
-    // merely to discover that there is no matching real trader row.
     const preview = previewProfile(id);
     if (preview) return Response.json(preview);
 
@@ -67,12 +73,10 @@ export async function GET(request: Request, { id }: { id: string }) {
       averageRating: sql<number>`coalesce(avg(${reviews.rating}), 0)::float`,
       reviewCount: sql<number>`count(${reviews.id})::int`,
     }).from(traderProfiles).leftJoin(reviews, and(eq(reviews.traderId, traderProfiles.userId), eq(reviews.verifiedCompletion, true)))
-      .where(and(eq(traderProfiles.id, id), sql`NOT EXISTS (SELECT 1 FROM users u WHERE u.id = ${traderProfiles.userId} AND u.is_suspended = true)`))
+      .where(and(eq(traderProfiles.id, id), sql`NOT EXISTS (SELECT 1 FROM users u WHERE u.id = ${traderProfiles.userId} AND (coalesce(u.is_suspended, false) = true OR coalesce(u.is_deleted, false) = true))`))
       .groupBy(traderProfiles.id).limit(1);
     if (!profile) throw new HttpError(404, 'Trader profile not found');
 
-    // Showcase is an optional profile extension. Schema drift here should degrade to the base
-    // profile instead of taking the entire public profile down with a 500.
     let showcase: Record<string, unknown> = {};
     try {
       const [storedShowcase] = await db.select().from(traderProfileShowcase).where(eq(traderProfileShowcase.userId, profile.userId)).limit(1);
@@ -84,22 +88,69 @@ export async function GET(request: Request, { id }: { id: string }) {
     const loadVerifiedReviews = () => db.select({ id: reviews.id, rating: reviews.rating, comment: reviews.comment, createdAt: reviews.createdAt })
       .from(reviews).where(and(eq(reviews.traderId, profile.userId), eq(reviews.verifiedCompletion, true))).limit(50);
     let verifiedReviews: Awaited<ReturnType<typeof loadVerifiedReviews>> = [];
-    try {
-      verifiedReviews = await loadVerifiedReviews();
-    } catch {
-      console.warn('[buildpair-profile] Verified reviews unavailable', { profileId: profile.id });
-    }
+    try { verifiedReviews = await loadVerifiedReviews(); }
+    catch { console.warn('[buildpair-profile] Verified reviews unavailable', { profileId: profile.id }); }
 
+    const sqlClient = getSql();
+    const [credentials, availability, stories] = await Promise.all([
+      sqlClient`
+        SELECT id, credential_type AS "credentialType", name, issuer, reference_number AS "referenceNumber",
+               expires_at AS "expiresAt", verified_at AS "verifiedAt", status
+        FROM trader_credentials
+        WHERE trader_id = ${profile.userId} AND status = 'verified' AND (expires_at IS NULL OR expires_at > now())
+        ORDER BY verified_at DESC NULLS LAST, created_at DESC
+      `,
+      sqlClient`
+        SELECT id, starts_at AS "startsAt", ends_at AS "endsAt", status, note
+        FROM trader_availability
+        WHERE trader_id = ${profile.userId} AND ends_at >= now() AND status = 'available'
+        ORDER BY starts_at ASC LIMIT 12
+      `,
+      sqlClient`
+        SELECT id, title, location_label AS "locationLabel", summary, before_photos AS "beforePhotos",
+               after_photos AS "afterPhotos", duration_days AS "durationDays", completed_at AS "completedAt", created_at AS "createdAt"
+        FROM trader_stories WHERE trader_id = ${profile.userId}
+        ORDER BY coalesce(completed_at, created_at) DESC LIMIT 12
+      `,
+    ]);
+
+    let viewerId: string | null = null;
     let contact: { email: string | null; phone: string | null } | null = null;
+    let savedByViewer = false;
     try {
-      const viewerId = await authenticatedUserId(request);
+      viewerId = await authenticatedUserId(request);
       await ensureDbUser(viewerId);
       if (profile.isSubscriptionActive) {
         const [owner] = await db.select({ email: users.email, phone: users.phone }).from(users).where(eq(users.id, profile.userId)).limit(1);
         contact = owner ?? null;
       }
-    } catch { /* guest or suspended viewer: deliberately no contact details */ }
+      const saved = await sqlClient`SELECT 1 FROM saved_traders WHERE customer_id = ${viewerId} AND trader_id = ${profile.userId} LIMIT 1`;
+      savedByViewer = saved.length > 0;
+    } catch { /* guest viewer: deliberately no contact details or saved state */ }
 
-    return Response.json({ ...profile, isPreview: false, ...defaultShowcase, ...showcase, reviews: verifiedReviews, contact, contactLocked: !contact });
+    if (viewerId !== profile.userId) {
+      void sqlClient`
+        INSERT INTO trader_profile_view_daily(trader_id, view_day, view_count)
+        VALUES (${profile.userId}, current_date, 1)
+        ON CONFLICT (trader_id, view_day)
+        DO UPDATE SET view_count = trader_profile_view_daily.view_count + 1
+      `.catch(() => undefined);
+    }
+
+    return Response.json({
+      ...profile,
+      isPreview: false,
+      ...defaultShowcase,
+      ...showcase,
+      reviews: verifiedReviews,
+      credentials,
+      verifiedCredentialCount: credentials.length,
+      availability,
+      availabilitySummary: availability.length ? 'Upcoming availability listed' : null,
+      stories,
+      savedByViewer,
+      contact,
+      contactLocked: !contact,
+    });
   } catch (error) { return jsonError(error); }
 }

@@ -47,13 +47,15 @@ export async function authenticatedUserId(request: Request) {
 
 export async function accountAccess(userId: string) {
   const rows = await getSql()`
-    SELECT is_admin AS "isAdmin", is_suspended AS "isSuspended", suspension_reason AS "suspensionReason"
+    SELECT is_admin AS "isAdmin", is_suspended AS "isSuspended", suspension_reason AS "suspensionReason",
+           coalesce(is_deleted, false) AS "isDeleted"
     FROM users WHERE id = ${userId} LIMIT 1
-  ` as { isAdmin: boolean; isSuspended: boolean; suspensionReason: string }[];
+  ` as { isAdmin: boolean; isSuspended: boolean; suspensionReason: string; isDeleted: boolean }[];
   const row = rows[0];
   return {
     isAdmin: Boolean(row?.isAdmin || bootstrapAdminIds().has(userId)),
     isSuspended: Boolean(row?.isSuspended),
+    isDeleted: Boolean(row?.isDeleted),
     suspensionReason: row?.suspensionReason ?? '',
   };
 }
@@ -78,6 +80,7 @@ export async function accountModes(userId: string): Promise<AccountModes> {
 
 async function assertAccountActive(userId: string) {
   const access = await accountAccess(userId);
+  if (access.isDeleted) throw new HttpError(410, 'This BuildPair account has been deleted');
   if (access.isSuspended) throw new HttpError(403, access.suspensionReason ? `Account suspended: ${access.suspensionReason}` : 'Account suspended');
   return access;
 }

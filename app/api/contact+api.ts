@@ -1,9 +1,11 @@
+import { assertRateLimit } from '@/lib/rate-limit';
 import { jsonError } from '@/lib/server';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: Request) {
   try {
+    await assertRateLimit(request, 'contact-form', 6, 3600);
     const body = await request.json() as { name?: string; email?: string; subject?: string; message?: string; website?: string };
     const name = body.name?.trim() || '';
     const email = body.email?.trim() || '';

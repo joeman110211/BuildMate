@@ -2,7 +2,7 @@ import { useClerk } from '@clerk/expo';
 import type { Href } from 'expo-router';
 import { Link, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Button } from 'react-native-paper';
+import { Button, IconButton } from 'react-native-paper';
 import { BuildPairLogo } from '@/components/BuildPairLogo';
 import { colors } from '@/constants/theme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -20,6 +20,7 @@ export function DashboardHeader({ home }: { home: '/customer/dashboard' | '/trad
   const otherLabel = otherMode === 'customer' ? 'Homeowner' : 'Tradesperson';
   const modeAction = otherEnabled ? `Switch to ${otherLabel}` : `Add ${otherLabel}`;
   const messagesHref = (currentMode === 'customer' ? '/customer/messages' : '/trader/messages') as Href;
+  const notificationsHref = (currentMode === 'customer' ? '/customer/notifications' : '/trader/notifications') as Href;
   const compact = width < 900;
 
   return <View style={styles.header}>
@@ -27,6 +28,7 @@ export function DashboardHeader({ home }: { home: '/customer/dashboard' | '/trad
     <View style={styles.actions}>
       {!compact ? <Link href="/(public)/directory" asChild><Button>Find Trades</Button></Link> : null}
       {!compact ? <Link href={messagesHref} asChild><Button>Messages</Button></Link> : null}
+      <IconButton icon="bell-outline" size={22} onPress={() => router.push(notificationsHref)} accessibilityLabel="Notifications" />
       <Link href={modeSetupHref(otherMode)} asChild><Button compact mode={otherEnabled ? 'text' : 'outlined'}>{compact && otherEnabled ? 'Switch mode' : modeAction}</Button></Link>
       {user?.isAdmin && !compact ? <Link href="/admin/moderation" asChild><Button>Moderation</Button></Link> : null}
       <Button compact icon="logout" onPress={() => signOut(() => router.replace('/auth/account'))}>{compact ? '' : 'Sign out'}</Button>

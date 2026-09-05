@@ -3,12 +3,13 @@ import type { Href } from 'expo-router';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, Chip, HelperText, ProgressBar, SegmentedButtons, Text, TextInput } from 'react-native-paper';
+import { Button, Chip, HelperText, ProgressBar, SegmentedButtons, Switch, Text, TextInput } from 'react-native-paper';
 import { AIJobSpecModal } from '@/components/AIJobSpecModal';
 import { AppCard } from '@/components/AppCard';
 import { FormSelect } from '@/components/FormSelect';
 import { PhotoUploader } from '@/components/PhotoUploader';
 import { Screen } from '@/components/Screen';
+import { TradeMatchAssistant } from '@/components/TradeMatchAssistant';
 import { BUDGET_OPTIONS, PROPERTY_TYPES, TRADE_CATEGORIES, URGENCY_OPTIONS } from '@/constants/options';
 import { colors } from '@/constants/theme';
 import { apiFetch, errorMessage } from '@/lib/api';
@@ -32,6 +33,7 @@ export default function NewJobScreen() {
   const [aiGeneratedSpec, setAiGeneratedSpec] = useState<string | null>(null);
   const [mode, setMode] = useState('manual');
   const [showAi, setShowAi] = useState(false);
+  const [isEmergency, setIsEmergency] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -41,7 +43,7 @@ export default function NewJobScreen() {
       setBusy(true); setError('');
       const created = await apiFetch<{ id: string; conversationId: string | null }>('/api/jobs', {
         method: 'POST',
-        body: JSON.stringify({ targetTraderId: traderId ?? null, title, category, propertyType, postcode, urgency, budgetRange, description, aiGeneratedSpec, photos }),
+        body: JSON.stringify({ targetTraderId: traderId ?? null, title, category, propertyType, postcode, urgency, budgetRange, description, aiGeneratedSpec, photos, isEmergency }),
       }, getToken);
       if (created.conversationId) router.replace(`/customer/messages/${created.conversationId}` as Href);
       else router.replace('/customer/jobs');
@@ -61,12 +63,15 @@ export default function NewJobScreen() {
   return <Screen title={STEP_TITLES[step]} subtitle={traderName ? `Direct quote request for ${traderName}` : 'A few clear details help tradespeople give you useful quotes instead of guessing.'}>
     <View style={styles.progressBlock}><View style={styles.progressHeader}><Text style={styles.step}>Step {step + 1} of 5</Text><Text style={styles.muted}>{STEP_TITLES[step]}</Text></View><ProgressBar progress={(step + 1) / 5} color={colors.primary} style={styles.progress} /></View>
 
-    {step === 0 ? <AppCard>
-      <Text variant="titleLarge" style={styles.title}>What work do you need?</Text>
-      <FormSelect label="Trade category" value={category} options={TRADE_CATEGORIES} onChange={setCategory} />
-      <FormSelect label="Property type" value={propertyType} options={PROPERTY_TYPES} onChange={setPropertyType} />
-      <Text style={styles.muted}>Choose the closest category. You can explain the exact work on the next step.</Text>
-    </AppCard> : null}
+    {step === 0 ? <>
+      {!traderId ? <TradeMatchAssistant onChoose={(trade) => { const matched = TRADE_CATEGORIES.find((item) => item === trade); if (matched) setCategory(matched); }} /> : null}
+      <AppCard>
+        <Text variant="titleLarge" style={styles.title}>What work do you need?</Text>
+        <FormSelect label="Trade category" value={category} options={TRADE_CATEGORIES} onChange={setCategory} />
+        <FormSelect label="Property type" value={propertyType} options={PROPERTY_TYPES} onChange={setPropertyType} />
+        <Text style={styles.muted}>Choose the closest category, or use the BuildPair matcher above when you are not sure. You can explain the exact work on the next step.</Text>
+      </AppCard>
+    </> : null}
 
     {step === 1 ? <AppCard>
       <Text variant="titleLarge" style={styles.title}>Tell tradespeople what needs doing</Text>
@@ -91,17 +96,19 @@ export default function NewJobScreen() {
       <HelperText type="info">Used for local matching. Open marketplace listings reveal only the outward postcode.</HelperText>
       <FormSelect label="Budget bracket" value={budgetRange} options={BUDGET_OPTIONS} onChange={setBudgetRange} />
       <FormSelect label="Urgency" value={urgency} options={URGENCY_OPTIONS} onChange={setUrgency} />
+      {!traderId ? <View style={[styles.emergencyRow, isEmergency && styles.emergencyActive]}><View style={styles.flex}><Text variant="titleMedium" style={styles.title}>Emergency broadcast</Text><Text style={styles.muted}>For genuinely urgent jobs, alert matching nearby tradespeople who have marked themselves available now.</Text></View><Switch value={isEmergency} onValueChange={setIsEmergency} /></View> : null}
+      {isEmergency ? <HelperText type="info">Emergency broadcast improves visibility but does not guarantee attendance or replace emergency services where life or property is at immediate risk.</HelperText> : null}
     </AppCard> : null}
 
     {step === 4 ? <AppCard>
-      <View style={styles.reviewHeader}><View style={styles.flex}><Text variant="headlineSmall" style={styles.title}>{title || 'Your job'}</Text><Text style={styles.muted}>{category} · {propertyType}</Text></View>{traderName ? <Chip icon="account-arrow-right">Direct request</Chip> : <Chip icon="account-group-outline">Marketplace job</Chip>}</View>
+      <View style={styles.reviewHeader}><View style={styles.flex}><Text variant="headlineSmall" style={styles.title}>{title || 'Your job'}</Text><Text style={styles.muted}>{category} · {propertyType}</Text></View>{traderName ? <Chip icon="account-arrow-right">Direct request</Chip> : isEmergency ? <Chip icon="alert">Emergency broadcast</Chip> : <Chip icon="account-group-outline">Marketplace job</Chip>}</View>
       <View style={styles.reviewMeta}><Chip icon="map-marker-outline">{postcode}</Chip><Chip icon="cash">{budgetRange}</Chip><Chip icon="clock-outline">{urgency}</Chip></View>
       <Text style={styles.description}>{description}</Text>
       <Text style={styles.muted}>{photos.length} photo{photos.length === 1 ? '' : 's'} attached{aiGeneratedSpec ? ' · description assisted by BuildPair AI' : ''}</Text>
     </AppCard> : null}
 
     <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
-    <View style={styles.actions}>{step > 0 ? <Button onPress={() => setStep((value) => value - 1)}>Back</Button> : <View />}{step < 4 ? <Button mode="contained" contentStyle={styles.button} disabled={!stepValid} onPress={() => setStep((value) => value + 1)}>Continue</Button> : <Button mode="contained" icon="send" contentStyle={styles.button} loading={busy} disabled={!stepValid || busy} onPress={submit}>{traderName ? 'Send Quote Request' : 'Post Job'}</Button>}</View>
+    <View style={styles.actions}>{step > 0 ? <Button onPress={() => setStep((value) => value - 1)}>Back</Button> : <View />}{step < 4 ? <Button mode="contained" contentStyle={styles.button} disabled={!stepValid} onPress={() => setStep((value) => value + 1)}>Continue</Button> : <Button mode="contained" icon="send" contentStyle={styles.button} loading={busy} disabled={!stepValid || busy} onPress={submit}>{traderName ? 'Send Quote Request' : isEmergency ? 'Broadcast Urgent Job' : 'Post Job'}</Button>}</View>
     {category && propertyType ? <AIJobSpecModal visible={showAi} category={category} propertyType={propertyType} onDismiss={() => setShowAi(false)} onGenerated={(spec) => { setDescription(spec); setAiGeneratedSpec(spec); }} /> : null}
   </Screen>;
 }
@@ -119,4 +126,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 220 },
   reviewMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   description: { color: colors.text, lineHeight: 23 },
+  emergencyRow: { borderWidth: 1, borderColor: colors.border, borderRadius: 18, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  emergencyActive: { backgroundColor: '#FFF4EF', borderColor: colors.primary },
 });

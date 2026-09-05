@@ -6,12 +6,17 @@ import { Button, Chip, Divider, ProgressBar, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
 import { EmptyState, LoadingScreen, Screen } from '@/components/Screen';
 import { colors } from '@/constants/theme';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { apiFetch, errorMessage } from '@/lib/api';
-import type { TraderProfile } from '@/types';
+import type { AvailabilitySlot, ProjectStory, TraderCredential, TraderProfile } from '@/types';
 
 type ProfileResult = Omit<TraderProfile, 'qualifications'> & {
   qualifications: string[];
   reviews: { id: string; rating: number; comment: string; createdAt: string }[];
+  credentials: TraderCredential[];
+  availability: AvailabilitySlot[];
+  stories: ProjectStory[];
+  savedByViewer: boolean;
   contact: { email: string | null; phone: string | null } | null;
   contactLocked: boolean;
 };
@@ -19,8 +24,10 @@ type ProfileResult = Omit<TraderProfile, 'qualifications'> & {
 export default function TraderProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getToken, isSignedIn } = useAuth();
+  const { user } = useCurrentUser();
   const getTokenRef = useRef(getToken);
   const [profile, setProfile] = useState<ProfileResult>();
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
@@ -33,7 +40,18 @@ export default function TraderProfileScreen() {
   }, [id, isSignedIn]);
   useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
 
-  if (error) return <Screen><EmptyState title="Profile unavailable" body={error} /></Screen>;
+  async function toggleSaved() {
+    if (!profile || !user?.customerEnabled) return;
+    try {
+      setSaving(true); setError('');
+      const next = !profile.savedByViewer;
+      await apiFetch('/api/saved-traders', { method: 'POST', body: JSON.stringify({ traderId: profile.userId, saved: next }) }, () => getTokenRef.current());
+      setProfile({ ...profile, savedByViewer: next });
+    } catch (e) { setError(errorMessage(e)); }
+    finally { setSaving(false); }
+  }
+
+  if (error && !profile) return <Screen><EmptyState title="Profile unavailable" body={error} /></Screen>;
   if (!profile) return <LoadingScreen />;
 
   const memberSince = profile.createdAt ? new Date(profile.createdAt).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : 'Recently';
@@ -42,9 +60,9 @@ export default function TraderProfileScreen() {
   const quoteLink = { pathname: '/customer/new-job', params: { traderId: profile.userId, traderName: profile.businessName, tradeCategory: profile.tradeCategory } } as Href;
   const quoteButton = profile.isPreview
     ? <Button mode="outlined" icon="flask-outline" disabled contentStyle={styles.ctaContent}>Preview profile only</Button>
-    : isSignedIn
+    : isSignedIn && user?.customerEnabled
       ? <Link href={quoteLink} asChild><Button mode="contained" icon="file-document-edit-outline" contentStyle={styles.ctaContent}>Request a Quote</Button></Link>
-      : <Link href="/auth/sign-in" asChild><Button mode="contained" contentStyle={styles.ctaContent}>Sign in to Request a Quote</Button></Link>;
+      : <Link href="/auth/account" asChild><Button mode="contained" contentStyle={styles.ctaContent}>{isSignedIn ? 'Add Homeowner Mode to Request a Quote' : 'Sign in to Request a Quote'}</Button></Link>;
 
   const ratingCounts = [5, 4, 3, 2, 1].map((rating) => ({ rating, count: profile.reviews.filter((review) => review.rating === rating).length }));
   const maxRatingCount = Math.max(1, ...ratingCounts.map((item) => item.count));
@@ -61,12 +79,19 @@ export default function TraderProfileScreen() {
             <View style={styles.meta}>
               {profile.isPreview ? <Chip icon="flask-outline">BuildPair beta preview</Chip> : <Chip icon="star">{profile.averageRating.toFixed(1)} ({profile.reviewCount} reviews)</Chip>}
               <Chip icon="map-marker-radius">{profile.radiusMiles} mile radius</Chip>
-              {!profile.isPreview ? <Chip icon="check-decagram-outline">BuildPair member</Chip> : null}
+              {!profile.isPreview && profile.verifiedCredentialCount ? <Chip icon="shield-check">{profile.verifiedCredentialCount} verified</Chip> : null}
+              {!profile.isPreview && profile.availability?.length ? <Chip icon="calendar-check">Availability listed</Chip> : null}
             </View>
           </View>
           {profile.logoUrl ? <Image source={{ uri: profile.logoUrl }} style={styles.logo} /> : null}
         </View>
-        <View style={styles.heroActions}>{quoteButton}{!profile.isPreview && profile.contact?.phone ? <Button mode="outlined" icon="phone" contentStyle={styles.ctaContent} onPress={() => Linking.openURL(`tel:${profile.contact?.phone}`)}>Call</Button> : null}{!profile.isPreview && profile.contact?.email ? <Button mode="outlined" icon="email-outline" contentStyle={styles.ctaContent} onPress={() => Linking.openURL(`mailto:${profile.contact?.email}`)}>Email</Button> : null}</View>
+        <View style={styles.heroActions}>
+          {quoteButton}
+          {!profile.isPreview && user?.customerEnabled ? <Button mode="outlined" icon={profile.savedByViewer ? 'heart' : 'heart-outline'} loading={saving} disabled={saving} onPress={() => void toggleSaved()}>{profile.savedByViewer ? 'Saved' : 'Save to Shortlist'}</Button> : null}
+          {!profile.isPreview && profile.contact?.phone ? <Button mode="outlined" icon="phone" contentStyle={styles.ctaContent} onPress={() => Linking.openURL(`tel:${profile.contact?.phone}`)}>Call</Button> : null}
+          {!profile.isPreview && profile.contact?.email ? <Button mode="outlined" icon="email-outline" contentStyle={styles.ctaContent} onPress={() => Linking.openURL(`mailto:${profile.contact?.email}`)}>Email</Button> : null}
+        </View>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
         {profile.isPreview ? <Text variant="bodySmall" style={styles.muted}>This is example marketplace content used during the BuildPair beta. It is not a verified live tradesperson listing and cannot receive real job requests.</Text> : null}
       </View>
     </View>
@@ -74,6 +99,7 @@ export default function TraderProfileScreen() {
     <View style={styles.stats}>
       <AppCard style={styles.stat}><Text variant="headlineSmall" style={styles.statNumber}>{profile.yearsExperience ?? 0}+</Text><Text style={styles.statLabel}>Years Experience</Text></AppCard>
       <AppCard style={styles.stat}><Text variant="headlineSmall" style={styles.statNumber}>{profile.reviewCount}</Text><Text style={styles.statLabel}>Verified Reviews</Text></AppCard>
+      <AppCard style={styles.stat}><Text variant="headlineSmall" style={styles.statNumber}>{profile.verifiedCredentialCount ?? 0}</Text><Text style={styles.statLabel}>Verified Credentials</Text></AppCard>
       <AppCard style={styles.stat}><Text variant="headlineSmall" style={styles.statNumber}>{profile.radiusMiles}</Text><Text style={styles.statLabel}>Mile Service Radius</Text></AppCard>
     </View>
 
@@ -84,24 +110,45 @@ export default function TraderProfileScreen() {
     <View style={styles.meta}>{profile.subSkills.map((skill) => <Chip key={skill}>{skill}</Chip>)}</View>
     {serviceAreas.length ? <><Text variant="titleMedium" style={styles.sectionTitle}>Areas covered</Text><View style={styles.meta}>{serviceAreas.map((place) => <Chip key={place} icon="map-marker-outline">{place}</Chip>)}</View></> : null}
 
+    {profile.availability?.length ? <>
+      <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Upcoming Availability</Text></View>
+      <AppCard>
+        <View style={styles.meta}>{profile.availability.slice(0, 6).map((slot) => <Chip key={slot.id} icon="calendar-check">{new Date(slot.startsAt).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</Chip>)}</View>
+        <Text style={styles.muted}>Availability is published by the tradesperson and should be confirmed when arranging the job.</Text>
+      </AppCard>
+    </> : null}
+
     {profile.photos.length ? <>
       <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Recent Work Gallery</Text><Text style={styles.muted}>{profile.photos.length} photo{profile.photos.length === 1 ? '' : 's'}</Text></View>
       <View style={styles.gallery}>{profile.photos.map((uri, index) => <Image key={`${uri}-${index}`} source={{ uri }} style={[styles.photo, index === 0 && styles.featurePhoto]} />)}</View>
     </> : null}
 
+    {profile.stories?.length ? <>
+      <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Project Stories</Text></View>
+      {profile.stories.map((story) => <AppCard key={story.id}>
+        <View style={styles.sectionHeader}><View style={styles.flex}><Text variant="titleMedium" style={styles.sectionTitle}>{story.title}</Text><Text style={styles.muted}>{[story.locationLabel, story.durationDays ? `${story.durationDays} days` : null].filter(Boolean).join(' · ')}</Text></View></View>
+        <Text style={styles.reviewText}>{story.summary}</Text>
+        <View style={styles.beforeAfterRow}>{story.beforePhotos[0] ? <View style={styles.beforeAfterItem}><Text style={styles.imageLabel}>Before</Text><Image source={{ uri: story.beforePhotos[0] }} style={styles.beforeAfterPhoto} /></View> : null}{story.afterPhotos[0] ? <View style={styles.beforeAfterItem}><Text style={styles.imageLabel}>After</Text><Image source={{ uri: story.afterPhotos[0] }} style={styles.beforeAfterPhoto} /></View> : null}</View>
+      </AppCard>)}
+    </> : null}
+
     {beforeAfter.length ? <>
-      <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Before & After</Text></View>
+      <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Before & After Gallery</Text></View>
       {beforeAfter.map((project, index) => <AppCard key={`${project.before}-${index}`}>
         {project.caption ? <Text variant="titleMedium" style={styles.sectionTitle}>{project.caption}</Text> : null}
         <View style={styles.beforeAfterRow}><View style={styles.beforeAfterItem}><Text style={styles.imageLabel}>Before</Text><Image source={{ uri: project.before }} style={styles.beforeAfterPhoto} /></View><View style={styles.beforeAfterItem}><Text style={styles.imageLabel}>After</Text><Image source={{ uri: project.after }} style={styles.beforeAfterPhoto} /></View></View>
       </AppCard>)}
     </> : null}
 
-    <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Qualifications & Credentials</Text></View>
+    <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Verified Trust & Credentials</Text></View>
     <AppCard>
-      {profile.qualifications.length ? profile.qualifications.map((item) => <View key={item} style={styles.credential}><Text style={styles.credentialTick}>✓</Text><Text style={styles.credentialText}>{item}</Text></View>) : <Text style={styles.muted}>No qualifications have been listed yet.</Text>}
+      {profile.credentials?.length ? profile.credentials.map((credential) => <View key={credential.id} style={styles.verifiedCredential}>
+        <View style={styles.verifiedIcon}><Text style={styles.verifiedTick}>✓</Text></View>
+        <View style={styles.flex}><Text variant="titleMedium" style={styles.sectionTitle}>{credential.name}</Text><Text style={styles.muted}>{credential.issuer || credential.credentialType.replaceAll('_', ' ')}{credential.referenceNumber ? ` · ${credential.referenceNumber}` : ''}</Text>{credential.expiresAt ? <Text variant="bodySmall" style={styles.muted}>Current until {new Date(credential.expiresAt).toLocaleDateString('en-GB')}</Text> : null}</View><Chip compact icon="shield-check">Verified</Chip>
+      </View>) : <Text style={styles.muted}>No BuildPair-verified credentials have been published yet.</Text>}
+      {profile.qualifications.length ? <><Divider /><Text variant="titleMedium" style={styles.sectionTitle}>Other declared qualifications</Text>{profile.qualifications.map((item) => <View key={item} style={styles.credential}><Text style={styles.credentialTick}>•</Text><Text style={styles.credentialText}>{item}</Text></View>)}</> : null}
       {!profile.isPreview ? Object.entries(profile.externalLinks ?? {}).filter(([, url]) => url).map(([name, url]) => <Button key={name} icon="open-in-new" onPress={() => Linking.openURL(url)}>{name}</Button>) : null}
-      <Text variant="bodySmall" style={styles.muted}>{profile.isPreview ? 'Preview-profile details are illustrative only.' : 'Trade qualifications and register links are declared by the tradesperson unless specifically marked as verified by BuildPair.'}</Text>
+      <Text variant="bodySmall" style={styles.muted}>{profile.isPreview ? 'Preview-profile details are illustrative only.' : 'Only items explicitly marked “Verified” above have been reviewed by BuildPair. Other qualifications remain tradesperson-declared.'}</Text>
     </AppCard>
 
     <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Customer Reviews</Text></View>
@@ -113,8 +160,8 @@ export default function TraderProfileScreen() {
     <Divider />
     <AppCard style={styles.finalCta}>
       <Text variant="headlineSmall" style={styles.sectionTitle}>{profile.isPreview ? 'Example profile' : 'Ready to discuss your job?'}</Text>
-      <Text style={styles.muted}>{profile.isPreview ? 'Browse this layout as an example of how a live tradesperson profile can look on BuildPair.' : `Send ${profile.businessName} your job details through BuildPair and keep the quote, messages and work record together.`}</Text>
-      <View style={styles.heroActions}>{quoteButton}{!profile.isPreview && profile.contact?.phone ? <Button icon="phone" mode="outlined" onPress={() => Linking.openURL(`tel:${profile.contact?.phone}`)}>Call Direct</Button> : null}</View>
+      <Text style={styles.muted}>{profile.isPreview ? 'Browse this layout as an example of how a live tradesperson profile can look on BuildPair.' : `Send ${profile.businessName} your job details through BuildPair and keep the quote, messages, approved changes and work record together.`}</Text>
+      <View style={styles.heroActions}>{quoteButton}{user?.customerEnabled && !profile.isPreview ? <Button icon={profile.savedByViewer ? 'heart' : 'heart-outline'} mode="outlined" onPress={() => void toggleSaved()}>{profile.savedByViewer ? 'Saved to Shortlist' : 'Save to Shortlist'}</Button> : null}</View>
       <Text variant="bodySmall" style={styles.muted}>{profile.isPreview ? 'Beta preview content. Not a live listing.' : `BuildPair member since ${memberSince}.${profile.contactLocked ? ' Direct contact details are hidden until available through the trader’s listing.' : ''}`}</Text>
     </AppCard>
   </Screen>;
@@ -137,12 +184,14 @@ const styles = StyleSheet.create({
   ctaContent: { minHeight: 48 },
   meta: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   muted: { color: colors.muted, lineHeight: 22 },
+  error: { color: colors.danger },
   stats: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  stat: { flexGrow: 1, flexBasis: 180, minWidth: 150, alignItems: 'center' },
+  stat: { flexGrow: 1, flexBasis: 160, minWidth: 145, alignItems: 'center' },
   statNumber: { color: colors.primary, fontWeight: '900' },
   statLabel: { color: colors.muted, fontWeight: '700', textAlign: 'center' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 },
   sectionTitle: { fontWeight: '900', color: colors.charcoal },
+  flex: { flex: 1, minWidth: 220, gap: 4 },
   bio: { lineHeight: 25, color: colors.text },
   gallery: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   photo: { flexGrow: 1, flexBasis: 170, height: 170, borderRadius: 14, backgroundColor: colors.border },
@@ -152,8 +201,11 @@ const styles = StyleSheet.create({
   beforeAfterPhoto: { width: '100%', height: 220, borderRadius: 14, backgroundColor: colors.border },
   imageLabel: { fontWeight: '900', color: colors.muted },
   credential: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  credentialTick: { color: colors.success, fontWeight: '900' },
+  credentialTick: { color: colors.muted, fontWeight: '900' },
   credentialText: { flex: 1, color: colors.text, lineHeight: 22 },
+  verifiedCredential: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingVertical: 4 },
+  verifiedIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  verifiedTick: { color: colors.accent, fontWeight: '900' },
   ratingSummary: { flexDirection: 'row', gap: 22, flexWrap: 'wrap', alignItems: 'center' },
   bigRating: { fontSize: 42, fontWeight: '900', color: colors.charcoal },
   stars: { color: '#E0A400', fontWeight: '900', fontSize: 18, letterSpacing: 1 },

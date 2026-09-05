@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const activeAccount = sql`NOT EXISTS (
       SELECT 1 FROM users u
       WHERE u.id = ${traderProfiles.userId}
-        AND (u.is_suspended = true OR coalesce(u.email, '') LIKE '%@buildpair.test')
+        AND (coalesce(u.is_suspended, false) = true OR coalesce(u.is_deleted, false) = true OR coalesce(u.email, '') LIKE '%@buildpair.test')
     )`;
     const createdTrialEnd = sql<Date>`${traderProfiles.createdAt} + (${TRADER_TRIAL_DAYS} * interval '1 day')`;
     const effectiveTrialEnd = sql<Date>`greatest(coalesce(${traderProfiles.trialEndsAt}, ${createdTrialEnd}), ${createdTrialEnd})`;
@@ -38,12 +38,19 @@ export async function GET(request: Request) {
       trialEndsAt: effectiveTrialEnd,
       averageRating: sql<number>`coalesce(avg(${reviews.rating}), 0)::float`,
       reviewCount: sql<number>`count(${reviews.id})::int`,
+      verifiedCredentialCount: sql<number>`(SELECT count(*)::int FROM trader_credentials tc WHERE tc.trader_id = ${traderProfiles.userId} AND tc.status = 'verified' AND (tc.expires_at IS NULL OR tc.expires_at > now()))`,
+      availabilitySummary: sql<string | null>`(SELECT CASE WHEN count(*) > 0 THEN 'Available soon' ELSE NULL END FROM trader_availability ta WHERE ta.trader_id = ${traderProfiles.userId} AND ta.status = 'available' AND ta.ends_at >= now() AND ta.starts_at <= now() + interval '30 days')`,
     }).from(traderProfiles).leftJoin(reviews, and(eq(reviews.traderId, traderProfiles.userId), eq(reviews.verifiedCompletion, true))).where(where)
-      .groupBy(traderProfiles.id).orderBy(desc(sql`${traderProfiles.subscriptionTier} = 'featured'`), desc(sql`avg(${reviews.rating})`)).limit(100);
+      .groupBy(traderProfiles.id)
+      .orderBy(
+        desc(sql`${traderProfiles.subscriptionTier} = 'featured'`),
+        desc(sql`(SELECT count(*) FROM trader_credentials tc WHERE tc.trader_id = ${traderProfiles.userId} AND tc.status = 'verified' AND (tc.expires_at IS NULL OR tc.expires_at > now()))`),
+        desc(sql`avg(${reviews.rating})`),
+      ).limit(100);
 
     const previewTraders = previewDataEnabled()
       ? (trade ? demoTraders.filter((trader) => trader.tradeCategory === trade) : demoTraders)
-          .map((trader) => ({ ...trader, averageRating: 0, reviewCount: 0, isPreview: true }))
+          .map((trader) => ({ ...trader, averageRating: 0, reviewCount: 0, verifiedCredentialCount: 0, availabilitySummary: null, isPreview: true }))
       : [];
     const combined = [...rows.map((trader) => ({ ...trader, isPreview: false })), ...previewTraders].slice(0, 100);
 

@@ -14,6 +14,12 @@
       "includeFiles": "dist/server/**"
     }
   },
+  "crons": [
+    {
+      "path": "/api/maintenance/credential-expiry",
+      "schedule": "15 8 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

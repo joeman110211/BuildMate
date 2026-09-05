@@ -1,0 +1,25 @@
+name: Production Uptime
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE_URL: ${{ vars.PRODUCTION_URL || 'https://buildpair.co.uk' }}
+    steps:
+      - name: Check homepage
+        run: curl --fail --silent --show-error --max-time 20 "$BASE_URL/" >/dev/null
+      - name: Check API health
+        run: curl --fail --silent --show-error --max-time 20 "$BASE_URL/api/health" | tee /tmp/health.json
+      - name: Check public trader feed
+        run: curl --fail --silent --show-error --max-time 20 "$BASE_URL/api/traders" >/dev/null
+      - name: Check public jobs feed
+        run: curl --fail --silent --show-error --max-time 20 "$BASE_URL/api/public/jobs" >/dev/null
