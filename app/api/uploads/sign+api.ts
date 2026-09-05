@@ -4,8 +4,8 @@ import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/s
 type UploadKind = 'job' | 'trader';
 
 const folders: Record<UploadKind, string> = {
-  job: 'buildmate/job-photos',
-  trader: 'buildmate/trader-gallery',
+  job: 'buildpair/job-photos',
+  trader: 'buildpair/trader-gallery',
 };
 
 const DEFAULT_CLOUDINARY_CLOUD_NAME = 'qrrcn7ma';

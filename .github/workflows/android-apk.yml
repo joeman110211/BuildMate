@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: buildmate-android-apk
+  group: buildpair-android-apk
   cancel-in-progress: true
 
 jobs:
@@ -22,6 +22,7 @@ jobs:
       CI: '1'
       EXPO_NO_TELEMETRY: '1'
       EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+      # Keep the current Vercel origin until buildpair.co.uk is attached to production.
       EXPO_PUBLIC_API_URL: https://buildmate-nine.vercel.app
       EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
       EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME: qrrcn7ma
@@ -82,7 +83,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: buildmate-android-apk
+          name: buildpair-android-apk
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 14

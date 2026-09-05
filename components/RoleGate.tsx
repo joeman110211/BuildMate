@@ -13,7 +13,7 @@ export function RoleGate({ role, children }: PropsWithChildren<{ role: UserRole 
 
   if (error) {
     return (
-      <Screen title="We couldn't load your account" subtitle="BuildMate could not finish checking your account. Your sign-in is still valid.">
+      <Screen title="We couldn't load your account" subtitle="BuildPair could not finish checking your account. Your sign-in is still valid.">
         <Text>{error}</Text>
         <Button mode="contained" onPress={() => void refresh()}>Try again</Button>
       </Screen>

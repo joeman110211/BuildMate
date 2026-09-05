@@ -13,15 +13,15 @@ export default function CustomerProfile() {
   const { user: clerkUser } = useUser();
   if (loading) return <LoadingScreen />;
 
-  const name = clerkUser?.fullName || clerkUser?.firstName || 'BuildMate homeowner';
-  return <Screen title="Profile & Account" subtitle="Manage your BuildMate account and the ways you use it.">
+  const name = clerkUser?.fullName || clerkUser?.firstName || 'BuildPair homeowner';
+  return <Screen title="Profile & Account" subtitle="Manage your BuildPair account and the ways you use it.">
     <AppCard>
       <View style={styles.identity}><View style={styles.avatar}><Text style={styles.avatarText}>{name.slice(0, 1).toUpperCase()}</Text></View><View style={styles.flex}><Text variant="headlineSmall" style={styles.title}>{name}</Text><Text style={styles.muted}>{user?.email || clerkUser?.primaryEmailAddress?.emailAddress || 'Email linked through your sign-in provider'}</Text><View style={styles.chips}><Chip compact icon="home-outline">Homeowner</Chip>{user?.traderEnabled ? <Chip compact icon="hammer-wrench">Tradesperson enabled</Chip> : null}</View></View></View>
     </AppCard>
 
     <AppCard>
       <Text variant="titleLarge" style={styles.title}>Account modes</Text>
-      <Text style={styles.muted}>One login can have both sides of BuildMate. Your jobs, messages and business profile stay attached to the same identity.</Text>
+      <Text style={styles.muted}>One login can have both sides of BuildPair. Your jobs, messages and business profile stay attached to the same identity.</Text>
       <View style={styles.modeRow}><View style={styles.flex}><Text variant="titleMedium" style={styles.title}>🏠 Homeowner</Text><Text style={styles.muted}>Post jobs, receive quotes and hire trades.</Text></View><Chip icon="check">Active</Chip></View>
       <View style={styles.modeRow}><View style={styles.flex}><Text variant="titleMedium" style={styles.title}>🔨 Tradesperson</Text><Text style={styles.muted}>Build a public profile, find work and manage customers.</Text></View>{user?.traderEnabled ? <Link href={modeSetupHref('trader')} asChild><Button mode="outlined">Switch</Button></Link> : <Link href={modeSetupHref('trader')} asChild><Button mode="contained">Become a Tradesperson</Button></Link>}</View>
     </AppCard>

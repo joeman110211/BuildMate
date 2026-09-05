@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "BuildMate",
-    "slug": "buildmate",
+    "name": "BuildPair",
+    "slug": "buildpair",
     "version": "1.0.0",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
-    "scheme": "buildmate",
+    "scheme": "buildpair",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "uk.co.buildmate.app"
+      "bundleIdentifier": "uk.co.buildpair.app"
     },
     "android": {
-      "package": "uk.co.buildmate.app",
+      "package": "uk.co.buildpair.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#D35400"
@@ -21,8 +21,8 @@
     "web": {
       "bundler": "metro",
       "output": "server",
-      "name": "BuildMate",
-      "shortName": "BuildMate",
+      "name": "BuildPair",
+      "shortName": "BuildPair",
       "themeColor": "#D35400",
       "backgroundColor": "#FAFAFA",
       "favicon": "./assets/favicon.png"
@@ -42,14 +42,14 @@
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.uk.co.buildmate.app",
+          "merchantIdentifier": "merchant.uk.co.buildpair.app",
           "enableGooglePay": true
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "BuildMate uses your photos to add job images and trade portfolio photos.",
+          "photosPermission": "BuildPair uses your photos to add job images and trade portfolio photos.",
           "microphonePermission": false
         }
       ],

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'buildmate-static-v1';
+const CACHE_NAME = 'buildpair-static-v1';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/favicon.png', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {

@@ -1,6 +1,6 @@
-# BuildMate
+# BuildPair
 
-BuildMate is a single-codebase marketplace for UK customers and tradespeople. It runs as a native Android/iOS Expo app and as a web PWA, with an Expo Router server API, Clerk authentication, Neon Postgres through Drizzle, Stripe Billing/Connect, Gemini job-spec assistance, job messaging and moderation.
+BuildPair is a single-codebase marketplace for UK customers and tradespeople. It runs as a native Android/iOS Expo app and as a web PWA, with an Expo Router server API, Clerk authentication, Neon Postgres through Drizzle, Stripe Billing/Connect, Gemini job-spec assistance, job messaging and moderation.
 
 ## What is implemented
 
@@ -21,7 +21,7 @@ Money is stored as integer pennies throughout. Secret keys are server-only and a
 ## Project structure
 
 ```text
-buildmate/
+buildpair/
 ├── app/
 │   ├── auth/                   sign-in, sign-up and role selection
 │   ├── (public)/               directory and public trader profiles
@@ -68,7 +68,7 @@ Native builds must set `EXPO_PUBLIC_API_URL` to the HTTPS origin hosting the Exp
 2. In **User & Authentication → Email, Phone, Username**, enable email address, password and email verification code.
 3. Enable phone number plus SMS verification code. Clerk phone OTP requires a paid plan for production, though development testing is available.
 4. Put the publishable key in `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` and the secret key in the server environment as `CLERK_SECRET_KEY`.
-5. Add `buildmate://` and the production web origin to allowed redirect/origin settings.
+5. Add `buildpair://` and the production web origin to allowed redirect/origin settings.
 
 Users are lazily synchronized from Clerk into `users`; the Clerk user ID is the Postgres primary key. The API derives email and phone from Clerk’s server SDK, never from editable client input.
 
@@ -90,4 +90,4 @@ Recommended release workflow: create a Neon branch for each Git branch, apply mi
 
 ## 4. Media storage
 
-BuildMate uses Cloudinary for production media. Current media folders are separated into trader galleries and job photos. Upload signatures must be generated server-side so the Cloudinary API secret is never embedded in the Android/iOS/web client.
+BuildPair uses Cloudinary for production media. Current media folders are separated into trader galleries and job photos. Upload signatures must be generated server-side so the Cloudinary API secret is never embedded in the Android/iOS/web client.

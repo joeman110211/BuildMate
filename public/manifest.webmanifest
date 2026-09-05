@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "BuildMate",
-  "short_name": "BuildMate",
+  "name": "BuildPair",
+  "short_name": "BuildPair",
   "description": "Find trusted local tradespeople, compare quotes and manage building work.",
   "start_url": "/",
   "scope": "/",

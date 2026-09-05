@@ -34,9 +34,9 @@ export function SocialAuthButtons({ onError, mode = null }: Props) {
       onError('');
 
       // Clerk's Expo SSO flow expects a concrete callback URL. On web this resolves
-      // to the current BuildMate origin; on Android/iOS it resolves to buildmate://.
+      // to the current BuildPair origin; on Android/iOS it resolves to buildpair://.
       const callback = AuthSession.makeRedirectUri({
-        scheme: 'buildmate',
+        scheme: 'buildpair',
         path: 'auth/social-continue',
       });
       const redirectUrl = mode ? `${callback}${callback.includes('?') ? '&' : '?'}mode=${mode}` : callback;

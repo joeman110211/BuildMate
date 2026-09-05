@@ -8,7 +8,7 @@ export async function GET() {
     return Response.json(
       {
         status: 'error',
-        service: 'buildmate-api',
+        service: 'buildpair-api',
         database: 'unavailable',
         reason: 'database_url_missing',
         timestamp: new Date().toISOString(),
@@ -23,7 +23,7 @@ export async function GET() {
 
     return Response.json({
       status: 'ok',
-      service: 'buildmate-api',
+      service: 'buildpair-api',
       database: 'ok',
       latencyMs: Date.now() - startedAt,
       timestamp: new Date().toISOString(),
@@ -32,7 +32,7 @@ export async function GET() {
     return Response.json(
       {
         status: 'error',
-        service: 'buildmate-api',
+        service: 'buildpair-api',
         database: 'unavailable',
         reason: 'database_connection_failed',
         timestamp: new Date().toISOString(),

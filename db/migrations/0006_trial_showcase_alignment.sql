@@ -1,5 +1,5 @@
 -- Idempotent production-alignment migration.
--- Some early BuildMate databases were created before these fields/tables were
+-- Some early BuildPair databases were created before these fields/tables were
 -- tracked consistently. Keep this safe to run whether 0005 has already run or not.
 
 ALTER TABLE trader_profiles

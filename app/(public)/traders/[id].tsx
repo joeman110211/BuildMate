@@ -49,14 +49,14 @@ export default function TraderProfileScreen() {
 
   return <Screen>
     <View style={styles.hero}>
-      {profile.coverPhotoUrl ? <Image source={{ uri: profile.coverPhotoUrl }} style={styles.cover} /> : <View style={styles.coverFallback}><Text style={styles.coverFallbackText}>BuildMate</Text></View>}
+      {profile.coverPhotoUrl ? <Image source={{ uri: profile.coverPhotoUrl }} style={styles.cover} /> : <View style={styles.coverFallback}><Text style={styles.coverFallbackText}>BuildPair</Text></View>}
       <View style={styles.heroBody}>
         <View style={styles.identityRow}>
           {profile.profileImageUrl ? <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} /> : <View style={styles.avatarFallback}><Text style={styles.avatarLetter}>{profile.businessName.slice(0, 1).toUpperCase()}</Text></View>}
           <View style={styles.identityText}>
             <Text variant="headlineMedium" style={styles.businessName}>{profile.businessName}</Text>
             <Text variant="bodyLarge" style={styles.muted}>{profile.tradeCategory}{profile.locationLabel ? ` · ${profile.locationLabel}` : ''}</Text>
-            <View style={styles.meta}><Chip icon="star">{profile.averageRating.toFixed(1)} ({profile.reviewCount} reviews)</Chip><Chip icon="map-marker-radius">{profile.radiusMiles} mile radius</Chip><Chip icon="check-decagram-outline">BuildMate member</Chip></View>
+            <View style={styles.meta}><Chip icon="star">{profile.averageRating.toFixed(1)} ({profile.reviewCount} reviews)</Chip><Chip icon="map-marker-radius">{profile.radiusMiles} mile radius</Chip><Chip icon="check-decagram-outline">BuildPair member</Chip></View>
           </View>
           {profile.logoUrl ? <Image source={{ uri: profile.logoUrl }} style={styles.logo} /> : null}
         </View>
@@ -94,21 +94,21 @@ export default function TraderProfileScreen() {
     <AppCard>
       {profile.qualifications.length ? profile.qualifications.map((item) => <View key={item} style={styles.credential}><Text style={styles.credentialTick}>✓</Text><Text style={styles.credentialText}>{item}</Text></View>) : <Text style={styles.muted}>No qualifications have been listed yet.</Text>}
       {Object.entries(profile.externalLinks ?? {}).filter(([, url]) => url).map(([name, url]) => <Button key={name} icon="open-in-new" onPress={() => Linking.openURL(url)}>{name}</Button>)}
-      <Text variant="bodySmall" style={styles.muted}>Trade qualifications and register links are declared by the tradesperson unless specifically marked as verified by BuildMate.</Text>
+      <Text variant="bodySmall" style={styles.muted}>Trade qualifications and register links are declared by the tradesperson unless specifically marked as verified by BuildPair.</Text>
     </AppCard>
 
     <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Customer Reviews</Text></View>
     <AppCard>
       <View style={styles.ratingSummary}><View><Text style={styles.bigRating}>{profile.averageRating.toFixed(1)}</Text><Text style={styles.stars}>★★★★★</Text><Text style={styles.muted}>{profile.reviewCount} verified review{profile.reviewCount === 1 ? '' : 's'}</Text></View><View style={styles.ratingBars}>{ratingCounts.map((item) => <View key={item.rating} style={styles.ratingRow}><Text style={styles.ratingLabel}>{item.rating} ★</Text><ProgressBar progress={item.count / maxRatingCount} color={colors.primary} style={styles.ratingBar} /><Text style={styles.ratingCount}>{item.count}</Text></View>)}</View></View>
     </AppCard>
-    {profile.reviews.length ? profile.reviews.map((review) => <AppCard key={review.id}><View style={styles.reviewTop}><View><Text variant="titleMedium" style={styles.sectionTitle}>Verified customer</Text><Text style={styles.stars}>{'★'.repeat(review.rating)}</Text></View><Chip compact icon="check-circle">Verified BuildMate job</Chip></View><Text style={styles.reviewText}>{review.comment}</Text><Text variant="bodySmall" style={styles.muted}>{new Date(review.createdAt).toLocaleDateString('en-GB')}</Text></AppCard>) : <AppCard><Text style={styles.muted}>No verified BuildMate reviews yet.</Text></AppCard>}
+    {profile.reviews.length ? profile.reviews.map((review) => <AppCard key={review.id}><View style={styles.reviewTop}><View><Text variant="titleMedium" style={styles.sectionTitle}>Verified customer</Text><Text style={styles.stars}>{'★'.repeat(review.rating)}</Text></View><Chip compact icon="check-circle">Verified BuildPair job</Chip></View><Text style={styles.reviewText}>{review.comment}</Text><Text variant="bodySmall" style={styles.muted}>{new Date(review.createdAt).toLocaleDateString('en-GB')}</Text></AppCard>) : <AppCard><Text style={styles.muted}>No verified BuildPair reviews yet.</Text></AppCard>}
 
     <Divider />
     <AppCard style={styles.finalCta}>
       <Text variant="headlineSmall" style={styles.sectionTitle}>Ready to discuss your job?</Text>
-      <Text style={styles.muted}>Send {profile.businessName} your job details through BuildMate and keep the quote, messages and work record together.</Text>
+      <Text style={styles.muted}>Send {profile.businessName} your job details through BuildPair and keep the quote, messages and work record together.</Text>
       <View style={styles.heroActions}>{quoteButton}{profile.contact?.phone ? <Button icon="phone" mode="outlined" onPress={() => Linking.openURL(`tel:${profile.contact?.phone}`)}>Call Direct</Button> : null}</View>
-      <Text variant="bodySmall" style={styles.muted}>BuildMate member since {memberSince}.{profile.contactLocked ? ' Direct contact details are hidden until available through the trader’s listing.' : ''}</Text>
+      <Text variant="bodySmall" style={styles.muted}>BuildPair member since {memberSince}.{profile.contactLocked ? ' Direct contact details are hidden until available through the trader’s listing.' : ''}</Text>
     </AppCard>
   </Screen>;
 }

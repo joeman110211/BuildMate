@@ -25,7 +25,7 @@ export default function SignUpScreen() {
     ? 'Build your trade profile and start with a 14-day free trial.'
     : mode === 'customer'
       ? 'Post work, compare quotes and hire trusted trades.'
-      : 'One BuildMate login can hold both Homeowner and Tradesperson profiles.';
+      : 'One BuildPair login can hold both Homeowner and Tradesperson profiles.';
 
   async function startEmailSignUp() {
     try {
@@ -54,7 +54,7 @@ export default function SignUpScreen() {
       await signUp.finalize({
         navigate: async ({ session }) => {
           if (session?.currentTask) {
-            throw new Error('Account needs another Clerk setup step before BuildMate can continue.');
+            throw new Error('Account needs another Clerk setup step before BuildPair can continue.');
           }
           router.replace(modeSetupHref(mode));
         },

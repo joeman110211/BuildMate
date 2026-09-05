@@ -47,7 +47,9 @@ async function handleEvent(event: Stripe.Event) {
 
   if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.created') {
     const subscription = event.data.object;
-    const userId = subscription.metadata.buildmateUserId;
+    // Accept metadata written before and after the BuildPair rebrand so existing
+    // test/live Stripe objects are not orphaned during the transition.
+    const userId = subscription.metadata.buildpairUserId ?? subscription.metadata.buildmateUserId;
     const tier = subscription.metadata.tier;
     if (userId && (tier === 'basic' || tier === 'featured')) {
       const active = ['active', 'trialing'].includes(subscription.status);
@@ -64,7 +66,8 @@ async function handleEvent(event: Stripe.Event) {
 
   if (event.type === 'payment_intent.succeeded') {
     const intent = event.data.object;
-    const { buildmateJobId: jobId, milestoneId, customerId, traderId } = intent.metadata;
+    const jobId = intent.metadata.buildpairJobId ?? intent.metadata.buildmateJobId;
+    const { milestoneId, customerId, traderId } = intent.metadata;
     if (!jobId || !milestoneId || !customerId || !traderId) return;
     const milestone = await db.query.jobMilestones.findFirst({ where: eq(jobMilestones.id, milestoneId) });
     if (!milestone) return;
