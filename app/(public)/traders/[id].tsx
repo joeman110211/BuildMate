@@ -40,27 +40,34 @@ export default function TraderProfileScreen() {
   const serviceAreas = profile.serviceAreas?.length ? profile.serviceAreas : profile.locationLabel ? [profile.locationLabel] : [];
   const beforeAfter = profile.beforeAfterProjects ?? [];
   const quoteLink = { pathname: '/customer/new-job', params: { traderId: profile.userId, traderName: profile.businessName, tradeCategory: profile.tradeCategory } } as Href;
-  const quoteButton = isSignedIn
-    ? <Link href={quoteLink} asChild><Button mode="contained" icon="file-document-edit-outline" contentStyle={styles.ctaContent}>Request a Quote</Button></Link>
-    : <Link href="/auth/sign-in" asChild><Button mode="contained" contentStyle={styles.ctaContent}>Sign in to Request a Quote</Button></Link>;
+  const quoteButton = profile.isPreview
+    ? <Button mode="outlined" icon="flask-outline" disabled contentStyle={styles.ctaContent}>Preview profile only</Button>
+    : isSignedIn
+      ? <Link href={quoteLink} asChild><Button mode="contained" icon="file-document-edit-outline" contentStyle={styles.ctaContent}>Request a Quote</Button></Link>
+      : <Link href="/auth/sign-in" asChild><Button mode="contained" contentStyle={styles.ctaContent}>Sign in to Request a Quote</Button></Link>;
 
   const ratingCounts = [5, 4, 3, 2, 1].map((rating) => ({ rating, count: profile.reviews.filter((review) => review.rating === rating).length }));
   const maxRatingCount = Math.max(1, ...ratingCounts.map((item) => item.count));
 
   return <Screen>
     <View style={styles.hero}>
-      {profile.coverPhotoUrl ? <Image source={{ uri: profile.coverPhotoUrl }} style={styles.cover} /> : <View style={styles.coverFallback}><Text style={styles.coverFallbackText}>BuildMate</Text></View>}
+      {profile.coverPhotoUrl ? <Image source={{ uri: profile.coverPhotoUrl }} style={styles.cover} /> : <View style={styles.coverFallback}><Text style={styles.coverFallbackText}>BuildPair</Text></View>}
       <View style={styles.heroBody}>
         <View style={styles.identityRow}>
           {profile.profileImageUrl ? <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} /> : <View style={styles.avatarFallback}><Text style={styles.avatarLetter}>{profile.businessName.slice(0, 1).toUpperCase()}</Text></View>}
           <View style={styles.identityText}>
             <Text variant="headlineMedium" style={styles.businessName}>{profile.businessName}</Text>
             <Text variant="bodyLarge" style={styles.muted}>{profile.tradeCategory}{profile.locationLabel ? ` · ${profile.locationLabel}` : ''}</Text>
-            <View style={styles.meta}><Chip icon="star">{profile.averageRating.toFixed(1)} ({profile.reviewCount} reviews)</Chip><Chip icon="map-marker-radius">{profile.radiusMiles} mile radius</Chip><Chip icon="check-decagram-outline">BuildMate member</Chip></View>
+            <View style={styles.meta}>
+              {profile.isPreview ? <Chip icon="flask-outline">BuildPair beta preview</Chip> : <Chip icon="star">{profile.averageRating.toFixed(1)} ({profile.reviewCount} reviews)</Chip>}
+              <Chip icon="map-marker-radius">{profile.radiusMiles} mile radius</Chip>
+              {!profile.isPreview ? <Chip icon="check-decagram-outline">BuildPair member</Chip> : null}
+            </View>
           </View>
           {profile.logoUrl ? <Image source={{ uri: profile.logoUrl }} style={styles.logo} /> : null}
         </View>
-        <View style={styles.heroActions}>{quoteButton}{profile.contact?.phone ? <Button mode="outlined" icon="phone" contentStyle={styles.ctaContent} onPress={() => Linking.openURL(`tel:${profile.contact?.phone}`)}>Call</Button> : null}{profile.contact?.email ? <Button mode="outlined" icon="email-outline" contentStyle={styles.ctaContent} onPress={() => Linking.openURL(`mailto:${profile.contact?.email}`)}>Email</Button> : null}</View>
+        <View style={styles.heroActions}>{quoteButton}{!profile.isPreview && profile.contact?.phone ? <Button mode="outlined" icon="phone" contentStyle={styles.ctaContent} onPress={() => Linking.openURL(`tel:${profile.contact?.phone}`)}>Call</Button> : null}{!profile.isPreview && profile.contact?.email ? <Button mode="outlined" icon="email-outline" contentStyle={styles.ctaContent} onPress={() => Linking.openURL(`mailto:${profile.contact?.email}`)}>Email</Button> : null}</View>
+        {profile.isPreview ? <Text variant="bodySmall" style={styles.muted}>This is example marketplace content used during the BuildPair beta. It is not a verified live tradesperson listing and cannot receive real job requests.</Text> : null}
       </View>
     </View>
 
@@ -93,22 +100,22 @@ export default function TraderProfileScreen() {
     <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Qualifications & Credentials</Text></View>
     <AppCard>
       {profile.qualifications.length ? profile.qualifications.map((item) => <View key={item} style={styles.credential}><Text style={styles.credentialTick}>✓</Text><Text style={styles.credentialText}>{item}</Text></View>) : <Text style={styles.muted}>No qualifications have been listed yet.</Text>}
-      {Object.entries(profile.externalLinks ?? {}).filter(([, url]) => url).map(([name, url]) => <Button key={name} icon="open-in-new" onPress={() => Linking.openURL(url)}>{name}</Button>)}
-      <Text variant="bodySmall" style={styles.muted}>Trade qualifications and register links are declared by the tradesperson unless specifically marked as verified by BuildMate.</Text>
+      {!profile.isPreview ? Object.entries(profile.externalLinks ?? {}).filter(([, url]) => url).map(([name, url]) => <Button key={name} icon="open-in-new" onPress={() => Linking.openURL(url)}>{name}</Button>) : null}
+      <Text variant="bodySmall" style={styles.muted}>{profile.isPreview ? 'Preview-profile details are illustrative only.' : 'Trade qualifications and register links are declared by the tradesperson unless specifically marked as verified by BuildPair.'}</Text>
     </AppCard>
 
     <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Customer Reviews</Text></View>
     <AppCard>
       <View style={styles.ratingSummary}><View><Text style={styles.bigRating}>{profile.averageRating.toFixed(1)}</Text><Text style={styles.stars}>★★★★★</Text><Text style={styles.muted}>{profile.reviewCount} verified review{profile.reviewCount === 1 ? '' : 's'}</Text></View><View style={styles.ratingBars}>{ratingCounts.map((item) => <View key={item.rating} style={styles.ratingRow}><Text style={styles.ratingLabel}>{item.rating} ★</Text><ProgressBar progress={item.count / maxRatingCount} color={colors.primary} style={styles.ratingBar} /><Text style={styles.ratingCount}>{item.count}</Text></View>)}</View></View>
     </AppCard>
-    {profile.reviews.length ? profile.reviews.map((review) => <AppCard key={review.id}><View style={styles.reviewTop}><View><Text variant="titleMedium" style={styles.sectionTitle}>Verified customer</Text><Text style={styles.stars}>{'★'.repeat(review.rating)}</Text></View><Chip compact icon="check-circle">Verified BuildMate job</Chip></View><Text style={styles.reviewText}>{review.comment}</Text><Text variant="bodySmall" style={styles.muted}>{new Date(review.createdAt).toLocaleDateString('en-GB')}</Text></AppCard>) : <AppCard><Text style={styles.muted}>No verified BuildMate reviews yet.</Text></AppCard>}
+    {profile.reviews.length ? profile.reviews.map((review) => <AppCard key={review.id}><View style={styles.reviewTop}><View><Text variant="titleMedium" style={styles.sectionTitle}>Verified customer</Text><Text style={styles.stars}>{'★'.repeat(review.rating)}</Text></View><Chip compact icon="check-circle">Verified BuildPair job</Chip></View><Text style={styles.reviewText}>{review.comment}</Text><Text variant="bodySmall" style={styles.muted}>{new Date(review.createdAt).toLocaleDateString('en-GB')}</Text></AppCard>) : <AppCard><Text style={styles.muted}>{profile.isPreview ? 'Preview profiles do not carry fabricated customer reviews.' : 'No verified BuildPair reviews yet.'}</Text></AppCard>}
 
     <Divider />
     <AppCard style={styles.finalCta}>
-      <Text variant="headlineSmall" style={styles.sectionTitle}>Ready to discuss your job?</Text>
-      <Text style={styles.muted}>Send {profile.businessName} your job details through BuildMate and keep the quote, messages and work record together.</Text>
-      <View style={styles.heroActions}>{quoteButton}{profile.contact?.phone ? <Button icon="phone" mode="outlined" onPress={() => Linking.openURL(`tel:${profile.contact?.phone}`)}>Call Direct</Button> : null}</View>
-      <Text variant="bodySmall" style={styles.muted}>BuildMate member since {memberSince}.{profile.contactLocked ? ' Direct contact details are hidden until available through the trader’s listing.' : ''}</Text>
+      <Text variant="headlineSmall" style={styles.sectionTitle}>{profile.isPreview ? 'Example profile' : 'Ready to discuss your job?'}</Text>
+      <Text style={styles.muted}>{profile.isPreview ? 'Browse this layout as an example of how a live tradesperson profile can look on BuildPair.' : `Send ${profile.businessName} your job details through BuildPair and keep the quote, messages and work record together.`}</Text>
+      <View style={styles.heroActions}>{quoteButton}{!profile.isPreview && profile.contact?.phone ? <Button icon="phone" mode="outlined" onPress={() => Linking.openURL(`tel:${profile.contact?.phone}`)}>Call Direct</Button> : null}</View>
+      <Text variant="bodySmall" style={styles.muted}>{profile.isPreview ? 'Beta preview content. Not a live listing.' : `BuildPair member since ${memberSince}.${profile.contactLocked ? ' Direct contact details are hidden until available through the trader’s listing.' : ''}`}</Text>
     </AppCard>
   </Screen>;
 }
