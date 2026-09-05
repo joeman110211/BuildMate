@@ -5,6 +5,7 @@ import { traderProfileShowcase } from '@/db/showcase-schema';
 import { InvalidPostcodeError, lookupPostcode } from '@/lib/postcode';
 import { getSql } from '@/lib/sql';
 import { accountAccess, accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
+import { trialEndsAt } from '@/lib/subscription';
 import { roleSchema, traderProfileSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -83,15 +84,19 @@ export async function PUT(request: Request) {
     const db = getDb();
     const existingProfile = await db.query.traderProfiles.findFirst({
       where: eq(traderProfiles.userId, userId),
-      columns: { stripeSubscriptionId: true },
+      columns: { id: true, stripeSubscriptionId: true },
     });
 
-    // Every new trader gets Basic lead access for the first 14 days. Until the
-    // explicit trial_ends_at migration is applied, created_at is the source of
-    // truth for that window, so no Stripe setup is required during onboarding.
+    // Unbilled beta traders receive Basic metadata immediately. Lead access itself
+    // is controlled by BUILDPAIR_PAYMENTS_ENABLED so editing a profile can never
+    // accidentally reset or extend a paid-mode trial.
     const trialListing = existingProfile?.stripeSubscriptionId
       ? {}
-      : { subscriptionTier: 'basic' as const, isSubscriptionActive: true };
+      : {
+          subscriptionTier: 'basic' as const,
+          isSubscriptionActive: true,
+          ...(existingProfile ? {} : { trialEndsAt: trialEndsAt() }),
+        };
 
     const [profile] = await db.insert(traderProfiles).values({ userId, ...values, ...trialListing }).onConflictDoUpdate({
       target: traderProfiles.userId,
@@ -103,6 +108,7 @@ export async function PUT(request: Request) {
       tradeCategory: traderProfiles.tradeCategory,
       subscriptionTier: traderProfiles.subscriptionTier,
       isSubscriptionActive: traderProfiles.isSubscriptionActive,
+      trialEndsAt: traderProfiles.trialEndsAt,
       createdAt: traderProfiles.createdAt,
       updatedAt: traderProfiles.updatedAt,
     });
