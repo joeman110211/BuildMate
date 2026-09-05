@@ -2,6 +2,7 @@ import { Link, Redirect } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { Button, Chip, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
+import { BuildMateLogo } from '@/components/BuildMateLogo';
 import { LoadingScreen, Screen } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { dashboardHref, signInHref, signUpHref } from '@/lib/account-mode';
@@ -10,58 +11,74 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 export default function AccountEntryScreen() {
   const { user, loading, isSignedIn } = useCurrentUser();
 
-  if (loading) return <LoadingScreen label="Loading BuildPair…" />;
+  if (loading) return <LoadingScreen label="Loading BuildMate…" />;
   if (isSignedIn && user?.activeMode) return <Redirect href={dashboardHref(user.activeMode)} />;
   if (isSignedIn) return <Redirect href="/auth/choose-role" />;
 
   return <Screen>
     <View style={styles.hero}>
-      <View style={styles.logoMark}><Text style={styles.logoText}>BM</Text></View>
-      <Text variant="displaySmall" style={styles.brand}>BuildPair</Text>
-      <Text variant="headlineSmall" style={styles.heading}>Find trusted local trades or grow your trade business.</Text>
-      <Text style={styles.subheading}>Choose how you want to use BuildPair. One login can hold both profiles.</Text>
+      <BuildMateLogo tagline />
+      <Text variant="headlineSmall" style={styles.heading}>One login. Two ways to use BuildMate.</Text>
+      <Text style={styles.subheading}>Choose the profile you need today. You can add the other later without creating another login.</Text>
     </View>
 
     <View style={styles.cards}>
       <AppCard style={styles.roleCard}>
-        <View style={styles.roleTop}><View style={styles.roleIcon}><Text style={styles.emoji}>🏠</Text></View><Text variant="headlineSmall" style={styles.title}>I’m a Homeowner</Text></View>
+        <View style={styles.roleTop}>
+          <View style={styles.roleIcon}><Text style={styles.emoji}>🏠</Text></View>
+          <View style={styles.roleHeading}>
+            <Text variant="headlineSmall" style={styles.title}>I’m a Homeowner</Text>
+            <Text variant="bodySmall" style={styles.kicker}>POST • COMPARE • HIRE</Text>
+          </View>
+        </View>
         <Text style={styles.body}>Find trusted trades, post jobs, compare quotes and keep everything organised in one place.</Text>
-        <Link href={signUpHref('customer')} asChild><Button mode="contained" icon="account-plus" contentStyle={styles.primaryButton}>Create Homeowner Account</Button></Link>
+        <Link href={signUpHref('customer')} asChild><Button mode="contained" contentStyle={styles.primaryButton} style={styles.primaryAction}>Create Homeowner Account</Button></Link>
         <Link href={signInHref('customer')} asChild><Button mode="text">Homeowner Sign In</Button></Link>
       </AppCard>
 
       <AppCard style={styles.roleCard}>
-        <View style={styles.roleTop}><View style={styles.roleIcon}><Text style={styles.emoji}>🔨</Text></View><View style={styles.tradeTitle}><Text variant="headlineSmall" style={styles.title}>I’m a Tradesperson</Text><Chip compact icon="gift-outline" style={styles.trialChip}>14 days free</Chip></View></View>
+        <View style={styles.roleTop}>
+          <View style={styles.roleIcon}><Text style={styles.emoji}>🔨</Text></View>
+          <View style={styles.roleHeading}>
+            <Text variant="headlineSmall" style={styles.title}>I’m a Tradesperson</Text>
+            <Chip compact style={styles.trialChip} textStyle={styles.trialChipText}>14 days free</Chip>
+          </View>
+        </View>
         <Text style={styles.body}>Find local work, build a trusted profile, quote customers and manage your jobs.</Text>
-        <Link href={signUpHref('trader')} asChild><Button mode="contained" icon="briefcase-plus-outline" contentStyle={styles.primaryButton}>Create Tradesperson Account</Button></Link>
+        <Link href={signUpHref('trader')} asChild><Button mode="contained" contentStyle={styles.primaryButton} style={styles.primaryAction}>Create Tradesperson Account</Button></Link>
         <Link href={signInHref('trader')} asChild><Button mode="text">Tradesperson Sign In</Button></Link>
       </AppCard>
     </View>
 
-    <View style={styles.browse}>
-      <Text style={styles.browseText}>Just looking?</Text>
-      <Link href="/(public)/directory" asChild><Button mode="outlined" icon="magnify">Browse trades without signing in</Button></Link>
-    </View>
+    <AppCard elevated={false} style={styles.browseCard}>
+      <View style={styles.browseCopy}>
+        <Text variant="titleMedium" style={styles.title}>Just looking?</Text>
+        <Text style={styles.browseText}>You can browse local trade profiles before creating an account.</Text>
+      </View>
+      <Link href="/(public)/directory" asChild><Button mode="outlined" contentStyle={styles.browseButton}>Browse trades</Button></Link>
+    </AppCard>
   </Screen>;
 }
 
 const styles = StyleSheet.create({
-  hero: { alignItems: 'center', paddingTop: 16, paddingBottom: 8, gap: 8 },
-  logoMark: { width: 58, height: 58, borderRadius: 18, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  logoText: { color: '#FFFFFF', fontSize: 19, fontWeight: '900' },
-  brand: { color: colors.primary, fontWeight: '900', letterSpacing: -1.2 },
-  heading: { maxWidth: 680, textAlign: 'center', fontWeight: '800', color: colors.text, lineHeight: 31 },
+  hero: { width: '100%', maxWidth: 820, alignSelf: 'center', alignItems: 'center', paddingVertical: 24, paddingHorizontal: 18, borderRadius: 24, backgroundColor: colors.surfaceStrong, gap: 10 },
+  heading: { maxWidth: 680, textAlign: 'center', fontWeight: '900', color: colors.charcoal, lineHeight: 31, marginTop: 6 },
   subheading: { maxWidth: 620, textAlign: 'center', color: colors.muted, fontSize: 16, lineHeight: 23 },
   cards: { width: '100%', maxWidth: 820, alignSelf: 'center', gap: 16 },
   roleCard: { padding: 20 },
   roleTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  roleIcon: { width: 52, height: 52, borderRadius: 16, backgroundColor: colors.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
+  roleIcon: { width: 52, height: 52, borderRadius: 16, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   emoji: { fontSize: 27 },
-  tradeTitle: { flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  title: { fontWeight: '900', color: colors.text },
+  roleHeading: { flex: 1, alignItems: 'flex-start', gap: 6 },
+  title: { fontWeight: '900', color: colors.charcoal },
+  kicker: { color: colors.muted, fontWeight: '800', letterSpacing: 1.1 },
   body: { color: colors.muted, lineHeight: 23, fontSize: 16 },
-  trialChip: { backgroundColor: '#EAF7EC' },
+  trialChip: { alignSelf: 'flex-start', backgroundColor: '#E8F4EA' },
+  trialChipText: { color: colors.success, fontWeight: '800' },
   primaryButton: { minHeight: 52 },
-  browse: { alignItems: 'center', gap: 6, marginTop: 4 },
-  browseText: { color: colors.muted },
+  primaryAction: { borderRadius: 16 },
+  browseCard: { width: '100%', maxWidth: 820, alignSelf: 'center', backgroundColor: colors.surfaceSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 },
+  browseCopy: { flex: 1, minWidth: 220, gap: 3 },
+  browseText: { color: colors.muted, lineHeight: 21 },
+  browseButton: { minHeight: 44, minWidth: 150 },
 });
