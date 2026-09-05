@@ -32,7 +32,10 @@ export default function CustomerDashboard() {
     } catch (e) { setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   if (loading) return <LoadingScreen />;
   const firstName = clerkUser?.firstName || 'there';
