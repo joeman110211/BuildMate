@@ -11,14 +11,14 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 export default function AccountEntryScreen() {
   const { user, loading, isSignedIn } = useCurrentUser();
 
-  if (loading) return <LoadingScreen label="Loading BuildMate…" />;
+  if (loading) return <LoadingScreen label="Loading BuildPair…" />;
   if (isSignedIn && user?.activeMode) return <Redirect href={dashboardHref(user.activeMode)} />;
   if (isSignedIn) return <Redirect href="/auth/choose-role" />;
 
   return <Screen>
     <View style={styles.hero}>
       <BuildMateLogo tagline />
-      <Text variant="headlineSmall" style={styles.heading}>One login. Two ways to use BuildMate.</Text>
+      <Text variant="headlineSmall" style={styles.heading}>One login. Two ways to use BuildPair.</Text>
       <Text style={styles.subheading}>Choose the profile you need today. You can add the other later without creating another login.</Text>
     </View>
 
