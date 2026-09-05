@@ -16,10 +16,10 @@
     "test": "vitest run __tests__",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node scripts/migrate.mjs",
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
     "db:studio": "drizzle-kit studio",
     "build:web": "expo export --platform web",
-    "serve:production": "node server.mjs"
+    "serve:production": "node --env-file-if-exists=.env server.mjs"
   },
   "dependencies": {
     "@clerk/backend": "^2.0.0",
