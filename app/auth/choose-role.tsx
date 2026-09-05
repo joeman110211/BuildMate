@@ -56,7 +56,7 @@ export default function ChooseRoleScreen() {
   }
 
   return (
-    <Screen title="How will you use BuildMate?" subtitle="One login can have both profiles. Choose the side you want to open or add.">
+    <Screen title="How will you use BuildPair?" subtitle="One login can have both profiles. Choose the side you want to open or add.">
       <View style={styles.grid}>
         {([['customer', '🏠 Homeowner', 'Post jobs, compare quotes and pay safely.'], ['trader', '🔨 Tradesperson', 'Build a public profile, find work, quote and invoice customers.']] as const).map(([value, title, body]) => {
           const enabled = value === 'customer' ? user?.customerEnabled : user?.traderEnabled;
