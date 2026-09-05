@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { Button, Chip, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
+import { DeleteAccountCard } from '@/components/DeleteAccountCard';
 import { EmptyState, LoadingScreen, Screen } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { apiFetch, ApiError, errorMessage } from '@/lib/api';
@@ -23,10 +24,7 @@ export default function TraderProfileHub() {
     catch (e) { if (!(e instanceof ApiError && e.status === 404)) setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => {
-    const timer = setTimeout(() => void load(), 0);
-    return () => clearTimeout(timer);
-  }, [load]);
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
 
   if (loading) return <LoadingScreen />;
   if (!profile) return <Screen title="Your Tradesperson Profile"><EmptyState title="No public profile yet" body="Complete your profile setup so homeowners can see your work and request quotes." action={<Link href="/trader/onboarding" asChild><Button mode="contained">Create Profile</Button></Link>} /></Screen>;
@@ -43,6 +41,10 @@ export default function TraderProfileHub() {
     <View style={styles.actions}>
       <Link href="/trader/onboarding" asChild><Button mode="contained" icon="account-edit-outline">Edit Profile</Button></Link>
       <Button mode="outlined" icon="eye-outline" onPress={() => router.push(`/(public)/traders/${profile.id}` as Href)}>View Public Profile</Button>
+      <Link href="/trader/trust" asChild><Button mode="outlined" icon="shield-check-outline">Trust & Availability</Button></Link>
+      <Link href="/trader/stories" asChild><Button mode="outlined" icon="image-multiple-outline">Project Stories</Button></Link>
+      <Link href="/trader/analytics" asChild><Button mode="outlined" icon="chart-box-outline">Analytics</Button></Link>
+      <Link href="/trader/saved-searches" asChild><Button mode="outlined" icon="bell-plus-outline">Job Alerts</Button></Link>
       <Link href="/trader/subscription" asChild><Button mode="outlined" icon="credit-card-outline">Plan & Payouts</Button></Link>
     </View>
 
@@ -53,9 +55,11 @@ export default function TraderProfileHub() {
       <Text style={styles.muted}>{profile.qualifications?.length ? '✓' : '○'} Qualifications</Text>
       <Text style={styles.muted}>{profile.profileImageUrl ? '✓' : '○'} Profile image</Text>
       <Text style={styles.muted}>{profile.coverPhotoUrl ? '✓' : '○'} Cover image</Text>
+      <Text style={styles.muted}>○ BuildPair verification can be added separately in Trust & Availability so declared qualifications are never confused with verified evidence.</Text>
     </AppCard>
 
     {error ? <EmptyState title="Something needs attention" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
+    <DeleteAccountCard />
   </Screen>;
 }
 
