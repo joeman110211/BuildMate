@@ -3,7 +3,7 @@ import { getDb } from '@/db/client';
 import { jobs, quotes, traderProfiles } from '@/db/schema';
 import { HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
-import { hasActiveLeadAccess } from '@/lib/subscription';
+import { hasActiveLeadAccess, paymentsEnabled } from '@/lib/subscription';
 import { quoteSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -25,8 +25,11 @@ export async function POST(request: Request) {
     const job = await db.query.jobs.findFirst({ where: eq(jobs.id, payload.jobId) });
     if (!job || !['open', 'quoted'].includes(job.status)) throw new HttpError(409, 'This job is not open for quotes');
     if (job.targetTraderId && job.targetTraderId !== trader.id) throw new HttpError(403, 'This direct lead belongs to another tradesperson');
-    if (!hasActiveLeadAccess(profile) || profile.subscriptionTier === 'free') throw new HttpError(402, 'An active lead subscription is required to send quotes');
-    if (!job.targetTraderId && profile.subscriptionTier !== 'featured') throw new HttpError(402, 'Featured subscription required to quote open marketplace jobs');
+
+    if (paymentsEnabled()) {
+      if (!hasActiveLeadAccess(profile) || profile.subscriptionTier === 'free') throw new HttpError(402, 'An active lead subscription is required to send quotes');
+      if (!job.targetTraderId && profile.subscriptionTier !== 'featured') throw new HttpError(402, 'Featured subscription required to quote open marketplace jobs');
+    }
 
     const totalAmount = payload.laborCost + payload.materialsCost + payload.vatAmount;
     const validUntil = payload.validUntil ? new Date(payload.validUntil) : null;
