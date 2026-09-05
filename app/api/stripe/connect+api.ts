@@ -13,11 +13,25 @@ export async function POST(request: Request) {
     const stripe = getStripe();
     let accountId = profile.stripeAccountId;
     if (!accountId) {
-      const account = await stripe.accounts.create({ type: 'express', country: 'GB', email: trader.email ?? undefined, business_type: 'individual', capabilities: { card_payments: { requested: true }, transfers: { requested: true } }, metadata: { buildpairUserId: trader.id } });
+      const account = await stripe.accounts.create({
+        type: 'express',
+        country: 'GB',
+        email: trader.email ?? undefined,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        metadata: { buildpairUserId: trader.id },
+      });
       accountId = account.id;
       await db.update(traderProfiles).set({ stripeAccountId: accountId }).where(eq(traderProfiles.userId, trader.id));
     }
-    const link = await stripe.accountLinks.create({ account: accountId, type: 'account_onboarding', refresh_url: providerReturnUrl('connect', 'retry'), return_url: providerReturnUrl('connect', 'complete') });
+    const link = await stripe.accountLinks.create({
+      account: accountId,
+      type: 'account_onboarding',
+      refresh_url: providerReturnUrl('connect', 'retry'),
+      return_url: providerReturnUrl('connect', 'complete'),
+    });
     return Response.json({ url: link.url });
   } catch (error) { return jsonError(error); }
 }
