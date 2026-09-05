@@ -29,7 +29,7 @@ export default function SignUpWebScreen() {
   const mode = parseAccountMode(params.mode);
   const redirectUrl = String(modeSetupHref(mode));
   const loginUrl = mode ? String(signInHref(mode)) : '/auth/account';
-  const title = mode === 'trader' ? '🔨 Create Tradesperson Account' : mode === 'customer' ? '🏠 Create Homeowner Account' : 'Create your BuildMate account';
+  const title = mode === 'trader' ? '🔨 Create Tradesperson Account' : mode === 'customer' ? '🏠 Create Homeowner Account' : 'Create your BuildPair account';
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: 18, paddingHorizontal: 12 }}>
