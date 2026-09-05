@@ -23,7 +23,10 @@ export default function TraderProfileHub() {
     catch (e) { if (!(e instanceof ApiError && e.status === 404)) setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   if (loading) return <LoadingScreen />;
   if (!profile) return <Screen title="Your Tradesperson Profile"><EmptyState title="No public profile yet" body="Complete your profile setup so homeowners can see your work and request quotes." action={<Link href="/trader/onboarding" asChild><Button mode="contained">Create Profile</Button></Link>} /></Screen>;
