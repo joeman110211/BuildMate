@@ -64,3 +64,61 @@ jobs:
           done
 
           echo "::warning::npm audit service unavailable after 3 attempts; code/build checks passed"
+
+  core-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: buildpair_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d buildpair_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      BUILDPAIR_E2E_MODE: '1'
+      BUILDPAIR_E2E_TOKEN: 'buildpair-ci-e2e-only'
+      BUILDPAIR_PAYMENTS_ENABLED: 'off'
+      BUILDPAIR_PREVIEW_DATA: 'off'
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/buildpair_e2e
+      BUILDPAIR_E2E_BASE_URL: http://127.0.0.1:8081
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund --prefer-offline
+      - name: Build disposable database
+        run: npm run test:e2e:setup
+      - name: Start BuildPair test server
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx expo start --web --port 8081 > /tmp/buildpair-e2e-server.log 2>&1 &
+          echo $! > /tmp/buildpair-e2e-server.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8081/api/health > /tmp/buildpair-e2e-health.json 2>/dev/null; then
+              cat /tmp/buildpair-e2e-health.json
+              exit 0
+            fi
+            if [ "$attempt" -eq 60 ]; then
+              cat /tmp/buildpair-e2e-server.log
+              echo "::error::BuildPair E2E server did not become healthy"
+              exit 1
+            fi
+            sleep 2
+          done
+      - name: Run Homeowner to Tradesperson regression
+        run: npm run test:e2e:core
+      - name: Show server log on failure
+        if: failure()
+        run: cat /tmp/buildpair-e2e-server.log || true
