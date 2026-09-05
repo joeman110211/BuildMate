@@ -1,0 +1,67 @@
+name: BuildPair End-to-End
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: buildpair-production-e2e
+  cancel-in-progress: false
+
+jobs:
+  production-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      E2E_BASE_URL: https://buildmate-nine.vercel.app
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Require protected Clerk test access
+        shell: bash
+        run: |
+          if [ -z "$CLERK_SECRET_KEY" ]; then
+            echo "::error::Add CLERK_SECRET_KEY to this repository's Actions secrets before running production E2E."
+            exit 1
+          fi
+
+      - run: npm ci --no-audit --no-fund --prefer-offline
+
+      - name: Load production Clerk publishable key
+        shell: bash
+        run: |
+          set -euo pipefail
+          config=$(curl --fail --silent --show-error --retry 4 --retry-delay 2 "$E2E_BASE_URL/api/client-config")
+          key=$(printf '%s' "$config" | jq -r '.clerkPublishableKey // empty')
+          if [ -z "$key" ]; then
+            echo "::error::Production Clerk publishable key is missing"
+            exit 1
+          fi
+          echo "CLERK_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
+
+      - name: Install isolated E2E tooling
+        run: npm install --no-save --package-lock=false @playwright/test@latest @clerk/testing@latest
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run BuildPair production lifecycle and mobile regressions
+        run: npx playwright test --project=desktop-core-flow --project=small-android-public-ui
+
+      - name: Upload E2E evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildpair-e2e-failure
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
