@@ -1,4 +1,5 @@
 import { createClerkClient, verifyToken } from '@clerk/backend';
+import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { users } from '@/db/schema';
@@ -110,11 +111,43 @@ export async function requireAdmin(request: Request) {
   return { user, access };
 }
 
+function providerCategory(error: unknown) {
+  if (!error || typeof error !== 'object') return 'unknown';
+  const code = 'code' in error ? String((error as { code?: unknown }).code ?? '') : '';
+  const name = 'name' in error ? String((error as { name?: unknown }).name ?? '') : '';
+  if (/^(22|23|42|08)/.test(code)) return 'database';
+  if (/Stripe/i.test(name)) return 'stripe';
+  if (/Clerk/i.test(name)) return 'auth';
+  return 'application';
+}
+
 export function jsonError(error: unknown) {
-  if (error instanceof HttpError) return Response.json({ error: error.message }, { status: error.status });
-  if (error && typeof error === 'object' && 'issues' in error) {
-    return Response.json({ error: 'Invalid request', details: (error as { issues: unknown }).issues }, { status: 400 });
+  if (error instanceof HttpError) {
+    return Response.json({ error: error.message }, { status: error.status, headers: { 'Cache-Control': 'no-store' } });
   }
-  console.error(error);
-  return Response.json({ error: 'Internal server error' }, { status: 500 });
+  if (error && typeof error === 'object' && 'issues' in error) {
+    return Response.json(
+      { error: 'Invalid request', details: (error as { issues: unknown }).issues },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
+  const errorId = randomUUID();
+  const candidate = error as { name?: unknown; code?: unknown; stack?: unknown } | null;
+  const event = {
+    event: 'buildpair_api_error',
+    errorId,
+    category: providerCategory(error),
+    name: candidate?.name ? String(candidate.name).slice(0, 120) : 'UnknownError',
+    code: candidate?.code ? String(candidate.code).slice(0, 80) : undefined,
+    // Full stacks stay out of production logs because provider/database stacks can
+    // contain request values. Local/dev logs retain the stack for debugging.
+    stack: process.env.NODE_ENV === 'production' ? undefined : candidate?.stack,
+    timestamp: new Date().toISOString(),
+  };
+  console.error(JSON.stringify(event));
+  return Response.json(
+    { error: 'Internal server error', errorId },
+    { status: 500, headers: { 'Cache-Control': 'no-store' } },
+  );
 }
