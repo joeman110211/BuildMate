@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { reviews, traderProfiles } from '@/db/schema';
 import { demoTraders } from '@/lib/demo-data';
+import { previewDataEnabled } from '@/lib/preview';
 import { jsonError } from '@/lib/server';
 import { TRADER_TRIAL_DAYS } from '@/lib/subscription';
 
@@ -40,8 +41,10 @@ export async function GET(request: Request) {
     }).from(traderProfiles).leftJoin(reviews, and(eq(reviews.traderId, traderProfiles.userId), eq(reviews.verifiedCompletion, true))).where(where)
       .groupBy(traderProfiles.id).orderBy(desc(sql`${traderProfiles.subscriptionTier} = 'featured'`), desc(sql`avg(${reviews.rating})`)).limit(100);
 
-    const previewTraders = (trade ? demoTraders.filter((trader) => trader.tradeCategory === trade) : demoTraders)
-      .map((trader) => ({ ...trader, averageRating: 0, reviewCount: 0, isPreview: true }));
+    const previewTraders = previewDataEnabled()
+      ? (trade ? demoTraders.filter((trader) => trader.tradeCategory === trade) : demoTraders)
+          .map((trader) => ({ ...trader, averageRating: 0, reviewCount: 0, isPreview: true }))
+      : [];
     const combined = [...rows.map((trader) => ({ ...trader, isPreview: false })), ...previewTraders].slice(0, 100);
 
     return Response.json(combined);
