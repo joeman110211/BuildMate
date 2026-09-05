@@ -5,7 +5,7 @@ import { createClerkClient } from '@clerk/backend';
 import { clerkSetup } from '@clerk/testing/playwright';
 import { test as setup } from '@playwright/test';
 
-const baseURL = process.env.E2E_BASE_URL || 'https://buildmate-nine.vercel.app';
+const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000';
 const runId = (process.env.GITHUB_RUN_ID || Date.now().toString()).replace(/[^a-zA-Z0-9-]/g, '');
 const customerEmail = process.env.E2E_CUSTOMER_EMAIL || `customer-${runId}@buildpair.test`;
 const traderEmail = process.env.E2E_TRADER_EMAIL || `trader-${runId}@buildpair.test`;
@@ -24,13 +24,13 @@ async function ensureTestUser(client, email, firstName) {
 
 setup.describe.configure({ mode: 'serial' });
 
-setup('prepare Clerk production testing token and users', async () => {
+setup('prepare Clerk testing token and users', async () => {
   if (!process.env.CLERK_SECRET_KEY) throw new Error('CLERK_SECRET_KEY is required for authenticated E2E tests');
 
   const response = await fetch(`${baseURL}/api/client-config`);
   if (!response.ok) throw new Error(`Could not read BuildPair client config: HTTP ${response.status}`);
   const config = await response.json();
-  if (!config.clerkPublishableKey) throw new Error('Production Clerk publishable key is missing');
+  if (!config.clerkPublishableKey) throw new Error('Target Clerk publishable key is missing');
   process.env.CLERK_PUBLISHABLE_KEY = config.clerkPublishableKey;
 
   const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });

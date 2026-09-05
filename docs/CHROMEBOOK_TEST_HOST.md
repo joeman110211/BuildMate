@@ -28,18 +28,19 @@ sudo apt upgrade -y
 sudo apt install -y git openssh-client curl nano tmux ca-certificates gnupg
 ```
 
-### 4. Install Node.js 22
+### 4. Install BuildPair's Node/npm toolchain
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
 sudo -E bash nodesource_setup.sh
 sudo apt install -y nodejs
 rm nodesource_setup.sh
+sudo npm install --global npm@11.19.0
 node --version
 npm --version
 ```
 
-BuildPair requires Node 22.12 or newer.
+BuildPair requires Node 22.12 or newer and the repository is standardised on Node 22.23.1-compatible tooling with npm 11.19.0. Node 22 currently installs with npm 10 by default, so the npm upgrade above is deliberate; without it this repository's lockfile can fail `npm ci`.
 
 ### 5. Install cloudflared
 
@@ -58,7 +59,7 @@ No Cloudflare account is required for the Quick Tunnel used by this test setup.
 
 ```bash
 cd ~
-git clone https://github.com/joeman110211/BuildMate.git buildpair
+git clone https://github.com/joeman110211/BuildPair.git buildpair
 cd ~/buildpair
 npm ci
 ```
@@ -67,6 +68,7 @@ If `~/buildpair` already exists instead:
 
 ```bash
 cd ~/buildpair
+git remote set-url origin https://github.com/joeman110211/BuildPair.git
 git pull --ff-only origin main
 npm ci
 ```

@@ -2,11 +2,12 @@
 
 Status reviewed: 5 September 2026.
 
-This is deliberately split into what the repository already provides and what still needs live-environment or operational verification. A green TypeScript build is useful, but it is not a magical certificate that every third-party service behaves itself in production.
+This checklist separates the current private-test stage from the later public-production stage. A green build proves the code compiles and tests pass; it does not magically make third-party services, app stores, payments and legal obligations disappear.
 
 ## Completed in the repository
 
 - [x] Final public product name is BuildPair in user-facing application configuration and copy.
+- [x] GitHub repository is `joeman110211/BuildPair`.
 - [x] Final native identifiers use `uk.co.buildpair.app` and the `buildpair://` URL scheme.
 - [x] Public BuildPair landing page, directory, public jobs and public trader profiles exist.
 - [x] Public About, How It Works, Homeowner, Tradesperson, Download and Contact pages exist.
@@ -26,33 +27,50 @@ This is deliberately split into what the repository already provides and what st
 - [x] Trade invoices and Resend delivery code are implemented.
 - [x] Cloudinary signed-upload code is implemented.
 - [x] Admin moderation, reporting, suspension and restoration flows are implemented.
+- [x] Account deletion API/UI exists.
 - [x] Health and readiness endpoints exist.
 - [x] GitHub Quality CI covers lint, TypeScript, unit tests, web export, Android export, iOS export and production dependency audit.
-- [x] Playwright production E2E covers the homeowner → trader → job → quote → acceptance → messaging → completion → payment confirmation → verified review lifecycle.
-- [x] No GitHub code-search matches were found for common committed secret prefixes checked during the 5 September audit.
+- [x] Playwright E2E covers the homeowner → trader → job → quote → acceptance → messaging → completion → payment confirmation → verified review lifecycle.
+- [x] GitHub Actions Android release APK build exists as a manual target-environment build.
+- [x] Zero-cost Chromebook test hosting is supported through the real Node server plus Cloudflare Quick Tunnel.
+- [x] Portable Docker/Caddy production infrastructure is retained for the later public-hosting move.
 
-## Required before sharing the latest beta publicly
+## Current private-test phase
 
-- [ ] Get the latest `main` commit deployed successfully after the current Vercel build-rate limit clears or hosting is changed.
-- [ ] Attach the branded production domain and change remaining runtime origins from the temporary `buildmate-nine.vercel.app` infrastructure URL to the BuildPair domain.
-- [ ] Confirm `/api/readiness` returns HTTP 200 with `ready: true` on the latest deployment.
-- [ ] Run the production Playwright E2E workflow against that same latest deployment and retain the passing run as launch evidence.
-- [ ] Confirm the Android release APK workflow completes and installs on a physical Android phone.
+- [ ] Complete the Chromebook Linux setup in `docs/CHROMEBOOK_TEST_HOST.md`.
+- [ ] Start the Chromebook test host and confirm `/api/health` returns HTTP 200.
+- [ ] Confirm `/api/readiness` returns HTTP 200 with `ready: true` using the intended test credentials.
+- [ ] Test email/password registration and email verification through the temporary tunnel URL.
+- [ ] Test Google and Facebook login against the temporary test origin if those providers are enabled for the test environment.
+- [ ] Run a complete homeowner → trader workflow with the small tester group.
+- [ ] Send a Contact form message and test invoice through the intended Resend test/domain configuration.
+- [ ] Upload, display and replace/delete test job and trader photos through Cloudinary.
+- [ ] Run the manual Playwright E2E workflow against the current temporary tunnel URL when the test Clerk configuration is ready.
+- [ ] Produce and install an Android APK only when a sufficiently stable API URL is available for that test build.
+
+## Required before wider public launch
+
+- [ ] Move from temporary Chromebook hosting to proper always-on UK/scalable hosting.
+- [ ] Point `buildpair.co.uk` / `www.buildpair.co.uk` at the public production environment.
+- [ ] Confirm `/api/health` and `/api/readiness` on the final public deployment.
+- [ ] Run the full Playwright E2E workflow against that exact public deployment and retain the passing run as launch evidence.
+- [ ] Confirm the Android release APK/AAB build installs on a physical Android phone.
 - [ ] Confirm Clerk production redirect/origin settings for email, Google and Facebook on the final web domain and `buildpair://` native callback.
-- [ ] Send a real Contact form message and a real test invoice through the production Resend/domain configuration.
-- [ ] Upload, display and delete/replace test job and trader photos through the production Cloudinary configuration.
-- [ ] Confirm the current database has every checked-in migration applied and take a recovery point / backup before public beta traffic.
+- [ ] Confirm the current database has every checked-in migration applied and take a recovery point / backup before public traffic.
 - [ ] Confirm database point-in-time restore is enabled and document how to restore it.
-- [ ] Add production error reporting with personal-data scrubbing and an uptime alert for the web/API health endpoint.
+- [ ] Configure a protected scheduler for `/api/maintenance/credential-expiry` using a strong `CRON_SECRET`; the old hosting-provider cron is intentionally gone.
+- [ ] Add production error reporting with personal-data scrubbing and an external uptime alert for the web/API health endpoint.
 - [ ] Add hosting-level rate limiting/WAF rules to public/contact, Gemini and authenticated write endpoints that are abuse-sensitive.
+- [ ] Remove the quiet-launch `noindex, nofollow` header only when BuildPair is deliberately ready for search-engine discovery.
 
 ## Product / legal checks before wider public launch
 
 - [x] UK privacy notice, cookie policy, marketplace terms and marketplace disclaimer pages are present.
 - [x] The current product describes trade credentials as self-certified rather than claiming BuildPair has vetted them.
-- [ ] Review the final legal wording before a wider paid launch, especially trader subscriptions, cancellation/refunds, consumer contracts, VAT invoicing, platform liability and payments.
+- [x] Account deletion workflow exists.
+- [ ] Review final legal wording before a wider paid launch, especially trader subscriptions, cancellation/refunds, consumer contracts, VAT invoicing, platform liability and payments.
 - [ ] Define and document complaints, dangerous-work, disputed-work, chargeback and trader-removal procedures for support/admin use.
-- [ ] Add a clear account-deletion workflow and corresponding retention/deletion policy before app-store release.
+- [ ] Finalise the retention/deletion policy before app-store release.
 
 ## Payments
 
@@ -64,11 +82,11 @@ Before enabling paid subscriptions or BuildPair job payments:
 - [ ] Test Connect accounts with incomplete verification and disabled charges.
 - [ ] Test subscription start, upgrade, downgrade, cancellation, failed renewal and billing-portal access.
 - [ ] Confirm platform fee policy and who absorbs Stripe processing fees.
-- [ ] Verify both platform and Connect webhook destinations/signing secrets in the final production domain.
+- [ ] Verify both platform and Connect webhook destinations/signing secrets on the final production domain.
 
 ## App stores and devices
 
-- [x] Final bundle/package identifiers are already configured.
+- [x] Final bundle/package identifiers are configured.
 - [x] BuildPair app icons, favicon, splash assets and PWA manifest exist.
 - [ ] Produce final store screenshots, privacy labels, support URL and store listing copy.
 - [ ] Test at minimum: small Android phone, current Pixel/Samsung size, iPhone SE size, modern iPhone, tablet and desktop web.
@@ -76,12 +94,11 @@ Before enabling paid subscriptions or BuildPair job payments:
 - [ ] Test poor-network/offline behaviour and screen-reader navigation on physical devices.
 - [ ] Complete Play Store signing/release setup and iOS App Store signing/release setup when store launch becomes the target.
 
-## Intentional historical / infrastructure names
+## Intentional historical internal names
 
-The product is BuildPair. A few old strings remain intentionally because changing them casually would risk production infrastructure:
+The product and repository are BuildPair. Two legacy strings remain intentionally inside the migration system because changing them casually could corrupt migration tracking:
 
-- GitHub repository: `joeman110211/BuildMate`. Rename only as a coordinated GitHub/Vercel/integration change.
-- Current Vercel origin: `buildmate-nine.vercel.app`. Replace with the branded BuildPair domain once attached.
-- Historical migration `db/migrations/0000_buildmate_initial.sql` and migration ledger table `buildmate_migrations`. The migration runner records filenames, so renaming an already-applied migration would make it look unapplied and could rerun initial schema SQL.
+- `db/migrations/0000_buildmate_initial.sql`
+- migration ledger table `buildmate_migrations`
 
-These are not user-facing BuildMate branding and should not be changed just to make a text search aesthetically perfect.
+The migration runner records applied filenames. Renaming the already-applied initial migration could make it look new and attempt to replay schema SQL. These are internal historical identifiers, not user-facing branding.

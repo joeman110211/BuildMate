@@ -8,7 +8,7 @@ export default defineConfig({
   retries: 1,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'https://buildmate-nine.vercel.app',
+    baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:3000',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

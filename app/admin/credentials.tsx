@@ -1,4 +1,5 @@
 import { useAuth } from '@clerk/expo';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Linking, StyleSheet, View } from 'react-native';
 import { Button, HelperText, Text, TextInput } from 'react-native-paper';
@@ -34,7 +35,7 @@ export default function CredentialQueue() {
   }
   if (loading) return <LoadingScreen label="Loading verification queue…" />;
   return <Screen title="Credential Verification" subtitle="Only evidence reviewed here can receive a public BuildPair Verified status.">
-    <View style={styles.top}><Button mode="outlined" icon="shield-search" onPress={() => void load()}>Refresh</Button><Button mode="text" onPress={() => Linking.openURL('/admin/moderation')}>Moderation queue</Button></View>
+    <View style={styles.top}><Button mode="outlined" icon="shield-search" onPress={() => void load()}>Refresh</Button><Button mode="text" onPress={() => router.push('/admin/moderation')}>Moderation queue</Button></View>
     {error ? <HelperText type="error" visible>{error}</HelperText> : null}
     {!items.length ? <EmptyState title="Verification queue clear" body="New insurance, identity and qualification submissions will appear here." /> : items.map((item) => <AppCard key={item.id}>
       <Text variant="titleLarge" style={styles.title}>{item.businessName || 'Tradesperson'}</Text>
