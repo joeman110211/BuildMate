@@ -73,7 +73,7 @@ jobs:
   authenticated-core:
     if: github.event_name == 'workflow_dispatch' && inputs.run_authenticated_core
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
       CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
@@ -95,7 +95,8 @@ jobs:
       - name: Install pinned E2E runner dependencies
         run: npm install --no-save --no-audit --no-fund @playwright/test@${PLAYWRIGHT_VERSION} @clerk/testing@${CLERK_TESTING_VERSION}
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test --project=desktop-core-flow
+      - name: Run desktop and 360x640 Android core workflows
+        run: npx playwright test --project=desktop-core-flow --project=small-android-core-flow
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
