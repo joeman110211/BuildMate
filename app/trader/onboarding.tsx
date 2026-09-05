@@ -11,21 +11,9 @@ import { Screen } from '@/components/Screen';
 import { RADIUS_OPTIONS, SUB_SKILLS, TRADE_CATEGORIES, TRADER_BIO_MIN_LENGTH } from '@/constants/options';
 import { colors } from '@/constants/theme';
 import { apiFetch, ApiError, errorMessage } from '@/lib/api';
-import type { BeforeAfterProject, TraderProfile, TraderProfileColour, TraderProfileTemplate } from '@/types';
+import type { BeforeAfterProject, TraderProfile } from '@/types';
 
-const TEMPLATES: { id: TraderProfileTemplate; title: string; body: string }[] = [
-  { id: 'classic', title: 'Classic', body: 'Traditional business profile with trust, services and reviews front and centre.' },
-  { id: 'portfolio', title: 'Portfolio', body: 'Image-led layout that puts finished work and before/after projects first.' },
-  { id: 'modern', title: 'Modern', body: 'Bold branded header with quick stats, strong calls to action and clean sections.' },
-];
-
-const COLOURS: { id: TraderProfileColour; label: string; hex: string }[] = [
-  { id: 'burnt_orange', label: 'Orange', hex: '#D35400' },
-  { id: 'navy', label: 'Navy', hex: '#17324D' },
-  { id: 'forest', label: 'Forest', hex: '#276749' },
-  { id: 'charcoal', label: 'Charcoal', hex: '#343A40' },
-  { id: 'burgundy', label: 'Burgundy', hex: '#7A2432' },
-];
+const STEP_TITLES = ['Business Details', 'Build Your Profile', 'Portfolio', 'Review & Publish'] as const;
 
 export default function TraderOnboarding() {
   const { getToken } = useAuth();
@@ -37,11 +25,11 @@ export default function TraderOnboarding() {
   const [subSkills, setSubSkills] = useState<string[]>([]);
   const [postcode, setPostcode] = useState('');
   const [radius, setRadius] = useState('15');
-  const [bio, setBio] = useState('');
-  const [qualificationsText, setQualificationsText] = useState('');
+  const [serviceAreasText, setServiceAreasText] = useState('');
   const [yearsExperience, setYearsExperience] = useState('');
   const [yearEstablished, setYearEstablished] = useState('');
-  const [serviceAreasText, setServiceAreasText] = useState('');
+  const [bio, setBio] = useState('');
+  const [qualificationsText, setQualificationsText] = useState('');
   const [gasSafe, setGasSafe] = useState('');
   const [trustMark, setTrustMark] = useState('');
   const [facebook, setFacebook] = useState('');
@@ -52,8 +40,6 @@ export default function TraderOnboarding() {
   const [coverPhoto, setCoverPhoto] = useState<string[]>([]);
   const [profileImage, setProfileImage] = useState<string[]>([]);
   const [logo, setLogo] = useState<string[]>([]);
-  const [template, setTemplate] = useState<TraderProfileTemplate>('classic');
-  const [colourTheme, setColourTheme] = useState<TraderProfileColour>('burnt_orange');
   const [beforeAfterProjects, setBeforeAfterProjects] = useState<BeforeAfterProject[]>([]);
   const [beforeDraft, setBeforeDraft] = useState<string[]>([]);
   const [afterDraft, setAfterDraft] = useState<string[]>([]);
@@ -73,50 +59,44 @@ export default function TraderOnboarding() {
       setSubSkills(profile.subSkills ?? []);
       setPostcode(profile.postcode ?? '');
       setRadius(String(profile.radiusMiles ?? 15));
-      setBio(profile.bio ?? '');
-      setQualificationsText((profile.qualifications ?? []).join('\n'));
-      setPhotos(profile.photos ?? []);
-      setTemplate(profile.template ?? 'classic');
-      setColourTheme(profile.colourTheme ?? 'burnt_orange');
-      setCoverPhoto(profile.coverPhotoUrl ? [profile.coverPhotoUrl] : []);
-      setProfileImage(profile.profileImageUrl ? [profile.profileImageUrl] : []);
-      setLogo(profile.logoUrl ? [profile.logoUrl] : []);
+      setServiceAreasText((profile.serviceAreas ?? []).join(', '));
       setYearsExperience(profile.yearsExperience ? String(profile.yearsExperience) : '');
       setYearEstablished(profile.yearEstablished ? String(profile.yearEstablished) : '');
-      setServiceAreasText((profile.serviceAreas ?? []).join(', '));
-      setBeforeAfterProjects(profile.beforeAfterProjects ?? []);
+      setBio(profile.bio ?? '');
+      setQualificationsText((profile.qualifications ?? []).join('\n'));
       setGasSafe(profile.externalLinks?.gasSafe ?? '');
       setTrustMark(profile.externalLinks?.trustMark ?? '');
       setFacebook(profile.externalLinks?.facebook ?? '');
       setInstagram(profile.externalLinks?.instagram ?? '');
       setTiktok(profile.externalLinks?.tiktok ?? '');
       setWhatsapp(profile.externalLinks?.whatsapp ?? '');
+      setPhotos(profile.photos ?? []);
+      setCoverPhoto(profile.coverPhotoUrl ? [profile.coverPhotoUrl] : []);
+      setProfileImage(profile.profileImageUrl ? [profile.profileImageUrl] : []);
+      setLogo(profile.logoUrl ? [profile.logoUrl] : []);
+      setBeforeAfterProjects(profile.beforeAfterProjects ?? []);
       setCertified(true);
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 404)) setError(errorMessage(e));
-    } finally {
-      setLoadingExisting(false);
-    }
+    } finally { setLoadingExisting(false); }
   }, []);
-
   useEffect(() => { void loadExisting(); }, [loadExisting]);
 
+  const bioLength = bio.trim().length;
+  const bioCharactersRemaining = Math.max(0, TRADER_BIO_MIN_LENGTH - bioLength);
   const valid = useMemo(() => [
     Boolean(businessName.trim().length >= 2 && tradeCategory && subSkills.length && postcode.trim().length >= 5),
-    true,
-    bio.trim().length >= TRADER_BIO_MIN_LENGTH,
+    bioLength >= TRADER_BIO_MIN_LENGTH,
     true,
     certified,
-  ][step], [bio, businessName, certified, postcode, step, subSkills, tradeCategory]);
+  ][step], [bioLength, businessName, certified, postcode, step, subSkills, tradeCategory]);
 
   function addBeforeAfter() {
     const before = beforeDraft[0];
     const after = afterDraft[0];
     if (!before || !after || beforeAfterProjects.length >= 12) return;
     setBeforeAfterProjects((current) => [...current, { before, after, caption: projectCaption.trim() || undefined }]);
-    setBeforeDraft([]);
-    setAfterDraft([]);
-    setProjectCaption('');
+    setBeforeDraft([]); setAfterDraft([]); setProjectCaption('');
   }
 
   async function save() {
@@ -124,7 +104,7 @@ export default function TraderOnboarding() {
     try {
       setBusy(true); setError('');
       const links = { gasSafe, trustMark, facebook, instagram, tiktok, whatsapp };
-      const serviceAreas = serviceAreasText.split(/[,\n]/).map((x) => x.trim()).filter(Boolean).slice(0, 20);
+      const serviceAreas = serviceAreasText.split(/[,\n]/).map((value) => value.trim()).filter(Boolean).slice(0, 20);
       await apiFetch('/api/me', {
         method: 'PUT',
         body: JSON.stringify({
@@ -134,13 +114,13 @@ export default function TraderOnboarding() {
           bio,
           postcode,
           radiusMiles: Number(radius),
-          qualifications: qualificationsText.split('\n').map((x) => x.trim()).filter(Boolean),
+          qualifications: qualificationsText.split('\n').map((value) => value.trim()).filter(Boolean),
           externalLinks: links,
           photos,
           selfCertified: certified,
           showcase: {
-            template,
-            colourTheme,
+            template: 'modern',
+            colourTheme: 'burnt_orange',
             coverPhotoUrl: coverPhoto[0] ?? '',
             profileImageUrl: profileImage[0] ?? '',
             logoUrl: logo[0] ?? '',
@@ -152,90 +132,111 @@ export default function TraderOnboarding() {
         }),
       }, getToken);
       router.replace('/trader/dashboard');
-    } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+    } catch (e) { setError(errorMessage(e)); }
+    finally { setBusy(false); }
   }
 
-  const bioCharactersRemaining = Math.max(0, TRADER_BIO_MIN_LENGTH - bio.trim().length);
-
-  return <Screen key={step} title="Build your business profile" subtitle="Treat this as your mini website. Customers should be able to understand, trust and hire your business from one page.">
-    <ProgressBar progress={(step + 1) / 5} color={colors.primary} /><Text variant="labelLarge">Step {step + 1} of 5</Text>
-    {loadingExisting ? <HelperText type="info">Loading any existing profile details…</HelperText> : null}
+  return <Screen key={step} title={STEP_TITLES[step]} subtitle="Build a profile homeowners can understand and trust without fighting through a giant form.">
+    <View style={styles.progressBlock}>
+      <View style={styles.progressHeader}><Text variant="labelLarge" style={styles.stepLabel}>Step {step + 1} of 4</Text><Text style={styles.muted}>{STEP_TITLES[step]}</Text></View>
+      <ProgressBar progress={(step + 1) / 4} color={colors.primary} style={styles.progress} />
+    </View>
+    {loadingExisting ? <HelperText type="info">Loading your existing profile details…</HelperText> : null}
 
     {step === 0 ? <AppCard>
-      <Text variant="titleLarge">Business basics</Text>
+      <Text variant="titleLarge" style={styles.title}>Tell us about your business</Text>
+      <Text style={styles.muted}>These details control job matching and the basic information shown on your public profile.</Text>
       <TextInput label="Business or trading name" value={businessName} onChangeText={setBusinessName} mode="outlined" />
       <FormSelect label="Primary trade" value={tradeCategory} options={TRADE_CATEGORIES} onChange={(value) => { setTradeCategory(value); setSubSkills([]); }} />
-      {tradeCategory ? <><Text variant="labelLarge">Specialist skills</Text><PillSelector options={SUB_SKILLS[tradeCategory]} values={subSkills} onChange={setSubSkills} /></> : null}
+      {tradeCategory ? <><Text variant="labelLarge" style={styles.label}>Specialist skills</Text><PillSelector options={SUB_SKILLS[tradeCategory]} values={subSkills} onChange={setSubSkills} /><HelperText type="info">Select at least one. Chosen skills show a visible ✓.</HelperText></> : null}
+      <View style={styles.twoCol}><TextInput style={styles.flex} label="Years of experience" value={yearsExperience} onChangeText={setYearsExperience} mode="outlined" keyboardType="number-pad" /><TextInput style={styles.flex} label="Year established" value={yearEstablished} onChangeText={setYearEstablished} mode="outlined" keyboardType="number-pad" /></View>
       <TextInput label="Base postcode" value={postcode} onChangeText={setPostcode} mode="outlined" autoCapitalize="characters" placeholder="e.g. TW18 4AA" />
-      <HelperText type="info">Used for job matching. Your full postcode is never shown publicly.</HelperText>
+      <HelperText type="info">Used for local job matching. Your full postcode is never displayed publicly.</HelperText>
       <FormSelect label="Working radius (miles)" value={radius} options={RADIUS_OPTIONS} onChange={setRadius} />
       <TextInput label="Other areas you cover" value={serviceAreasText} onChangeText={setServiceAreasText} mode="outlined" multiline placeholder="Staines, Egham, Chertsey, Windsor…" />
     </AppCard> : null}
 
-    {step === 1 ? <AppCard>
-      <Text variant="titleLarge">Brand and layout</Text>
-      <Text style={styles.muted}>Choose how your public page looks. You can change this later.</Text>
-      <View style={styles.templateGrid}>{TEMPLATES.map((item) => <Pressable key={item.id} onPress={() => setTemplate(item.id)} style={[styles.templateCard, template === item.id && styles.selectedTemplate]}><Text variant="titleMedium">{item.title}</Text><Text style={styles.muted}>{item.body}</Text>{template === item.id ? <Text style={styles.tick}>Selected ✓</Text> : null}</Pressable>)}</View>
-      <Text variant="titleMedium">Profile colour</Text>
-      <View style={styles.colours}>{COLOURS.map((item) => <Chip key={item.id} selected={colourTheme === item.id} showSelectedCheck onPress={() => setColourTheme(item.id)} style={{ borderColor: item.hex }} textStyle={{ color: item.hex }}>{item.label}</Chip>)}</View>
-      <PhotoUploader kind="trader" photos={coverPhoto} onChange={setCoverPhoto} max={1} title="Cover photo" buttonLabel="Choose cover" emptyText="A wide image of your best finished work or team." />
-      <PhotoUploader kind="trader" photos={profileImage} onChange={setProfileImage} max={1} title="Profile image" buttonLabel="Choose profile image" emptyText="Usually you, your team or a strong business portrait." />
-      <PhotoUploader kind="trader" photos={logo} onChange={setLogo} max={1} title="Business logo" buttonLabel="Choose logo" emptyText="Optional. Upload your business logo if you have one." />
-    </AppCard> : null}
+    {step === 1 ? <>
+      <AppCard>
+        <Text variant="titleLarge" style={styles.title}>Make the profile look like your business</Text>
+        <PhotoUploader kind="trader" photos={coverPhoto} onChange={setCoverPhoto} max={1} title="Cover photo" buttonLabel="Choose Cover Photo" emptyText="Use a strong wide photo of finished work, your van or your team." />
+        <PhotoUploader kind="trader" photos={profileImage} onChange={setProfileImage} max={1} title="Profile photo" buttonLabel="Choose Profile Photo" emptyText="A clear photo of you or your team works best." />
+        <PhotoUploader kind="trader" photos={logo} onChange={setLogo} max={1} title="Company logo" buttonLabel="Choose Logo" emptyText="Optional. Add your logo if you have one." />
+      </AppCard>
+      <AppCard>
+        <Text variant="titleLarge" style={styles.title}>About your business</Text>
+        <TextInput label="Business bio" value={bio} onChangeText={setBio} mode="outlined" multiline numberOfLines={7} />
+        <View style={styles.bioMeta}><HelperText style={styles.helperFlex} type={bioLength > 0 && bioCharactersRemaining > 0 ? 'error' : 'info'}>Minimum {TRADER_BIO_MIN_LENGTH} characters required.{bioCharactersRemaining > 0 ? ` ${bioCharactersRemaining} more to go.` : ' Requirement met ✓'}</HelperText><Text style={[styles.counter, bioLength >= TRADER_BIO_MIN_LENGTH && styles.counterOk]}>{bioLength} / {TRADER_BIO_MIN_LENGTH}</Text></View>
+        <Text style={styles.muted}>Explain what you specialise in, how you work and what customers can expect.</Text>
+        <TextInput label="Qualifications, cards and certificates (one per line)" value={qualificationsText} onChangeText={setQualificationsText} mode="outlined" multiline />
+        <Text variant="titleMedium" style={styles.title}>Registers & social links</Text>
+        {([['Gas Safe register URL', gasSafe, setGasSafe], ['TrustMark URL', trustMark, setTrustMark], ['Facebook URL', facebook, setFacebook], ['Instagram URL', instagram, setInstagram], ['TikTok URL', tiktok, setTiktok], ['WhatsApp click-to-chat URL', whatsapp, setWhatsapp]] as const).map(([label, value, setter]) => <TextInput key={label} label={label} value={value} onChangeText={setter} mode="outlined" autoCapitalize="none" />)}
+      </AppCard>
+    </> : null}
 
     {step === 2 ? <AppCard>
-      <Text variant="titleLarge">About your business</Text>
-      <TextInput label="Business bio" value={bio} onChangeText={setBio} mode="outlined" multiline numberOfLines={7} />
-      <HelperText type={bio.length > 0 && bioCharactersRemaining > 0 ? 'error' : 'info'}>
-        Minimum {TRADER_BIO_MIN_LENGTH} characters required.{bioCharactersRemaining > 0 ? ` ${bioCharactersRemaining} more to go.` : ' Requirement met ✓'}
-      </HelperText>
-      <Text style={styles.muted}>Explain what you specialise in, how you work and why a customer should trust you.</Text>
-      <View style={styles.twoCol}><TextInput style={styles.flex} label="Years of experience" value={yearsExperience} onChangeText={setYearsExperience} mode="outlined" keyboardType="number-pad" /><TextInput style={styles.flex} label="Year established" value={yearEstablished} onChangeText={setYearEstablished} mode="outlined" keyboardType="number-pad" /></View>
-      <TextInput label="Qualifications, cards and certificates (one per line)" value={qualificationsText} onChangeText={setQualificationsText} mode="outlined" multiline />
-      <Text variant="titleMedium">Registers and social links</Text>
-      {([['Gas Safe register URL', gasSafe, setGasSafe], ['TrustMark URL', trustMark, setTrustMark], ['Facebook URL', facebook, setFacebook], ['Instagram URL', instagram, setInstagram], ['TikTok URL', tiktok, setTiktok], ['WhatsApp click-to-chat URL', whatsapp, setWhatsapp]] as const).map(([label, value, setter]) => <TextInput key={label} label={label} value={value} onChangeText={setter} mode="outlined" autoCapitalize="none" />)}
-    </AppCard> : null}
-
-    {step === 3 ? <AppCard>
-      <Text variant="titleLarge">Portfolio</Text>
-      <PhotoUploader kind="trader" photos={photos} onChange={setPhotos} max={30} title="Work gallery" buttonLabel="Add work photo" emptyText="Upload completed jobs, details and workmanship you are proud to put your name on." />
-      <Text variant="titleMedium">Before & after projects</Text>
-      <Text style={styles.muted}>Pair photos so customers can see the transformation, not just the polished final shot.</Text>
-      <PhotoUploader kind="trader" photos={beforeDraft} onChange={setBeforeDraft} max={1} title="Before" buttonLabel="Add before" />
-      <PhotoUploader kind="trader" photos={afterDraft} onChange={setAfterDraft} max={1} title="After" buttonLabel="Add after" />
+      <Text variant="titleLarge" style={styles.title}>Show your work</Text>
+      <Text style={styles.muted}>Photos sell workmanship better than a paragraph ever will. Add finished jobs and useful before-and-after examples.</Text>
+      <PhotoUploader kind="trader" photos={photos} onChange={setPhotos} max={30} title="Work gallery" buttonLabel="Add Work Photo" emptyText="Bathrooms, kitchens, floors, details, finishes and other completed work." />
+      <Text variant="titleMedium" style={styles.title}>Before & after projects</Text>
+      <PhotoUploader kind="trader" photos={beforeDraft} onChange={setBeforeDraft} max={1} title="Before" buttonLabel="Add Before Photo" />
+      <PhotoUploader kind="trader" photos={afterDraft} onChange={setAfterDraft} max={1} title="After" buttonLabel="Add After Photo" />
       <TextInput label="Project caption (optional)" value={projectCaption} onChangeText={setProjectCaption} mode="outlined" placeholder="Full bathroom retile in Staines" />
-      <Button mode="outlined" disabled={!beforeDraft[0] || !afterDraft[0] || beforeAfterProjects.length >= 12} onPress={addBeforeAfter}>Add before & after project</Button>
-      {beforeAfterProjects.map((project, index) => <View key={`${project.before}-${index}`} style={styles.projectRow}><Text style={styles.flex}>{project.caption || `Project ${index + 1}`} · Before/after pair ready</Text><Button compact onPress={() => setBeforeAfterProjects((current) => current.filter((_, i) => i !== index))}>Remove</Button></View>)}
+      <Button mode="outlined" icon="image-plus" disabled={!beforeDraft[0] || !afterDraft[0] || beforeAfterProjects.length >= 12} onPress={addBeforeAfter}>Add Before & After Project</Button>
+      {beforeAfterProjects.map((project, index) => <View key={`${project.before}-${index}`} style={styles.projectRow}><View style={styles.flex}><Text style={styles.title}>{project.caption || `Project ${index + 1}`}</Text><Text style={styles.muted}>Before / after pair ready ✓</Text></View><Button compact onPress={() => setBeforeAfterProjects((current) => current.filter((_, i) => i !== index))}>Remove</Button></View>)}
     </AppCard> : null}
 
-    {step === 4 ? <AppCard>
-      <Text variant="titleLarge">Trust and publication</Text>
-      <Text>Your page will display your experience, qualifications, customer reviews, service areas, portfolio and BuildMate membership date. BuildMate lists what you declare but does not pretend to be an accreditation body.</Text>
-      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: certified }} onPress={() => setCertified((x) => !x)} style={styles.check}>
-        <View style={[styles.checkBox, certified && styles.checkBoxSelected]}>{certified ? <Text style={styles.checkMark}>✓</Text> : null}</View>
-        <Text style={styles.checkText}>I self-certify that the information is accurate and that I hold any insurance or trade accreditation required for the work I offer.</Text>
-      </Pressable>
-    </AppCard> : null}
+    {step === 3 ? <>
+      <AppCard>
+        <Text variant="titleLarge" style={styles.title}>Profile preview</Text>
+        <View style={styles.previewHeader}><View style={styles.previewMark}><Text style={styles.previewMarkText}>{businessName.slice(0, 1).toUpperCase() || 'B'}</Text></View><View style={styles.flex}><Text variant="headlineSmall" style={styles.title}>{businessName || 'Your business'}</Text><Text style={styles.muted}>{tradeCategory || 'Primary trade'} · {postcode || 'Service area'}</Text></View></View>
+        <View style={styles.previewChips}>{subSkills.slice(0, 6).map((skill) => <Chip key={skill} compact>{skill}</Chip>)}</View>
+        <Text numberOfLines={5} style={styles.previewBio}>{bio || 'Your business bio will appear here.'}</Text>
+        <Text style={styles.muted}>{photos.length} work photo{photos.length === 1 ? '' : 's'} · {beforeAfterProjects.length} before/after project{beforeAfterProjects.length === 1 ? '' : 's'} · {qualificationsText.split('\n').filter((value) => value.trim()).length} qualification{qualificationsText.split('\n').filter((value) => value.trim()).length === 1 ? '' : 's'}</Text>
+      </AppCard>
+      <AppCard>
+        <Text variant="titleLarge" style={styles.title}>Confirm & publish</Text>
+        <Text style={styles.muted}>Your 14-day free tradesperson period starts when this profile is first published. No Stripe setup is required during onboarding.</Text>
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: certified }} onPress={() => setCertified((value) => !value)} style={styles.check}>
+          <View style={[styles.checkBox, certified && styles.checkBoxSelected]}>{certified ? <Text style={styles.checkMark}>✓</Text> : null}</View>
+          <Text style={styles.checkText}>I confirm that the information I have provided is accurate and that I hold any insurance or trade accreditation required for the work I offer.</Text>
+        </Pressable>
+      </AppCard>
+    </> : null}
 
     <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
-    <View style={styles.actions}>{step > 0 ? <Button onPress={() => setStep((x) => x - 1)}>Back</Button> : <View />}{step < 4 ? <Button mode="contained" disabled={!valid} onPress={() => setStep((x) => x + 1)}>Continue</Button> : <Button mode="contained" loading={busy} disabled={!valid || busy} onPress={() => void save()}>{busy ? 'Publishing profile…' : 'Save & publish profile'}</Button>}</View>
+    <View style={styles.actions}>
+      {step > 0 ? <Button mode="text" onPress={() => setStep((value) => value - 1)}>Back</Button> : <View />}
+      {step < 3 ? <Button mode="contained" contentStyle={styles.continueButton} disabled={!valid} onPress={() => setStep((value) => value + 1)}>Continue</Button> : <Button mode="contained" icon="check-circle-outline" contentStyle={styles.continueButton} loading={busy} disabled={!valid || busy} onPress={() => void save()}>{busy ? 'Publishing…' : 'Save & Publish Profile'}</Button>}
+    </View>
   </Screen>;
 }
 
 const styles = StyleSheet.create({
-  muted: { color: colors.muted },
-  templateGrid: { gap: 10 },
-  templateCard: { padding: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 14, gap: 5 },
-  selectedTemplate: { borderWidth: 2, borderColor: colors.primary },
-  tick: { color: colors.primary, fontWeight: '800' },
-  colours: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  twoCol: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  flex: { flex: 1, minWidth: 180 },
-  projectRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
-  check: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 6 },
-  checkBox: { width: 26, height: 26, borderWidth: 2, borderColor: colors.muted, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
-  checkBoxSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
-  checkMark: { color: '#fff', fontWeight: '900', fontSize: 18, lineHeight: 21 },
-  checkText: { flex: 1, lineHeight: 22, paddingTop: 2 },
-  actions: { flexDirection: 'row', justifyContent: 'space-between' },
+  progressBlock: { gap: 8, marginBottom: 2 },
+  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
+  stepLabel: { color: colors.primary, fontWeight: '900' },
+  progress: { height: 8, borderRadius: 8, backgroundColor: '#F2E7DF' },
+  title: { fontWeight: '900', color: colors.text },
+  label: { fontWeight: '800', color: colors.text },
+  muted: { color: colors.muted, lineHeight: 22 },
+  twoCol: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  flex: { flex: 1, minWidth: 220 },
+  bioMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
+  helperFlex: { flex: 1 },
+  counter: { color: colors.warning, fontWeight: '800' },
+  counterOk: { color: colors.success },
+  projectRow: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  previewHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  previewMark: { width: 64, height: 64, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  previewMarkText: { color: '#FFF', fontSize: 26, fontWeight: '900' },
+  previewChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  previewBio: { color: colors.text, lineHeight: 23 },
+  check: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 10 },
+  checkBox: { width: 26, height: 26, borderRadius: 7, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkBoxSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkMark: { color: '#FFF', fontWeight: '900', fontSize: 16 },
+  checkText: { flex: 1, color: colors.text, lineHeight: 22 },
+  actions: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, alignItems: 'center', paddingBottom: 8 },
+  continueButton: { minHeight: 50 },
 });
