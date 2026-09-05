@@ -17,9 +17,10 @@ jobs:
   apk:
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       CI: '1'
+      NODE_ENV: production
       EXPO_NO_TELEMETRY: '1'
       EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
       # Keep the current Vercel origin until buildpair.co.uk is attached to production.
@@ -74,11 +75,19 @@ jobs:
       - run: npm ci --no-audit --no-fund --prefer-offline
 
       - name: Generate native Android project
-        run: npx expo prebuild --platform android --clean --non-interactive
+        run: npx expo prebuild --platform android --clean
+
+      - name: Tune Gradle for GitHub runner
+        shell: bash
+        run: |
+          cat >> android/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
+          org.gradle.workers.max=2
+          EOF
 
       - name: Build installable release APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon --max-workers=2 -PreactNativeArchitectures=arm64-v8a
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
