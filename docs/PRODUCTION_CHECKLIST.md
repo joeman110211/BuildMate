@@ -58,6 +58,7 @@ This checklist separates the current private-test stage from the later public-pr
 - [ ] Confirm Clerk production redirect/origin settings for email, Google and Facebook on the final web domain and `buildpair://` native callback.
 - [ ] Confirm the current database has every checked-in migration applied and take a recovery point / backup before public traffic.
 - [ ] Confirm database point-in-time restore is enabled and document how to restore it.
+- [ ] Configure a protected scheduler for `/api/maintenance/credential-expiry` using a strong `CRON_SECRET`; the old hosting-provider cron is intentionally gone.
 - [ ] Add production error reporting with personal-data scrubbing and an external uptime alert for the web/API health endpoint.
 - [ ] Add hosting-level rate limiting/WAF rules to public/contact, Gemini and authenticated write endpoints that are abuse-sensitive.
 - [ ] Remove the quiet-launch `noindex, nofollow` header only when BuildPair is deliberately ready for search-engine discovery.
