@@ -55,6 +55,7 @@ export interface TraderProfile {
   averageRating: number;
   reviewCount: number;
   stripeAccountId?: string | null;
+  isPreview?: boolean;
 }
 
 export interface Job {
@@ -77,6 +78,7 @@ export interface Job {
   acceptedQuoteId?: string | null;
   createdAt: string;
   quotes?: Quote[];
+  isPreview?: boolean;
 }
 
 export interface Quote {
