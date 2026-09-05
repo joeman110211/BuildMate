@@ -1,3 +1,4 @@
+import type { Href } from 'expo-router';
 import { Link } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -7,6 +8,15 @@ import { EmptyState, LoadingScreen, Screen } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { apiFetch, errorMessage } from '@/lib/api';
 import type { Job } from '@/types';
+
+function jobDetailsHref(job: Job): Href {
+  return `/(public)/jobs/${encodeURIComponent(job.id)}` as Href;
+}
+
+function joinJobHref(job: Job): Href {
+  const location = job.locationLabel ?? job.postcode ?? '';
+  return `/auth/sign-up?mode=trader&jobId=${encodeURIComponent(job.id)}&jobTitle=${encodeURIComponent(job.title)}&jobCategory=${encodeURIComponent(job.category)}&jobLocation=${encodeURIComponent(location)}` as Href;
+}
 
 export default function PublicJobsScreen() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -33,16 +43,23 @@ export default function PublicJobsScreen() {
     {!error && !jobs.length ? <EmptyState title="No job requests yet" body="New customer requests will appear here." /> : null}
     {!error ? jobs.map((job) => <AppCard key={job.id}>
       <View style={styles.row}>
-        <Text variant="titleLarge" style={styles.title}>{job.title}</Text>
+        <View style={styles.headingBlock}>
+          <Link href={jobDetailsHref(job)} asChild>
+            <Text variant="titleLarge" style={styles.linkTitle}>{job.title}</Text>
+          </Link>
+          <Text style={styles.muted}>{job.category} · {job.propertyType} · {job.locationLabel ?? job.postcode} · {job.budgetRange}</Text>
+        </View>
         <Chip icon={job.isPreview ? 'flask-outline' : undefined}>{job.isPreview ? 'Preview job' : job.status.replace('_', ' ')}</Chip>
       </View>
-      <Text style={styles.muted}>{job.category} · {job.propertyType} · {job.locationLabel ?? job.postcode} · {job.budgetRange}</Text>
-      <Text>{job.description}</Text>
+      <Text numberOfLines={4} style={styles.description}>{job.description}</Text>
       <View style={styles.row}>
         <Chip icon="calendar-clock">{job.urgency}</Chip>
-        {job.isPreview
-          ? <Button mode="outlined" disabled>Example only</Button>
-          : <Link href="/auth/sign-up" asChild><Button mode="contained">Join to quote</Button></Link>}
+        <View style={styles.actions}>
+          <Link href={jobDetailsHref(job)} asChild><Button mode="outlined">View job</Button></Link>
+          {job.isPreview
+            ? <Button mode="outlined" disabled>Example only</Button>
+            : <Link href={joinJobHref(job)} asChild><Button mode="contained">Join to quote</Button></Link>}
+        </View>
       </View>
     </AppCard>) : null}
   </Screen>;
@@ -50,6 +67,9 @@ export default function PublicJobsScreen() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
-  title: { flex: 1, minWidth: 220, fontWeight: '900', color: colors.charcoal },
+  headingBlock: { flex: 1, minWidth: 220, gap: 4 },
+  linkTitle: { fontWeight: '900', color: colors.charcoal, textDecorationLine: 'underline' },
   muted: { color: colors.muted },
+  description: { color: colors.text, lineHeight: 22 },
+  actions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
 });
