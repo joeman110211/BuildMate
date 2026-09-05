@@ -56,23 +56,29 @@ export default function ChooseRoleScreen() {
   }
 
   return (
-    <Screen title="How will you use BuildPair?" subtitle="One login can have both profiles. Choose the side you want to open or add.">
+    <Screen title="How will you use BuildMate?" subtitle="One login can have both profiles. Choose the side you want to open or add.">
       <View style={styles.grid}>
         {([['customer', '🏠 Homeowner', 'Post jobs, compare quotes and pay safely.'], ['trader', '🔨 Tradesperson', 'Build a public profile, find work, quote and invoice customers.']] as const).map(([value, title, body]) => {
           const enabled = value === 'customer' ? user?.customerEnabled : user?.traderEnabled;
+          const selected = role === value;
           return (
-            <Pressable key={value} onPress={() => setRole(value)} style={[styles.choice, role === value && styles.selected]}>
-              <AppCard>
-                <Text variant="titleLarge">{title}</Text>
+            <Pressable key={value} onPress={() => setRole(value)} style={styles.choice}>
+              <AppCard style={[styles.choiceCard, selected && styles.selected]} elevated={!selected}>
+                <View style={styles.choiceTop}>
+                  <Text variant="titleLarge" style={styles.choiceTitle}>{title}</Text>
+                  <View style={[styles.status, enabled ? styles.statusEnabled : styles.statusAdd]}>
+                    <Text variant="labelSmall" style={enabled ? styles.enabledText : styles.addText}>{enabled ? '✓ Enabled' : '+ Add profile'}</Text>
+                  </View>
+                </View>
                 <Text style={styles.muted}>{body}</Text>
-                <Text style={enabled ? styles.enabled : styles.add}>{enabled ? '✓ Profile enabled' : '+ Add this profile'}</Text>
+                {selected ? <Text variant="labelMedium" style={styles.selectedText}>Selected</Text> : null}
               </AppCard>
             </Pressable>
           );
         })}
       </View>
       <HelperText type="error" visible={Boolean(error || loadError)}>{error || loadError || ''}</HelperText>
-      <Button mode="contained" disabled={!role || busy || !user} loading={busy} onPress={() => void save()}>
+      <Button mode="contained" disabled={!role || busy || !user} loading={busy} onPress={() => void save()} contentStyle={styles.continueButton} style={styles.continueAction}>
         {role === 'trader' ? (user?.traderEnabled ? 'Continue as Tradesperson' : 'Add Tradesperson Profile') : role === 'customer' ? (user?.customerEnabled ? 'Continue as Homeowner' : 'Add Homeowner Profile') : 'Continue'}
       </Button>
     </Screen>
@@ -80,10 +86,19 @@ export default function ChooseRoleScreen() {
 }
 
 const styles = StyleSheet.create({
-  grid: { gap: 12 },
-  choice: { borderRadius: 14 },
-  selected: { borderWidth: 2, borderColor: colors.primary },
-  muted: { color: colors.muted },
-  enabled: { color: colors.primary, fontWeight: '800', marginTop: 4 },
-  add: { color: colors.muted, fontWeight: '700', marginTop: 4 },
+  grid: { gap: 14 },
+  choice: { borderRadius: 20 },
+  choiceCard: { backgroundColor: colors.surfaceRaised },
+  selected: { borderWidth: 2, borderColor: colors.primary, backgroundColor: '#FFF9F5' },
+  choiceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
+  choiceTitle: { color: colors.charcoal, fontWeight: '900' },
+  muted: { color: colors.muted, lineHeight: 22 },
+  status: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
+  statusEnabled: { backgroundColor: '#E8F4EA' },
+  statusAdd: { backgroundColor: colors.surfaceStrong },
+  enabledText: { color: colors.success, fontWeight: '800' },
+  addText: { color: colors.charcoalSoft, fontWeight: '800' },
+  selectedText: { color: colors.primary, fontWeight: '900' },
+  continueButton: { minHeight: 50 },
+  continueAction: { borderRadius: 16 },
 });
