@@ -8,13 +8,30 @@ import type { TraderProfile } from '@/types';
 
 export function TraderCard({ trader }: { trader: TraderProfile }) {
   const router = useRouter();
-  const area = trader.locationLabel ? ` · ${trader.locationLabel}` : '';
-  return <AppCard>
-    {trader.photos[0] ? <Image source={{ uri: trader.photos[0] }} style={styles.image} accessibilityLabel={`${trader.businessName} work example`} /> : <View style={styles.placeholder}><Text variant="headlineLarge">{trader.businessName.slice(0, 1)}</Text></View>}
-    <View style={styles.row}><View style={styles.flex}><Text variant="titleLarge" style={styles.title}>{trader.businessName}</Text><Text style={styles.muted}>{trader.tradeCategory}{area} · Within {trader.radiusMiles} miles</Text></View>{trader.subscriptionTier === 'featured' ? <Chip compact icon="star">Featured</Chip> : null}</View>
-    <Text numberOfLines={3}>{trader.bio}</Text>
-    <View style={styles.row}><Text style={styles.rating}>★ {Number(trader.averageRating || 0).toFixed(1)} ({trader.reviewCount})</Text><Button mode="outlined" onPress={() => router.push(`/(public)/traders/${trader.id}` as Href)}>View profile</Button></View>
+  return <AppCard style={styles.card}>
+    {trader.photos[0] ? <Image source={{ uri: trader.photos[0] }} style={styles.image} accessibilityLabel={`${trader.businessName} work example`} /> : <View style={styles.placeholder}><Text style={styles.placeholderLetter}>{trader.businessName.slice(0, 1).toUpperCase()}</Text></View>}
+    <View style={styles.content}>
+      <View style={styles.row}><View style={styles.flex}><Text variant="titleLarge" style={styles.title}>{trader.businessName}</Text><Text style={styles.muted}>{trader.tradeCategory}{trader.locationLabel ? ` · ${trader.locationLabel}` : ''}</Text></View>{trader.subscriptionTier === 'featured' ? <Chip compact icon="star-circle">Featured</Chip> : null}</View>
+      <View style={styles.chips}><Chip compact icon="star">{Number(trader.averageRating || 0).toFixed(1)} ({trader.reviewCount})</Chip><Chip compact icon="map-marker-radius">{trader.radiusMiles} miles</Chip></View>
+      <Text numberOfLines={3} style={styles.bio}>{trader.bio}</Text>
+      <View style={styles.skills}>{trader.subSkills.slice(0, 4).map((skill) => <Chip key={skill} compact>{skill}</Chip>)}</View>
+      <Button mode="contained" icon="account-search-outline" contentStyle={styles.button} onPress={() => router.push(`/(public)/traders/${trader.id}` as Href)}>View Profile</Button>
+    </View>
   </AppCard>;
 }
 
-const styles = StyleSheet.create({ image: { width: '100%', height: 180, borderRadius: 10, backgroundColor: colors.border }, placeholder: { height: 100, backgroundColor: '#FFF7ED', borderRadius: 10, justifyContent: 'center', alignItems: 'center' }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }, flex: { flex: 1, minWidth: 180 }, title: { fontWeight: '800' }, muted: { color: colors.muted }, rating: { color: colors.warning, fontWeight: '700' } });
+const styles = StyleSheet.create({
+  card: { padding: 0, overflow: 'hidden', flexGrow: 1, flexBasis: 300, minWidth: 270, maxWidth: 520 },
+  image: { width: '100%', height: 190, backgroundColor: colors.border },
+  placeholder: { height: 150, backgroundColor: colors.surfaceSoft, justifyContent: 'center', alignItems: 'center' },
+  placeholderLetter: { color: colors.primary, fontSize: 40, fontWeight: '900' },
+  content: { padding: 16, gap: 10 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' },
+  flex: { flex: 1, minWidth: 180, gap: 3 },
+  title: { fontWeight: '900', color: colors.text },
+  muted: { color: colors.muted, lineHeight: 21 },
+  bio: { color: colors.text, lineHeight: 22 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  skills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  button: { minHeight: 48 },
+});
