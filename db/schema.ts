@@ -28,6 +28,9 @@ export const users = pgTable('users', {
   email: text('email'),
   phone: text('phone'),
   role: userRoleEnum('role'),
+  isDeleted: boolean('is_deleted').notNull().default(false),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  deletionRequestedAt: timestamp('deletion_requested_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -86,12 +89,19 @@ export const jobs = pgTable(
     aiGeneratedSpec: text('ai_generated_spec'),
     budgetRange: text('budget_range').notNull(),
     photos: text('photos').array().notNull().default(sql`ARRAY[]::text[]`),
+    isEmergency: boolean('is_emergency').notNull().default(false),
+    scheduledStartAt: timestamp('scheduled_start_at', { withTimezone: true }),
     status: jobStatusEnum('status').notNull().default('open'),
     acceptedQuoteId: uuid('accepted_quote_id').references((): AnyPgColumn => quotes.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index('jobs_customer_idx').on(table.customerId), index('jobs_target_trader_idx').on(table.targetTraderId), index('jobs_status_category_idx').on(table.status, table.category)],
+  (table) => [
+    index('jobs_customer_idx').on(table.customerId),
+    index('jobs_target_trader_idx').on(table.targetTraderId),
+    index('jobs_status_category_idx').on(table.status, table.category),
+    index('jobs_emergency_idx').on(table.isEmergency, table.status, table.category),
+  ],
 );
 
 export const quotes = pgTable(
@@ -106,7 +116,12 @@ export const quotes = pgTable(
     depositAmount: integer('deposit_amount').notNull().default(0),
     totalAmount: integer('total_amount').notNull(),
     paymentTerms: text('payment_terms').notNull(),
+    scope: text('scope'),
+    exclusions: text('exclusions'),
     notes: text('notes'),
+    durationDays: integer('duration_days'),
+    warrantyMonths: integer('warranty_months'),
+    proposedStartAt: timestamp('proposed_start_at', { withTimezone: true }),
     status: quoteStatusEnum('status').notNull().default('pending'),
     validUntil: timestamp('valid_until', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -118,6 +133,8 @@ export const quotes = pgTable(
     check('quotes_amounts_non_negative', sql`${table.laborCost} >= 0 AND ${table.materialsCost} >= 0 AND ${table.vatAmount} >= 0 AND ${table.depositAmount} >= 0`),
     check('quotes_total_matches', sql`${table.totalAmount} = ${table.laborCost} + ${table.materialsCost} + ${table.vatAmount}`),
     check('quotes_deposit_valid', sql`${table.depositAmount} <= ${table.totalAmount}`),
+    check('quote_duration_valid', sql`${table.durationDays} IS NULL OR ${table.durationDays} BETWEEN 1 AND 3650`),
+    check('quote_warranty_valid', sql`${table.warrantyMonths} IS NULL OR ${table.warrantyMonths} BETWEEN 0 AND 240`),
   ],
 );
 
@@ -132,6 +149,8 @@ export const jobMilestones = pgTable(
     status: milestoneStatusEnum('status').notNull().default('pending'),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     paidAt: timestamp('paid_at', { withTimezone: true }),
+    paymentMethod: text('payment_method'),
+    paymentConfirmedBy: text('payment_confirmed_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [index('milestones_job_idx').on(table.jobId), check('milestone_amount_positive', sql`${table.amount} > 0`)],
