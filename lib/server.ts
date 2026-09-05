@@ -22,6 +22,18 @@ function bootstrapAdminIds() {
   return new Set((process.env.ADMIN_CLERK_USER_IDS ?? '').split(',').map((value) => value.trim()).filter(Boolean));
 }
 
+function redactServerError(value: string) {
+  return value
+    .replace(/Bearer\s+[^\s]+/gi, 'Bearer [redacted]')
+    .replace(/postgres(?:ql)?:\/\/[^@\s]+@/gi, 'postgres://[redacted]@')
+    .replace(/\b(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9_]+\b/g, '[redacted-key]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]');
+}
+
+function productionErrorId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
 export async function authenticatedUserId(request: Request) {
   const header = request.headers.get('authorization');
   if (!header?.startsWith('Bearer ')) throw new HttpError(401, 'Authentication required');
@@ -115,6 +127,18 @@ export function jsonError(error: unknown) {
   if (error && typeof error === 'object' && 'issues' in error) {
     return Response.json({ error: 'Invalid request', details: (error as { issues: unknown }).issues }, { status: 400 });
   }
-  console.error(error);
-  return Response.json({ error: 'Internal server error' }, { status: 500 });
+
+  const errorId = productionErrorId();
+  if (error instanceof Error) {
+    console.error('[buildpair-api]', {
+      errorId,
+      name: error.name,
+      message: redactServerError(error.message),
+      stack: redactServerError(error.stack ?? ''),
+    });
+  } else {
+    console.error('[buildpair-api]', { errorId, type: typeof error });
+  }
+
+  return Response.json({ error: 'Internal server error', errorId }, { status: 500 });
 }
