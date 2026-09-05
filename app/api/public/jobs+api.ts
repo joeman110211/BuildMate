@@ -13,7 +13,10 @@ export async function GET() {
       .limit(50);
 
     const realIds = new Set(rows.map((job) => job.id));
-    const combined = [...rows, ...demoJobs.filter((job) => !realIds.has(job.id))].slice(0, 50);
+    const combined = [
+      ...rows.map((job) => ({ ...job, isPreview: false })),
+      ...demoJobs.filter((job) => !realIds.has(job.id)).map((job) => ({ ...job, isPreview: true })),
+    ].slice(0, 50);
     const publicRows = combined.map((job) => ({
       ...job,
       postcode: outwardCode(job.postcode),
