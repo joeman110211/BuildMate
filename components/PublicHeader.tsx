@@ -4,7 +4,7 @@ import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Button, IconButton, Menu, Text } from 'react-native-paper';
-import { BuildMateLogo } from '@/components/BuildMateLogo';
+import { BuildPairLogo } from '@/components/BuildPairLogo';
 import { colors } from '@/constants/theme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { dashboardHref } from '@/lib/account-mode';
@@ -22,7 +22,7 @@ const NAV_ITEMS: { label: string; href: Href }[] = [
 ];
 
 function HeaderBrand() {
-  return <Link href="/" asChild><Pressable style={styles.brandPressable} accessibilityLabel="BuildPair home"><BuildMateLogo compact /></Pressable></Link>;
+  return <Link href="/" asChild><Pressable style={styles.brandPressable} accessibilityLabel="BuildPair home"><BuildPairLogo compact /></Pressable></Link>;
 }
 
 function NavMenu({ dashboard, signedIn, onSignOut, preview = false }: { dashboard?: Href; signedIn?: boolean; onSignOut?: () => void; preview?: boolean }) {

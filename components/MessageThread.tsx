@@ -39,7 +39,7 @@ export function MessageThread({ conversationId }: { conversationId: string }) {
 
   const report = async (messageId: string) => {
     try {
-      await apiFetch('/api/reports', { method: 'POST', body: JSON.stringify({ messageId, reason: 'abuse_or_harassment', details: 'Reported from a BuildMate job conversation.' }) }, () => getTokenRef.current());
+      await apiFetch('/api/reports', { method: 'POST', body: JSON.stringify({ messageId, reason: 'abuse_or_harassment', details: 'Reported from a BuildPair job conversation.' }) }, () => getTokenRef.current());
       Alert.alert('Report received', 'The message has been added to the moderation queue.');
     } catch (e) { Alert.alert('Could not report message', errorMessage(e)); }
   };

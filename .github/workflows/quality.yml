@@ -22,6 +22,20 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+
+      - name: Reject legacy BuildMate product branding
+        shell: bash
+        run: |
+          set -euo pipefail
+          legacy_text="$(grep -RIn --exclude-dir=node_modules --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.json' --include='*.html' --include='*.svg' --include='*.webmanifest' 'BuildMate' app components constants lib public 2>/dev/null || true)"
+          legacy_files="$(find app components constants lib public -type f -iname '*buildmate*' -print 2>/dev/null || true)"
+          if [ -n "$legacy_text" ] || [ -n "$legacy_files" ]; then
+            echo "::error::Legacy BuildMate branding remains in user-facing application code"
+            [ -z "$legacy_text" ] || printf '%s\n' "$legacy_text"
+            [ -z "$legacy_files" ] || printf '%s\n' "$legacy_files"
+            exit 1
+          fi
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24

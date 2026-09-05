@@ -40,7 +40,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}, getTo
     return body as T;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new ApiError(408, 'BuildMate could not reach the account service. Please try again.');
+      throw new ApiError(408, 'BuildPair could not reach the account service. Please try again.');
     }
     throw error;
   } finally {

@@ -91,8 +91,9 @@ export async function PUT(request: Request) {
     const storedTrialEnd = existingProfile?.trialEndsAt ? new Date(existingProfile.trialEndsAt) : null;
     const effectiveTrialEnd = storedTrialEnd && storedTrialEnd > minimumTrialEnd ? storedTrialEnd : minimumTrialEnd;
 
-    // BuildPair beta traders receive at least 28 days of Basic lead access from
-    // first profile publication. Editing a profile never restarts that clock.
+    // New BuildPair trader profiles receive 14 days of Basic lead access from
+    // first profile publication. Existing accounts keep any longer trial already granted.
+    // Editing a profile never restarts the trial clock.
     const trialListing = existingProfile?.stripeSubscriptionId
       ? {}
       : { subscriptionTier: 'basic' as const, isSubscriptionActive: true, trialEndsAt: effectiveTrialEnd };

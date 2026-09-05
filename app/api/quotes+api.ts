@@ -6,6 +6,16 @@ import { getSql } from '@/lib/sql';
 import { hasActiveLeadAccess } from '@/lib/subscription';
 import { quoteSchema } from '@/lib/validation';
 
+function distanceMiles(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (degrees: number) => degrees * Math.PI / 180;
+  const earthRadiusMiles = 3959;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return earthRadiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export async function GET(request: Request) {
   try {
     const trader = await requireRole(request, 'trader');
@@ -26,7 +36,16 @@ export async function POST(request: Request) {
     if (!job || !['open', 'quoted'].includes(job.status)) throw new HttpError(409, 'This job is not open for quotes');
     if (job.targetTraderId && job.targetTraderId !== trader.id) throw new HttpError(403, 'This direct lead belongs to another tradesperson');
     if (!hasActiveLeadAccess(profile) || profile.subscriptionTier === 'free') throw new HttpError(402, 'An active lead subscription is required to send quotes');
-    if (!job.targetTraderId && profile.subscriptionTier !== 'featured') throw new HttpError(402, 'Featured subscription required to quote open marketplace jobs');
+
+    if (!job.targetTraderId) {
+      if (profile.subscriptionTier !== 'featured') throw new HttpError(402, 'Featured subscription required to quote open marketplace jobs');
+      if (job.category !== profile.tradeCategory) throw new HttpError(403, 'This marketplace job does not match your listed trade category');
+      if (profile.latitude == null || profile.longitude == null || job.latitude == null || job.longitude == null) {
+        throw new HttpError(403, 'Location matching is required to quote this marketplace job');
+      }
+      const miles = distanceMiles(profile.latitude, profile.longitude, job.latitude, job.longitude);
+      if (miles > profile.radiusMiles) throw new HttpError(403, 'This marketplace job is outside your service radius');
+    }
 
     const totalAmount = payload.laborCost + payload.materialsCost + payload.vatAmount;
     const validUntil = payload.validUntil ? new Date(payload.validUntil) : null;

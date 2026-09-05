@@ -10,8 +10,8 @@ import { trialEndsAt } from '@/lib/subscription';
 const inputSchema = z.object({ tier: z.enum(['basic', 'featured']) });
 
 const plans = {
-  basic: { name: 'BuildMate Basic', unitAmount: 1999, priceEnv: 'STRIPE_BASIC_PRICE_ID' },
-  featured: { name: 'BuildMate Featured', unitAmount: 2999, priceEnv: 'STRIPE_FEATURED_PRICE_ID' },
+  basic: { name: 'BuildPair Basic', unitAmount: 1999, priceEnv: 'STRIPE_BASIC_PRICE_ID' },
+  featured: { name: 'BuildPair Featured', unitAmount: 2999, priceEnv: 'STRIPE_FEATURED_PRICE_ID' },
 } as const;
 
 export async function POST(request: Request) {
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     const [profile] = await db.select({
       stripeCustomerId: traderProfiles.stripeCustomerId,
       createdAt: traderProfiles.createdAt,
+      trialEndsAt: traderProfiles.trialEndsAt,
     }).from(traderProfiles).where(eq(traderProfiles.userId, trader.id)).limit(1);
     if (!profile) throw new HttpError(409, 'Complete your profile first');
 
@@ -40,7 +41,9 @@ export async function POST(request: Request) {
     const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {
       metadata: { buildpairUserId: trader.id, tier },
     };
-    const freeTrialEnd = trialEndsAt(profile.createdAt);
+    const minimumTrialEnd = trialEndsAt(profile.createdAt);
+    const storedTrialEnd = profile.trialEndsAt ? new Date(profile.trialEndsAt) : null;
+    const freeTrialEnd = storedTrialEnd && storedTrialEnd > minimumTrialEnd ? storedTrialEnd : minimumTrialEnd;
     const trialEndMs = freeTrialEnd.getTime();
     const now = Date.now();
     if (trialEndMs > now) {

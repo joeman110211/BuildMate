@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { BuildMateLogo } from '@/components/BuildMateLogo';
+import { BuildPairLogo } from '@/components/BuildPairLogo';
 import { colors } from '@/constants/theme';
 
 export default function AuthLayout() {
@@ -8,7 +8,7 @@ export default function AuthLayout() {
     headerShadowVisible: false,
     headerTitleAlign: 'center',
     headerStyle: { backgroundColor: colors.surfaceRaised },
-    headerTitle: () => <BuildMateLogo compact />,
+    headerTitle: () => <BuildPairLogo compact />,
     contentStyle: { backgroundColor: colors.background },
   }}>
     <Stack.Screen name="account" options={{ headerBackVisible: false }} />

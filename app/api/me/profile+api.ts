@@ -31,6 +31,7 @@ export async function GET(request: Request) {
       selfCertified: traderProfiles.selfCertified,
       subscriptionTier: traderProfiles.subscriptionTier,
       isSubscriptionActive: traderProfiles.isSubscriptionActive,
+      trialEndsAt: traderProfiles.trialEndsAt,
       stripeSubscriptionId: traderProfiles.stripeSubscriptionId,
       stripeCustomerId: traderProfiles.stripeCustomerId,
       stripeAccountId: traderProfiles.stripeAccountId,
@@ -51,10 +52,14 @@ export async function GET(request: Request) {
       if (!missingShowcaseTable(error)) throw error;
     }
 
+    const minimumTrialEnd = trialEndsAt(profile.createdAt);
+    const storedTrialEnd = profile.trialEndsAt ? new Date(profile.trialEndsAt) : null;
+    const effectiveTrialEnd = storedTrialEnd && storedTrialEnd > minimumTrialEnd ? storedTrialEnd : minimumTrialEnd;
+
     return Response.json({
       ...profile,
       ...(showcase ?? {}),
-      trialEndsAt: trialEndsAt(profile.createdAt),
+      trialEndsAt: effectiveTrialEnd,
       isSubscriptionActive: hasActiveLeadAccess(profile),
     });
   } catch (error) { return jsonError(error); }

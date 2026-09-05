@@ -19,7 +19,6 @@ function AppShell() {
         <AppStripeProvider>
           <StatusBar style="dark" />
           <Stack screenOptions={{ headerTintColor: colors.primary, headerShadowVisible: false, contentStyle: { backgroundColor: colors.background } }}>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(public)" options={{ headerShown: false }} />
             <Stack.Screen name="auth" options={{ headerShown: false }} />
             <Stack.Screen name="customer" options={{ headerShown: false }} />
