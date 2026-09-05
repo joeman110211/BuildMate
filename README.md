@@ -4,6 +4,23 @@ BuildPair is a UK-focused homeowner and tradesperson marketplace built from one 
 
 The product uses Expo Router, Clerk authentication, Neon Postgres with Drizzle, Cloudinary media, Resend email, Google Gemini assistance and Stripe code paths for subscriptions / marketplace payments.
 
+Repository: `joeman110211/BuildPair`
+
+## Current hosting phase
+
+BuildPair is currently in a **private test phase**. The web app and API can be run directly from the Chromebook Linux environment and exposed to a small group of testers through a free Cloudflare Quick Tunnel.
+
+```bash
+cd ~/buildpair
+git pull --ff-only origin main
+npm ci
+bash scripts/start-chromebook-test.sh
+```
+
+See `docs/CHROMEBOOK_TEST_HOST.md` for the one-time Chromebook setup and operating commands.
+
+The Docker/Caddy files under `infra/production/` are intentionally retained for the later public-production move. The Chromebook test host is not intended to be the final public infrastructure.
+
 ## Current beta product
 
 ### Public marketplace
@@ -51,8 +68,8 @@ The product uses Expo Router, Clerk authentication, Neon Postgres with Drizzle, 
 - Readiness and health endpoints.
 - Database migrations tracked and applied in order.
 - GitHub Actions quality checks for lint, TypeScript, unit tests, web export, Android export, iOS export and production dependency audit.
-- Playwright production E2E coverage for the homeowner → job → trader → quote → acceptance → messaging → completion → payment confirmation → review lifecycle.
-- GitHub Actions Android release APK build.
+- Playwright E2E coverage for the homeowner → job → trader → quote → acceptance → messaging → completion → payment confirmation → review lifecycle.
+- Manual GitHub Actions Android APK build for a chosen test/public API URL.
 
 ## Trial policy
 
@@ -63,15 +80,17 @@ Existing beta profiles that were previously granted a longer stored trial keep t
 ## Local development
 
 Requirements:
-- Node 22.12+ (Node 24 recommended)
+- Node 22.12+
 - npm
 - Git
-- Expo account for native cloud builds
-- Android Studio when local Android emulator / Gradle debugging is needed
+- Expo account only when native cloud builds are needed
+- Android Studio only when local Android emulator / Gradle debugging is needed
 
 ```bash
-npm install
-cp .env.example .env
+git clone https://github.com/joeman110211/BuildPair.git buildpair
+cd buildpair
+npm ci
+cp .env.example .env.local
 npx expo start
 ```
 
@@ -88,7 +107,7 @@ Native installed apps require `EXPO_PUBLIC_API_URL` to point at the HTTPS deploy
 
 ## Environment
 
-Copy `.env.example` and configure the services needed by the environment.
+Copy `.env.example` to a local ignored environment file and configure the services needed by the environment.
 
 ### Required for the core connected beta
 - `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`
@@ -112,7 +131,7 @@ Apply checked-in migrations using the direct / unpooled Neon connection:
 npm run db:migrate
 ```
 
-The migration runner records applied filenames so historical migration files must not be casually renamed after production has applied them.
+The migration runner records applied filenames. The historical initial migration filename and migration-ledger table therefore remain unchanged internally even though the product and repository are BuildPair. Renaming those after they have been applied could make migrations run incorrectly.
 
 ## Authentication configuration
 
@@ -123,7 +142,7 @@ For the current beta, configure Clerk for:
 - Google OAuth
 - Facebook OAuth
 
-Add the BuildPair production web origin and the `buildpair://` native callback scheme to the relevant Clerk / OAuth redirect configuration.
+For temporary Chromebook testing, use development/test Clerk configuration where practical. For the eventual public deployment, add the BuildPair production web origin and the `buildpair://` native callback scheme to the relevant Clerk / OAuth redirect configuration.
 
 Phone OTP can be added later if the production Clerk plan and UK SMS setup make it worthwhile, but it is not a dependency for launch.
 
@@ -135,6 +154,6 @@ Before enabling live payments, complete end-to-end Stripe test-mode verification
 
 ## Release rule
 
-A change is not considered release-ready merely because it renders. Before production promotion it should pass the GitHub Quality workflow, relevant native build checks and the production Playwright lifecycle test once the production deployment is available.
+A change is not considered release-ready merely because it renders. Before promotion it should pass the GitHub Quality workflow and the relevant test/build checks for the target environment.
 
-See `docs/PRODUCTION_CHECKLIST.md` for the remaining operational and store-launch checks.
+See `docs/PRODUCTION_CHECKLIST.md` for the later public-launch checks.
