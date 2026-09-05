@@ -28,19 +28,21 @@ export default function PublicJobsScreen() {
   useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, []);
 
   if (loading) return <LoadingScreen label="Loading local job requests..." />;
-  return <Screen title="Latest job requests" subtitle="Live open jobs customers are posting through BuildMate.">
+  return <Screen title="Latest job requests" subtitle="Open jobs customers are posting through BuildPair, plus clearly labelled beta examples while the marketplace grows.">
     {error ? <EmptyState title="Jobs unavailable" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
     {!error && !jobs.length ? <EmptyState title="No job requests yet" body="New customer requests will appear here." /> : null}
     {!error ? jobs.map((job) => <AppCard key={job.id}>
       <View style={styles.row}>
         <Text variant="titleLarge" style={styles.title}>{job.title}</Text>
-        <Chip>{job.status.replace('_', ' ')}</Chip>
+        <Chip icon={job.isPreview ? 'flask-outline' : undefined}>{job.isPreview ? 'Preview job' : job.status.replace('_', ' ')}</Chip>
       </View>
       <Text style={styles.muted}>{job.category} · {job.propertyType} · {job.locationLabel ?? job.postcode} · {job.budgetRange}</Text>
       <Text>{job.description}</Text>
       <View style={styles.row}>
         <Chip icon="calendar-clock">{job.urgency}</Chip>
-        <Link href="/auth/sign-up" asChild><Button mode="contained">Join to quote</Button></Link>
+        {job.isPreview
+          ? <Button mode="outlined" disabled>Example only</Button>
+          : <Link href="/auth/sign-up" asChild><Button mode="contained">Join to quote</Button></Link>}
       </View>
     </AppCard>) : null}
   </Screen>;
