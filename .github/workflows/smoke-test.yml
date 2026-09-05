@@ -1,0 +1,78 @@
+name: BuildPair Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'HTTPS base URL to test, e.g. a current trycloudflare.com URL or the future production domain'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: buildpair-smoke-${{ inputs.base_url }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+    steps:
+      - name: Validate target
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$BASE_URL" in
+            https://*) ;;
+            *) echo "::error::base_url must start with https://"; exit 1 ;;
+          esac
+
+      - name: Verify API and database
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_file=$(mktemp)
+          health_status=$(curl --silent --show-error --retry 4 --retry-delay 3 \
+            -o "$health_file" -w '%{http_code}' "$BASE_URL/api/health" || true)
+          cat "$health_file"
+          printf '\n'
+          if [ "$health_status" != "200" ]; then
+            echo "::error::Health endpoint returned HTTP $health_status"
+            exit 1
+          fi
+          jq -e '.status == "ok" and .database == "ok"' "$health_file" >/dev/null
+
+          traders_file=$(mktemp)
+          curl --fail --show-error --silent --retry 4 --retry-delay 2 "$BASE_URL/api/traders" -o "$traders_file"
+          jq -e 'type == "array"' "$traders_file" >/dev/null
+
+          jobs_file=$(mktemp)
+          curl --fail --show-error --silent --retry 4 --retry-delay 2 "$BASE_URL/api/public/jobs" -o "$jobs_file"
+          jq -e 'type == "array"' "$jobs_file" >/dev/null
+
+      - name: Verify auth entry points
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --retry 4 --retry-delay 2 "$BASE_URL/auth/sign-in" >/dev/null
+          curl --fail --show-error --silent --retry 4 --retry-delay 2 "$BASE_URL/auth/sign-up" >/dev/null
+
+      - name: Verify integration readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          readiness_file=$(mktemp)
+          readiness_status=$(curl --silent --show-error --retry 4 --retry-delay 3 \
+            -o "$readiness_file" -w '%{http_code}' "$BASE_URL/api/readiness" || true)
+          cat "$readiness_file"
+          printf '\n'
+          if [ "$readiness_status" != "200" ]; then
+            missing=$(jq -r '[(.missing // []), (.missingSchema // [])] | flatten | join(", ")' "$readiness_file" 2>/dev/null || true)
+            echo "::error::Readiness incomplete${missing:+: $missing}"
+            exit 1
+          fi
+          jq -e '.ready == true and .status == "ready"' "$readiness_file" >/dev/null
