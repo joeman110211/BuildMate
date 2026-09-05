@@ -1,0 +1,18 @@
+name: Rebrand Audit
+
+on:
+  push:
+    branches:
+      - rebrand/buildpair
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Find legacy BuildMate references
+        run: |
+          echo "=== Legacy brand references ==="
+          grep -RInE 'BuildMate|buildmate|BUILDMATE' . \
+            --exclude-dir=.git \
+            --exclude='rebrand-audit.yml' || true
