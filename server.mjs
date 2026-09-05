@@ -4,7 +4,13 @@ import http from 'node:http';
 import path from 'node:path';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { createRequestHandler } from 'expo-server/adapter/http';
+import { createRequire } from 'node:module';
+
+// expo-server 57 publishes both ESM and CommonJS adapters. Its ESM build currently
+// contains extensionless internal imports that native Node 22 rejects, so load the
+// CommonJS adapter deliberately when running BuildPair's standalone Node server.
+const require = createRequire(import.meta.url);
+const { createRequestHandler } = require('expo-server/adapter/http');
 
 const PORT = Number(process.env.PORT || 3000);
 const CLIENT_BUILD_DIR = path.resolve(process.cwd(), 'dist/client');
