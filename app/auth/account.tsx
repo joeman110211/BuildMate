@@ -53,9 +53,12 @@ export default function AccountEntryScreen() {
     <AppCard elevated={false} style={styles.browseCard}>
       <View style={styles.browseCopy}>
         <Text variant="titleMedium" style={styles.title}>Just looking?</Text>
-        <Text style={styles.browseText}>You can browse local trade profiles before creating an account.</Text>
+        <Text style={styles.browseText}>Browse local trade profiles or open job requests before creating an account.</Text>
       </View>
-      <Link href="/(public)/directory" asChild><Button mode="outlined" contentStyle={styles.browseButton}>Browse trades</Button></Link>
+      <View style={styles.browseActions}>
+        <Link href="/(public)/directory" asChild><Button mode="outlined" contentStyle={styles.browseButton}>Browse trades</Button></Link>
+        <Link href="/(public)/jobs" asChild><Button mode="outlined" icon="briefcase-search-outline" contentStyle={styles.browseButton}>Jobs</Button></Link>
+      </View>
     </AppCard>
   </Screen>;
 }
@@ -80,5 +83,6 @@ const styles = StyleSheet.create({
   browseCard: { width: '100%', maxWidth: 820, alignSelf: 'center', backgroundColor: colors.surfaceSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 },
   browseCopy: { flex: 1, minWidth: 220, gap: 3 },
   browseText: { color: colors.muted, lineHeight: 21 },
-  browseButton: { minHeight: 44, minWidth: 150 },
+  browseActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  browseButton: { minHeight: 44, minWidth: 145 },
 });
