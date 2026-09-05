@@ -36,7 +36,10 @@ export default function TraderJobBoard() {
     } catch (e) { setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   const opportunities = useMemo(() => jobs.filter((job) => {
     if (!['open', 'quoted'].includes(job.status)) return false;
