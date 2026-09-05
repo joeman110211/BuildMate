@@ -13,7 +13,13 @@ export function hasActiveLeadAccess(profile: {
 }) {
   if (!profile.isSubscriptionActive) return false;
   if (profile.stripeSubscriptionId) return true;
-  const endsAt = profile.trialEndsAt ? new Date(profile.trialEndsAt) : profile.createdAt ? trialEndsAt(profile.createdAt) : null;
-  if (!endsAt) return true;
-  return endsAt.getTime() > Date.now();
+
+  const createdMinimum = profile.createdAt ? trialEndsAt(profile.createdAt).getTime() : null;
+  const storedEnd = profile.trialEndsAt ? new Date(profile.trialEndsAt).getTime() : null;
+  const effectiveEnd = createdMinimum != null && storedEnd != null
+    ? Math.max(createdMinimum, storedEnd)
+    : createdMinimum ?? storedEnd;
+
+  if (effectiveEnd == null) return true;
+  return effectiveEnd > Date.now();
 }
