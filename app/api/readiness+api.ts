@@ -1,6 +1,8 @@
+import { getPreviewDataMode } from '@/lib/preview-data';
 import { getSql } from '@/lib/sql';
+import { paymentsEnabled } from '@/lib/subscription';
 
-const requiredEnvironment = [
+const coreRequiredEnvironment = [
   'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY',
   'CLERK_SECRET_KEY',
   'DATABASE_URL',
@@ -11,12 +13,7 @@ const requiredEnvironment = [
   'CLOUDINARY_API_SECRET',
 ] as const;
 
-const optionalEnvironment = [
-  'DATABASE_URL_UNPOOLED',
-  'ADMIN_CLERK_USER_IDS',
-  'APP_URL',
-  'SUPPORT_EMAIL',
-  'CLOUDINARY_CLOUD_NAME',
+const stripeEnvironment = [
   'EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY',
   'STRIPE_SECRET_KEY',
   'STRIPE_BASIC_PRICE_ID',
@@ -25,11 +22,26 @@ const optionalEnvironment = [
   'STRIPE_CONNECT_WEBHOOK_SECRET',
 ] as const;
 
+const otherOptionalEnvironment = [
+  'DATABASE_URL_UNPOOLED',
+  'ADMIN_CLERK_USER_IDS',
+  'APP_URL',
+  'SUPPORT_EMAIL',
+  'CLOUDINARY_CLOUD_NAME',
+] as const;
+
 function configured(name: string) {
   return Boolean(process.env[name]?.trim());
 }
 
 export async function GET() {
+  const billingEnabled = paymentsEnabled();
+  const requiredEnvironment: readonly string[] = billingEnabled
+    ? [...coreRequiredEnvironment, ...stripeEnvironment]
+    : coreRequiredEnvironment;
+  const optionalEnvironment: readonly string[] = billingEnabled
+    ? otherOptionalEnvironment
+    : [...otherOptionalEnvironment, ...stripeEnvironment];
   const missing = requiredEnvironment.filter((name) => !configured(name));
   const optionalMissing = optionalEnvironment.filter((name) => !configured(name));
   const missingSchema: string[] = [];
@@ -72,6 +84,8 @@ export async function GET() {
     {
       status: ready ? 'ready' : 'configuration_required',
       ready,
+      paymentsEnabled: billingEnabled,
+      previewDataMode: getPreviewDataMode(),
       missing,
       missingSchema,
       optionalMissing,
