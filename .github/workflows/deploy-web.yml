@@ -11,7 +11,7 @@ permissions:
   statuses: read
 
 concurrency:
-  group: buildmate-production-smoke
+  group: buildpair-production-smoke
   cancel-in-progress: true
 
 jobs:
@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
+      # Switch this to https://buildpair.co.uk once the custom domain is attached to Vercel.
       BASE_URL: https://buildmate-nine.vercel.app
       EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
       GH_TOKEN: ${{ github.token }}
