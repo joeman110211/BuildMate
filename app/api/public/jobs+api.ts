@@ -12,7 +12,9 @@ export async function GET() {
       .orderBy(desc(jobs.createdAt))
       .limit(50);
 
-    const publicRows = (rows.length ? rows : demoJobs).map((job) => ({
+    const realIds = new Set(rows.map((job) => job.id));
+    const combined = [...rows, ...demoJobs.filter((job) => !realIds.has(job.id))].slice(0, 50);
+    const publicRows = combined.map((job) => ({
       ...job,
       postcode: outwardCode(job.postcode),
       latitude: null,
