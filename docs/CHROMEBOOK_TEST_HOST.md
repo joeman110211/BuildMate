@@ -58,7 +58,7 @@ No Cloudflare account is required for the Quick Tunnel used by this test setup.
 
 ```bash
 cd ~
-git clone https://github.com/joeman110211/BuildMate.git buildpair
+git clone https://github.com/joeman110211/BuildPair.git buildpair
 cd ~/buildpair
 npm ci
 ```
@@ -67,6 +67,7 @@ If `~/buildpair` already exists instead:
 
 ```bash
 cd ~/buildpair
+git remote set-url origin https://github.com/joeman110211/BuildPair.git
 git pull --ff-only origin main
 npm ci
 ```
