@@ -39,7 +39,9 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          # Expo SDK 57's current Android build image uses Node 22.23.1.
+          # Match Expo's supported native build environment rather than Node 24.
+          node-version: 22.23.1
           cache: npm
 
       - uses: actions/setup-java@v5
@@ -75,7 +77,7 @@ jobs:
       - run: npm ci --no-audit --no-fund --prefer-offline
 
       - name: Generate native Android project
-        run: npx expo prebuild --platform android --clean --non-interactive
+        run: npx expo prebuild --platform android --clean
 
       - name: Tune Android release build for GitHub runner
         working-directory: android
@@ -92,7 +94,7 @@ jobs:
 
       - name: Build installable release APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon --max-workers=2
+        run: ./gradlew assembleRelease --no-daemon --max-workers=2 --stacktrace --info
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
