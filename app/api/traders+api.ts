@@ -3,7 +3,7 @@ import { getDb } from '@/db/client';
 import { reviews, traderProfiles } from '@/db/schema';
 import { demoTraders } from '@/lib/demo-data';
 import { jsonError } from '@/lib/server';
-import { TRADER_TRIAL_DAYS } from '@/lib/subscription';
+import { betaLeadGraceEnabled, TRADER_TRIAL_DAYS } from '@/lib/subscription';
 
 export async function GET(request: Request) {
   try {
@@ -12,7 +12,9 @@ export async function GET(request: Request) {
     const activeAccount = sql`NOT EXISTS (SELECT 1 FROM users u WHERE u.id = ${traderProfiles.userId} AND u.is_suspended = true)`;
     const createdTrialEnd = sql<Date>`${traderProfiles.createdAt} + (${TRADER_TRIAL_DAYS} * interval '1 day')`;
     const effectiveTrialEnd = sql<Date>`greatest(coalesce(${traderProfiles.trialEndsAt}, ${createdTrialEnd}), ${createdTrialEnd})`;
-    const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
+    const activeLeadAccess = betaLeadGraceEnabled()
+      ? sql`${traderProfiles.isSubscriptionActive} = true`
+      : sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
     const where = trade
       ? and(activeLeadAccess, eq(traderProfiles.tradeCategory, trade), activeAccount)
       : and(activeLeadAccess, activeAccount);
