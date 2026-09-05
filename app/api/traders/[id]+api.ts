@@ -5,7 +5,7 @@ import { traderProfileShowcase } from '@/db/showcase-schema';
 import { demoTraders } from '@/lib/demo-data';
 import { previewDataEnabled } from '@/lib/preview-data';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
-import { TRADER_TRIAL_DAYS } from '@/lib/subscription';
+import { paymentsEnabled, TRADER_TRIAL_DAYS } from '@/lib/subscription';
 
 const defaultShowcase = {
   template: 'classic' as const,
@@ -32,7 +32,9 @@ export async function GET(request: Request, { id }: { id: string }) {
     const db = getDb();
     const createdTrialEnd = sql<Date>`${traderProfiles.createdAt} + (${TRADER_TRIAL_DAYS} * interval '1 day')`;
     const effectiveTrialEnd = sql<Date>`greatest(coalesce(${traderProfiles.trialEndsAt}, ${createdTrialEnd}), ${createdTrialEnd})`;
-    const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
+    const activeLeadAccess = paymentsEnabled()
+      ? sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`
+      : sql`true`;
     const [profile] = await db.select({
       id: traderProfiles.id,
       userId: traderProfiles.userId,
