@@ -54,7 +54,7 @@ export default function ModerationScreen() {
   }
 
   function confirmSuspend(report: Report) {
-    Alert.alert('Suspend account?', `This blocks ${report.subjectEmail ?? 'the reported account'} from authenticated BuildPair activity and removes trader profiles from public discovery.`, [
+    Alert.alert('Suspend account?', `This blocks ${report.subjectEmail ?? 'the reported account'} from authenticated BuildMate activity and removes trader profiles from public discovery.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Suspend', style: 'destructive', onPress: () => void update(report, 'actioned', 'suspend') },
     ]);
