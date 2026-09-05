@@ -8,18 +8,18 @@ export function AppCard({ children, style, elevated = true }: PropsWithChildren<
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 18,
     gap: 12,
   },
   elevated: {
-    shadowColor: '#111827',
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 5 },
+    shadowColor: colors.charcoal,
+    shadowOpacity: 0.07,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 3,
   },
 });
