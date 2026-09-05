@@ -26,7 +26,10 @@ export default function CustomerJobs() {
     catch (e) { setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
   if (loading) return <LoadingScreen />;
 
   const visible = jobs.filter((job) => tab === 'active' ? job.status === 'in_progress' : tab === 'pending' ? ['open', 'quoted'].includes(job.status) : job.status === 'completed');
