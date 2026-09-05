@@ -5,7 +5,7 @@ import { demoJobs } from '@/lib/demo-data';
 import { InvalidPostcodeError, lookupPostcode, outwardCode } from '@/lib/postcode';
 import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
-import { hasActiveLeadAccess, TRADER_TRIAL_DAYS } from '@/lib/subscription';
+import { hasActiveLeadAccess } from '@/lib/subscription';
 import { jobSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -99,24 +99,25 @@ export async function POST(request: Request) {
       const targets = await getSql()`
         SELECT tp.trade_category AS "tradeCategory",
                tp.subscription_tier AS "subscriptionTier",
-               (
-                 tp.is_subscription_active = true
-                 AND (
-                   tp.stripe_subscription_id IS NOT NULL
-                   OR greatest(
-                     coalesce(tp.trial_ends_at, tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')),
-                     tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')
-                   ) > now()
-                 )
-               ) AS "isSubscriptionActive"
+               tp.is_subscription_active AS "isSubscriptionActive",
+               tp.stripe_subscription_id AS "stripeSubscriptionId",
+               tp.trial_ends_at AS "trialEndsAt",
+               tp.created_at AS "createdAt"
         FROM trader_profiles tp
         JOIN users u ON u.id = tp.user_id
         WHERE tp.user_id = ${payload.targetTraderId}
           AND coalesce(u.is_suspended, false) = false
         LIMIT 1
-      ` as unknown as { tradeCategory: string; subscriptionTier: string; isSubscriptionActive: boolean }[];
+      ` as unknown as {
+        tradeCategory: string;
+        subscriptionTier: string;
+        isSubscriptionActive: boolean;
+        stripeSubscriptionId: string | null;
+        trialEndsAt: string | Date | null;
+        createdAt: string | Date | null;
+      }[];
       const target = targets[0];
-      if (!target || !target.isSubscriptionActive || target.subscriptionTier === 'free') throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildPair leads');
+      if (!target || !hasActiveLeadAccess(target) || target.subscriptionTier === 'free') throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildPair leads');
       if (target.tradeCategory !== payload.category) throw new HttpError(400, `This direct request must use the tradesperson's listed category: ${target.tradeCategory}`);
     }
 
