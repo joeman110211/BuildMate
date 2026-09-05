@@ -58,14 +58,14 @@ export default function CustomerDashboard() {
     {error ? <EmptyState title="Couldn’t load your dashboard" body={error} action={<Button onPress={load}>Try again</Button>} /> : null}
 
     <View style={styles.sectionHeading}><Text variant="titleLarge" style={styles.title}>Your current jobs</Text><Link href="/customer/jobs" asChild><Button compact>View all</Button></Link></View>
-    {!jobs.length ? <EmptyState title="No jobs yet" body="Post what you need once and BuildPair will keep your quotes, messages and job progress together." action={<Link href="/customer/new-job" asChild><Button mode="contained">Post your first job</Button></Link>} /> : jobs.slice(0, 3).map((job) => <AppCard key={job.id}>
+    {!jobs.length ? <EmptyState title="No jobs yet" body="Post what you need once and BuildMate will keep your quotes, messages and job progress together." action={<Link href="/customer/new-job" asChild><Button mode="contained">Post your first job</Button></Link>} /> : jobs.slice(0, 3).map((job) => <AppCard key={job.id}>
       <View style={styles.row}><View style={styles.flex}><Text variant="titleLarge" style={styles.title}>{job.title}</Text><Text style={styles.muted}>{job.category}{job.locationLabel ? ` · ${job.locationLabel}` : ''}{job.postcode ? ` · ${job.postcode}` : ''}</Text></View><Chip>{job.status.replace('_', ' ')}</Chip></View>
       <Text style={styles.muted}>{job.budgetRange} · {job.urgency}</Text>
       <Text numberOfLines={2} style={styles.description}>{job.description}</Text>
       <View style={styles.row}><Button onPress={() => router.push(`/customer/jobs/${job.id}` as Href)}>View Job</Button>{['open', 'quoted'].includes(job.status) ? <Button mode="outlined" onPress={() => router.push(`/customer/compare/${job.id}` as Href)}>Compare Quotes</Button> : null}</View>
     </AppCard>)}
 
-    <View style={styles.sectionHeading}><Text variant="titleLarge" style={styles.title}>Trusted trades on BuildPair</Text><Link href="/(public)/directory" asChild><Button compact>Browse all</Button></Link></View>
+    <View style={styles.sectionHeading}><Text variant="titleLarge" style={styles.title}>Trusted trades on BuildMate</Text><Link href="/(public)/directory" asChild><Button compact>Browse all</Button></Link></View>
     <View style={styles.traderGrid}>{traders.map((trader) => <AppCard key={trader.id} style={styles.traderCard}>
       <Text variant="titleMedium" style={styles.title}>{trader.businessName}</Text>
       <Text style={styles.muted}>{trader.tradeCategory}{trader.locationLabel ? ` · ${trader.locationLabel}` : ''}</Text>
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   statNumber: { color: colors.primary, fontWeight: '900' },
   statLabel: { color: colors.muted, fontWeight: '700' },
   sectionHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 2 },
-  title: { fontWeight: '900', color: colors.text },
+  title: { fontWeight: '900', color: colors.charcoal },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   flex: { flex: 1, minWidth: 220, gap: 4 },
   muted: { color: colors.muted, lineHeight: 21 },
