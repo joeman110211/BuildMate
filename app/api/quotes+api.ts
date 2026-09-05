@@ -74,6 +74,7 @@ export async function POST(request: Request) {
         target: [quotes.jobId, quotes.traderId],
         set: { ...quoteValues, status: 'pending', updatedAt: new Date() },
       }).returning();
+    if (!quote) throw new Error('Quote could not be saved');
     await db.update(jobs).set({ status: 'quoted', updatedAt: new Date() }).where(eq(jobs.id, payload.jobId));
 
     const conversations = await getSql()`
