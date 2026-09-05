@@ -1,6 +1,9 @@
 name: Rebrand Audit
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - rebrand/buildpair
