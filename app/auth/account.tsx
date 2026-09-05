@@ -2,7 +2,7 @@ import { Link, Redirect } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { Button, Chip, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
-import { BuildMateLogo } from '@/components/BuildMateLogo';
+import { BuildPairLogo } from '@/components/BuildPairLogo';
 import { LoadingScreen, Screen } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { dashboardHref, signInHref, signUpHref } from '@/lib/account-mode';
@@ -17,7 +17,7 @@ export default function AccountEntryScreen() {
 
   return <Screen>
     <View style={styles.hero}>
-      <BuildMateLogo tagline />
+      <BuildPairLogo tagline />
       <Text variant="headlineSmall" style={styles.heading}>One login. Two ways to use BuildPair.</Text>
       <Text style={styles.subheading}>Choose the profile you need today. You can add the other later without creating another login.</Text>
     </View>
@@ -31,7 +31,7 @@ export default function AccountEntryScreen() {
             <Text variant="bodySmall" style={styles.kicker}>POST • COMPARE • HIRE</Text>
           </View>
         </View>
-        <Text style={styles.body}>Find trusted trades, post jobs, compare quotes and keep everything organised in one place.</Text>
+        <Text style={styles.body}>Find local trades, post jobs, compare quotes and keep everything organised in one place.</Text>
         <Link href={signUpHref('customer')} asChild><Button mode="contained" contentStyle={styles.primaryButton} style={styles.primaryAction}>Create Homeowner Account</Button></Link>
         <Link href={signInHref('customer')} asChild><Button mode="text">Homeowner Sign In</Button></Link>
       </AppCard>
@@ -44,7 +44,7 @@ export default function AccountEntryScreen() {
             <Chip compact style={styles.trialChip} textStyle={styles.trialChipText}>14 days free</Chip>
           </View>
         </View>
-        <Text style={styles.body}>Find local work, build a trusted profile, quote customers and manage your jobs.</Text>
+        <Text style={styles.body}>Find local work, build a professional profile, quote customers and manage your jobs.</Text>
         <Link href={signUpHref('trader')} asChild><Button mode="contained" contentStyle={styles.primaryButton} style={styles.primaryAction}>Create Tradesperson Account</Button></Link>
         <Link href={signInHref('trader')} asChild><Button mode="text">Tradesperson Sign In</Button></Link>
       </AppCard>
@@ -57,6 +57,12 @@ export default function AccountEntryScreen() {
       </View>
       <Link href="/(public)/directory" asChild><Button mode="outlined" contentStyle={styles.browseButton}>Browse trades</Button></Link>
     </AppCard>
+
+    <View style={styles.legalLinks}>
+      <Link href="/(public)/terms" asChild><Button compact mode="text">Terms</Button></Link>
+      <Link href="/(public)/privacy" asChild><Button compact mode="text">Privacy</Button></Link>
+      <Link href="/(public)/cookies" asChild><Button compact mode="text">Cookies</Button></Link>
+    </View>
   </Screen>;
 }
 
@@ -81,4 +87,5 @@ const styles = StyleSheet.create({
   browseCopy: { flex: 1, minWidth: 220, gap: 3 },
   browseText: { color: colors.muted, lineHeight: 21 },
   browseButton: { minHeight: 44, minWidth: 150 },
+  legalLinks: { width: '100%', maxWidth: 820, alignSelf: 'center', flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 4 },
 });
