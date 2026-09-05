@@ -108,7 +108,7 @@ export async function POST(request: Request) {
         LIMIT 1
       ` as unknown as { tradeCategory: string; subscriptionTier: string; isSubscriptionActive: boolean }[];
       const target = targets[0];
-      if (!target || !target.isSubscriptionActive || target.subscriptionTier === 'free') throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildPair leads');
+      if (!target || !target.isSubscriptionActive || target.subscriptionTier === 'free') throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildMate leads');
       if (target.tradeCategory !== payload.category) throw new HttpError(400, `This direct request must use the tradesperson's listed category: ${target.tradeCategory}`);
     }
 
