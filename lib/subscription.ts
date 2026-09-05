@@ -1,4 +1,4 @@
-export const TRADER_TRIAL_DAYS = 14;
+export const TRADER_TRIAL_DAYS = 28;
 
 export function trialEndsAt(from: Date | string = new Date()) {
   const startedAt = from instanceof Date ? from : new Date(from);
