@@ -38,7 +38,7 @@ export default function TraderDashboard() {
   useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
 
   if (loading) return <LoadingScreen />;
-  if (!profile) return <Screen title="Build your tradesperson profile" subtitle="A strong profile is your shop window on BuildPair."><EmptyState title="Your profile is waiting" body="Add your trade, service area, skills and business details before customers can find you." action={<Link href="/trader/onboarding" asChild><Button mode="contained">Build my profile</Button></Link>} /></Screen>;
+  if (!profile) return <Screen title="Build your tradesperson profile" subtitle="A strong profile is your shop window on BuildMate."><EmptyState title="Your profile is waiting" body="Add your trade, service area, skills and business details before customers can find you." action={<Link href="/trader/onboarding" asChild><Button mode="contained">Build my profile</Button></Link>} /></Screen>;
 
   const pendingQuoteJobIds = new Set(quotes.filter((quote) => quote.status === 'pending').map((quote) => quote.jobId));
   const newLeads = jobs.filter((job) => ['open', 'quoted'].includes(job.status) && !pendingQuoteJobIds.has(job.id));
@@ -50,7 +50,7 @@ export default function TraderDashboard() {
 
   return <Screen title={`Hello, ${profile.businessName}`} subtitle={`${profile.tradeCategory}${profile.locationLabel ? ` · ${profile.locationLabel}` : ''}`}>
     {profile.isSubscriptionActive && trialEnds ? <AppCard style={styles.trialCard}>
-      <View style={styles.row}><View style={styles.flex}><Text variant="titleLarge" style={styles.cardTitle}>14-day free trial</Text><Text style={styles.muted}>{trialDays} day{trialDays === 1 ? '' : 's'} remaining · Your BuildPair listing is live.</Text></View><Chip icon="gift-outline">Trial active</Chip></View>
+      <View style={styles.row}><View style={styles.flex}><Text variant="titleLarge" style={styles.cardTitle}>14-day free trial</Text><Text style={styles.muted}>{trialDays} day{trialDays === 1 ? '' : 's'} remaining · Your BuildMate listing is live.</Text></View><Chip icon="gift-outline">Trial active</Chip></View>
       <ProgressBar progress={Math.max(0, Math.min(1, trialDays / 14))} color={colors.primary} style={styles.progress} />
     </AppCard> : null}
 
@@ -82,12 +82,12 @@ export default function TraderDashboard() {
 }
 
 const styles = StyleSheet.create({
-  trialCard: { backgroundColor: '#FFF9F4' },
+  trialCard: { backgroundColor: colors.surfaceSoft },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   flex: { flex: 1, minWidth: 220 },
-  cardTitle: { fontWeight: '900', color: colors.text },
+  cardTitle: { fontWeight: '900', color: colors.charcoal },
   muted: { color: colors.muted, lineHeight: 21 },
-  progress: { height: 7, borderRadius: 4, backgroundColor: '#F5DDCC' },
+  progress: { height: 7, borderRadius: 4, backgroundColor: colors.surfaceStrong },
   stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   stat: { flexGrow: 1, flexBasis: 145, minWidth: 135, paddingVertical: 16 },
   statNumber: { color: colors.primary, fontWeight: '900' },
