@@ -3,16 +3,31 @@ import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, HelperText, Text, TextInput } from 'react-native-paper';
+import { AppCard } from '@/components/AppCard';
 import { Screen } from '@/components/Screen';
 import { SocialAuthButtons } from '@/components/SocialAuthButtons';
+import { colors } from '@/constants/theme';
 import { modeSetupHref, parseAccountMode, signInHref } from '@/lib/account-mode';
 import { errorMessage } from '@/lib/api';
+
+function scalar(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default function SignUpScreen() {
   const { signUp, fetchStatus } = useSignUp();
   const router = useRouter();
-  const params = useLocalSearchParams<{ mode?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    mode?: string | string[];
+    jobId?: string | string[];
+    jobTitle?: string | string[];
+    jobCategory?: string | string[];
+    jobLocation?: string | string[];
+  }>();
   const mode = parseAccountMode(params.mode);
+  const jobTitle = scalar(params.jobTitle);
+  const jobCategory = scalar(params.jobCategory);
+  const jobLocation = scalar(params.jobLocation);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -73,9 +88,16 @@ export default function SignUpScreen() {
     }
   }
 
+  const jobContext = jobTitle ? <AppCard style={styles.contextCard}>
+    <Text variant="labelLarge" style={styles.contextLabel}>Joining this job to quote</Text>
+    <Text variant="titleLarge" style={styles.contextTitle}>{jobTitle}</Text>
+    <Text style={styles.contextMeta}>{[jobCategory, jobLocation].filter(Boolean).join(' · ')}</Text>
+  </AppCard> : null;
+
   if (verifying) {
     return (
       <Screen title="Verify your email" subtitle={`We sent a 6-digit code to ${email.trim().toLowerCase()}.`}>
+        {jobContext}
         <TextInput
           label="Verification code"
           value={code}
@@ -96,6 +118,7 @@ export default function SignUpScreen() {
 
   return (
     <Screen title={title} subtitle={subtitle}>
+      {jobContext}
       <SocialAuthButtons onError={setError} mode={mode} />
       <TextInput
         label="Email address"
@@ -139,4 +162,8 @@ const styles = StyleSheet.create({
   button: { minHeight: 48 },
   hint: { opacity: 0.7, marginTop: -4 },
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' },
+  contextCard: { backgroundColor: '#FFF8F3' },
+  contextLabel: { color: colors.primary, fontWeight: '900' },
+  contextTitle: { color: colors.charcoal, fontWeight: '900' },
+  contextMeta: { color: colors.muted, fontWeight: '700' },
 });
