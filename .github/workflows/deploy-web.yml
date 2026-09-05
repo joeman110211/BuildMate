@@ -18,13 +18,18 @@ jobs:
   verify-production:
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       # Switch this to https://buildpair.co.uk once the custom domain is attached to Vercel.
       BASE_URL: https://buildmate-nine.vercel.app
       EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
       GH_TOKEN: ${{ github.token }}
     steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
       - name: Resolve commit for manual runs
         if: github.event_name == 'workflow_dispatch'
         shell: bash
@@ -69,20 +74,30 @@ jobs:
 
           traders_file=$(mktemp)
           curl --fail --show-error --silent --retry 8 --retry-delay 3 "$BASE_URL/api/traders" -o "$traders_file"
-          jq -e 'type == "array"' "$traders_file" > /dev/null
+          jq -e 'type == "array" and all(.[]; (.isPreview // false) == false)' "$traders_file" > /dev/null
 
           jobs_file=$(mktemp)
           curl --fail --show-error --silent --retry 8 --retry-delay 3 "$BASE_URL/api/public/jobs" -o "$jobs_file"
-          jq -e 'type == "array" and length > 0' "$jobs_file" > /dev/null
-          echo "Production API, Neon database, trader directory and live public jobs are responding."
+          jq -e 'type == "array" and all(.[]; (.isPreview // false) == false)' "$jobs_file" > /dev/null
+          echo "Production API, Neon database and live-only public marketplace are responding."
 
-      - name: Verify public auth entry points
+      - name: Verify public auth and security boundaries
         shell: bash
         run: |
           set -euo pipefail
           curl --fail --show-error --silent --retry 4 --retry-delay 2 "$BASE_URL/auth/sign-in" > /dev/null
           curl --fail --show-error --silent --retry 4 --retry-delay 2 "$BASE_URL/auth/sign-up" > /dev/null
-          echo "Production sign-in and sign-up pages are serving successfully."
+
+          protected_status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$BASE_URL/api/me")
+          test "$protected_status" = "401"
+
+          headers=$(curl --silent --show-error --head "$BASE_URL/auth/sign-in" | tr -d '\r')
+          printf '%s\n' "$headers"
+          grep -qi '^strict-transport-security:.*max-age=' <<< "$headers"
+          grep -qi '^x-content-type-options: *nosniff' <<< "$headers"
+          grep -qi '^x-frame-options: *DENY' <<< "$headers"
+          grep -qi '^referrer-policy: *strict-origin-when-cross-origin' <<< "$headers"
+          echo "Production auth entry points and baseline security headers are correct."
 
       - name: Verify production integration configuration and schema
         shell: bash
@@ -98,5 +113,14 @@ jobs:
             echo "::error::Production readiness incomplete${missing:+: $missing}"
             exit 1
           fi
-          jq -e '.ready == true and .status == "ready"' "$readiness_file" > /dev/null
-          echo "Production integrations and required database schema are ready."
+          jq -e '.ready == true and .status == "ready" and .paymentsEnabled == false and .previewDataMode == "off"' "$readiness_file" > /dev/null
+          echo "Production integrations/schema are ready, preview data is off, and Stripe remains release-gated."
+
+      - name: Install browser regression runner
+        shell: bash
+        run: |
+          npm install --no-save --package-lock=false @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Deep-test small Android web layouts
+        run: npx playwright test e2e/production-mobile.spec.cjs --reporter=line
