@@ -1,4 +1,5 @@
 import { useAuth } from '@clerk/expo';
+import type { Href } from 'expo-router';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -32,16 +33,11 @@ export default function TraderMyJobs() {
     } catch (e) { setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => {
-    const timer = setTimeout(() => void load(), 0);
-    return () => clearTimeout(timer);
-  }, [load]);
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
 
   async function complete(jobId: string) {
-    try {
-      await apiFetch(`/api/jobs/${jobId}`, { method: 'PATCH', body: JSON.stringify({ action: 'complete' }) }, () => getTokenRef.current());
-      await load(); setTab('completed');
-    } catch (e) { setError(errorMessage(e)); }
+    try { await apiFetch(`/api/jobs/${jobId}`, { method: 'PATCH', body: JSON.stringify({ action: 'complete' }) }, () => getTokenRef.current()); await load(); setTab('completed'); }
+    catch (e) { setError(errorMessage(e)); }
   }
 
   if (loading) return <LoadingScreen />;
@@ -56,12 +52,13 @@ export default function TraderMyJobs() {
     {!error && !visible.length ? <EmptyState title={`No ${tab} jobs`} body={tab === 'quoted' ? 'Quotes you send will be organised here while you wait for customers to respond.' : tab === 'active' ? 'Accepted work will appear here while the job is in progress.' : 'Completed BuildPair jobs will build up here over time.'} /> : visible.map((job) => {
       const ownQuote = quotes.find((quote) => quote.jobId === job.id && ['pending', 'accepted'].includes(quote.status));
       return <AppCard key={job.id}>
-        <View style={styles.row}><View style={styles.flex}><Text variant="titleLarge" style={styles.title}>{job.title}</Text><Text style={styles.muted}>📍 {job.postcode || job.locationLabel || 'Location available'} · {job.category}</Text></View><Chip>{job.status.replace('_', ' ')}</Chip></View>
+        <View style={styles.row}><View style={styles.flex}><Text variant="titleLarge" style={styles.title}>{job.title}</Text><Text style={styles.muted}>📍 {job.postcode || job.locationLabel || 'Location available'} · {job.category}</Text></View><View style={styles.badges}>{job.isEmergency ? <Chip compact icon="alert">Emergency</Chip> : null}<Chip>{job.status.replace('_', ' ')}</Chip></View></View>
         {ownQuote ? <View style={styles.priceLine}><Text style={styles.muted}>Your quote</Text><Text variant="titleLarge" style={styles.price}>{formatMoney(ownQuote.totalAmount)}</Text></View> : null}
         <Text numberOfLines={3} style={styles.description}>{job.description}</Text>
         <View style={styles.actions}>
           {tab === 'quoted' && ownQuote ? <Button mode="outlined" onPress={() => router.push({ pathname: '/trader/quotes/new', params: { jobId: job.id, title: job.title } })}>View / Update Quote</Button> : null}
-          {tab === 'active' ? <Button mode="contained" icon="check-circle-outline" onPress={() => complete(job.id)}>Mark Work Complete</Button> : null}
+          {tab !== 'quoted' ? <Button mode="outlined" icon="timeline-clock-outline" onPress={() => router.push(`/trader/jobs/${job.id}` as Href)}>Timeline & Variations</Button> : null}
+          {tab === 'active' ? <Button mode="contained" icon="check-circle-outline" onPress={() => void complete(job.id)}>Mark Work Complete</Button> : null}
           <Button mode="text" onPress={() => router.push('/trader/messages')}>Messages</Button>
         </View>
       </AppCard>;
@@ -71,11 +68,8 @@ export default function TraderMyJobs() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' },
-  flex: { flex: 1, minWidth: 220, gap: 4 },
-  title: { fontWeight: '900', color: colors.charcoal },
-  muted: { color: colors.muted, lineHeight: 21 },
-  priceLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
-  price: { color: colors.primary, fontWeight: '900' },
-  description: { color: colors.text, lineHeight: 22 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  flex: { flex: 1, minWidth: 220, gap: 4 }, badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  title: { fontWeight: '900', color: colors.charcoal }, muted: { color: colors.muted, lineHeight: 21 },
+  priceLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }, price: { color: colors.primary, fontWeight: '900' },
+  description: { color: colors.text, lineHeight: 22 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });
