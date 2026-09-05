@@ -3,13 +3,14 @@ import { getDb } from '@/db/client';
 import { reviews, traderProfiles } from '@/db/schema';
 import { demoTraders } from '@/lib/demo-data';
 import { jsonError } from '@/lib/server';
+import { TRADER_TRIAL_DAYS } from '@/lib/subscription';
 
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const trade = url.searchParams.get('trade');
     const activeAccount = sql`NOT EXISTS (SELECT 1 FROM users u WHERE u.id = ${traderProfiles.userId} AND u.is_suspended = true)`;
-    const effectiveTrialEnd = sql<Date>`${traderProfiles.createdAt} + interval '14 days'`;
+    const effectiveTrialEnd = sql<Date>`${traderProfiles.createdAt} + (${TRADER_TRIAL_DAYS} * interval '1 day')`;
     const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
     const where = trade
       ? and(activeLeadAccess, eq(traderProfiles.tradeCategory, trade), activeAccount)
@@ -33,10 +34,14 @@ export async function GET(request: Request) {
       reviewCount: sql<number>`count(${reviews.id})::int`,
     }).from(traderProfiles).leftJoin(reviews, and(eq(reviews.traderId, traderProfiles.userId), eq(reviews.verifiedCompletion, true))).where(where)
       .groupBy(traderProfiles.id).orderBy(desc(sql`${traderProfiles.subscriptionTier} = 'featured'`), desc(sql`avg(${reviews.rating})`)).limit(100);
-    if (!rows.length) {
-      const seeded = trade ? demoTraders.filter((trader) => trader.tradeCategory === trade) : demoTraders;
-      return Response.json(seeded);
-    }
-    return Response.json(rows);
+
+    // Keep the beta marketplace populated even after genuine traders sign up.
+    // Preview traders never carry fabricated verified-review totals.
+    const previewTraders = (trade ? demoTraders.filter((trader) => trader.tradeCategory === trade) : demoTraders)
+      .map((trader) => ({ ...trader, averageRating: 0, reviewCount: 0 }));
+    const realIds = new Set(rows.map((trader) => trader.id));
+    const combined = [...rows, ...previewTraders.filter((trader) => !realIds.has(trader.id))].slice(0, 100);
+
+    return Response.json(combined);
   } catch (error) { return jsonError(error); }
 }
