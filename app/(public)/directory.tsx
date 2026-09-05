@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Chip, Searchbar, Text } from 'react-native-paper';
 import { FormSelect } from '@/components/FormSelect';
@@ -7,46 +8,109 @@ import { TraderCard } from '@/components/TraderCard';
 import { TRADE_CATEGORIES } from '@/constants/options';
 import { colors } from '@/constants/theme';
 import { apiFetch, errorMessage } from '@/lib/api';
+import { searchTraders } from '@/lib/trade-search';
 import type { TraderProfile } from '@/types';
 
+const EXAMPLE_SEARCHES = ['tiler', 'bathroom', 'boiler', 'roof leak', 'kitchen', 'driveway'];
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function DirectoryScreen() {
+  const params = useLocalSearchParams<{ q?: string | string[]; trade?: string | string[] }>();
+  const initialQuery = firstParam(params.q) || '';
+  const initialTrade = firstParam(params.trade);
   const [traders, setTraders] = useState<TraderProfile[]>([]);
-  const [trade, setTrade] = useState<string>();
-  const [query, setQuery] = useState('');
+  const [trade, setTrade] = useState<string | undefined>(initialTrade);
+  const [query, setQuery] = useState(initialQuery);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   async function load(selected?: string) {
-    try { setLoading(true); setError(''); setTraders(await apiFetch(`/api/traders${selected ? `?trade=${encodeURIComponent(selected)}` : ''}`)); }
-    catch (e) { setError(errorMessage(e)); }
-    finally { setLoading(false); }
+    try {
+      setLoading(true);
+      setError('');
+      setTraders(await apiFetch(`/api/traders${selected ? `?trade=${encodeURIComponent(selected)}` : ''}`));
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
   }
-  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, []);
-  const filtered = traders.filter((trader) => `${trader.businessName} ${trader.tradeCategory} ${trader.subSkills.join(' ')}`.toLowerCase().includes(query.toLowerCase()));
 
-  if (loading) return <LoadingScreen label="Finding trusted local trades…" />;
-  return <Screen title="Find Trades" subtitle="Search BuildMate profiles, real work galleries and verified-customer reviews before you invite anyone to quote.">
+  useEffect(() => {
+    const timer = setTimeout(() => void load(initialTrade), 0);
+    return () => clearTimeout(timer);
+  }, [initialTrade]);
+
+  const filtered = useMemo(() => searchTraders(traders, query), [traders, query]);
+
+  if (loading) return <LoadingScreen label="Finding local trades…" />;
+
+  return <Screen title="Find the right trade" subtitle="Search by trade, job or problem. BuildPair understands related work, so you do not need to know the exact trade name first.">
     <View style={styles.searchPanel}>
-      <View style={styles.search}><Searchbar style={styles.searchbar} placeholder="What trade or skill do you need?" value={query} onChangeText={setQuery} /></View>
-      <View style={styles.select}><FormSelect label="Trade" value={trade} options={TRADE_CATEGORIES} onChange={(value) => { setTrade(value); void load(value); }} placeholder="All trades" /></View>
-      {trade ? <Button mode="text" onPress={() => { setTrade(undefined); void load(); }}>Clear</Button> : null}
+      <View style={styles.search}>
+        <Searchbar
+          style={styles.searchbar}
+          placeholder="Try ‘bathroom’, ‘tiler’, ‘boiler’ or ‘roof leak’"
+          value={query}
+          onChangeText={setQuery}
+        />
+      </View>
+      <View style={styles.select}>
+        <FormSelect
+          label="Trade category"
+          value={trade}
+          options={TRADE_CATEGORIES}
+          onChange={(value) => { setTrade(value); void load(value); }}
+          placeholder="All trades"
+        />
+      </View>
+      {trade || query ? <Button mode="text" onPress={() => { setQuery(''); setTrade(undefined); void load(); }}>Clear</Button> : null}
     </View>
-    <View style={styles.filterChips}><Chip icon="check-circle-outline">BuildMate listings</Chip><Chip icon="star-outline">Customer reviews</Chip><Chip icon="image-multiple-outline">Work galleries</Chip></View>
-    <View style={styles.resultsHeader}><Text variant="titleLarge" style={styles.title}>{filtered.length} trade{filtered.length === 1 ? '' : 's'} found</Text>{trade ? <Chip>{trade}</Chip> : null}</View>
+
+    <View style={styles.examples}>
+      <Text variant="bodySmall" style={styles.muted}>Popular searches</Text>
+      <View style={styles.exampleChips}>
+        {EXAMPLE_SEARCHES.map((example) => <Chip key={example} onPress={() => setQuery(example)}>{example}</Chip>)}
+      </View>
+    </View>
+
+    <View style={styles.filterChips}>
+      <Chip icon="magnify">Related trade matching</Chip>
+      <Chip icon="star-outline">Customer reviews</Chip>
+      <Chip icon="image-multiple-outline">Work galleries</Chip>
+    </View>
+
+    <View style={styles.resultsHeader}>
+      <View>
+        <Text variant="titleLarge" style={styles.title}>{filtered.length} trade{filtered.length === 1 ? '' : 's'} found</Text>
+        {query ? <Text style={styles.muted}>Best matches for “{query}” are shown first.</Text> : null}
+      </View>
+      {trade ? <Chip>{trade}</Chip> : null}
+    </View>
+
     {error ? <EmptyState title="Directory unavailable" body={error} action={<Button onPress={() => load(trade)}>Try again</Button>} /> : null}
-    {!error && !filtered.length ? <EmptyState title="No matches yet" body="Try another trade or remove your search." /> : <View style={styles.grid}>{filtered.map((trader) => <TraderCard key={trader.id} trader={trader} />)}</View>}
-    <Text variant="bodySmall" style={styles.disclaimer}>BuildMate distinguishes verified reviews from information supplied by tradespeople. Check qualifications, registers and insurance that matter for your particular job before appointing anyone.</Text>
+    {!error && !filtered.length
+      ? <EmptyState title="No close matches yet" body="Try describing the job another way or clear the trade filter. BuildPair will match related services where it can." />
+      : <View style={styles.grid}>{filtered.map((trader) => <TraderCard key={trader.id} trader={trader} />)}</View>}
+
+    <Text variant="bodySmall" style={styles.disclaimer}>BuildPair distinguishes verified reviews from information supplied by tradespeople. Check qualifications, registrations and insurance that matter for your particular job before appointing anyone.</Text>
   </Screen>;
 }
 
 const styles = StyleSheet.create({
-  searchPanel: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, borderRadius: 20, padding: 14, flexDirection: 'row', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' },
+  searchPanel: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, borderRadius: 26, padding: 16, flexDirection: 'row', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' },
   search: { flex: 2, minWidth: 250 },
-  searchbar: { backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.border },
-  select: { flex: 1, minWidth: 210 },
+  searchbar: { backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.border, borderRadius: 18 },
+  select: { flex: 1, minWidth: 220 },
+  examples: { gap: 8 },
+  exampleChips: { flexDirection: 'row', gap: 7, flexWrap: 'wrap' },
   filterChips: { flexDirection: 'row', gap: 7, flexWrap: 'wrap' },
-  resultsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  resultsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   title: { fontWeight: '900', color: colors.charcoal },
+  muted: { color: colors.muted },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, alignItems: 'stretch' },
   disclaimer: { textAlign: 'center', color: colors.muted, marginTop: 8, lineHeight: 19 },
 });
