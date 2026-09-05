@@ -19,7 +19,7 @@ function fallback(input: z.infer<typeof schema>) {
   const subtotal = labourCost + materialsCost;
   const vatAmount = input.vatRegistered ? Math.round(subtotal * 0.2) : 0;
   return {
-    laborCost,
+    laborCost: labourCost,
     materialsCost,
     vatAmount,
     depositAmount: Math.round((subtotal + vatAmount) * 0.2),
