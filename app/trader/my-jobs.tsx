@@ -32,7 +32,10 @@ export default function TraderMyJobs() {
     } catch (e) { setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   async function complete(jobId: string) {
     try {
