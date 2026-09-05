@@ -4,6 +4,7 @@ import { reviews, traderProfiles, users } from '@/db/schema';
 import { traderProfileShowcase } from '@/db/showcase-schema';
 import { demoTraders } from '@/lib/demo-data';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
+import { TRADER_TRIAL_DAYS } from '@/lib/subscription';
 
 const defaultShowcase = {
   template: 'classic' as const,
@@ -28,7 +29,8 @@ function missingShowcaseTable(error: unknown) {
 export async function GET(request: Request, { id }: { id: string }) {
   try {
     const db = getDb();
-    const effectiveTrialEnd = sql<Date>`${traderProfiles.createdAt} + interval '14 days'`;
+    const createdTrialEnd = sql<Date>`${traderProfiles.createdAt} + (${TRADER_TRIAL_DAYS} * interval '1 day')`;
+    const effectiveTrialEnd = sql<Date>`greatest(coalesce(${traderProfiles.trialEndsAt}, ${createdTrialEnd}), ${createdTrialEnd})`;
     const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
     const [profile] = await db.select({
       id: traderProfiles.id,
@@ -56,15 +58,15 @@ export async function GET(request: Request, { id }: { id: string }) {
       if (!demoProfile) throw new HttpError(404, 'Trader profile not found');
       return Response.json({
         ...demoProfile,
+        averageRating: 0,
+        reviewCount: 0,
+        isPreview: true,
         ...defaultShowcase,
         yearsExperience: 12,
         serviceAreas: demoProfile.locationLabel ? [demoProfile.locationLabel] : [],
         createdAt: '2026-08-01T10:00:00.000Z',
-        qualifications: ['Public liability insurance declared', 'Trade experience self-certified'],
-        reviews: [
-          { id: `${demoProfile.id}-review-1`, rating: 5, comment: 'Clear quote, turned up when promised and left the place tidy.', createdAt: '2026-08-18T10:00:00.000Z' },
-          { id: `${demoProfile.id}-review-2`, rating: 4, comment: 'Good communication and a solid finish for the price.', createdAt: '2026-08-29T14:00:00.000Z' },
-        ],
+        qualifications: ['Preview profile for BuildPair beta demonstration'],
+        reviews: [],
         contact: null,
         contactLocked: true,
       });
@@ -91,6 +93,6 @@ export async function GET(request: Request, { id }: { id: string }) {
       }
     } catch { /* guest or suspended viewer: deliberately no contact details */ }
 
-    return Response.json({ ...profile, ...defaultShowcase, ...showcase, reviews: verifiedReviews, contact, contactLocked: !contact });
+    return Response.json({ ...profile, isPreview: false, ...defaultShowcase, ...showcase, reviews: verifiedReviews, contact, contactLocked: !contact });
   } catch (error) { return jsonError(error); }
 }
