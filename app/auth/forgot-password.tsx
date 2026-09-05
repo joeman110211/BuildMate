@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { Button, HelperText, TextInput } from 'react-native-paper';
 import { Screen } from '@/components/Screen';
-import { modeSetupHref, parseAccountMode } from '@/lib/account-mode';
+import { modeSetupHref, parseAccountMode, signInHref } from '@/lib/account-mode';
 import { errorMessage } from '@/lib/api';
 
 type Step = 'email' | 'code' | 'password';
@@ -84,7 +84,7 @@ export default function ForgotPasswordScreen() {
       <TextInput label="Email address" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" mode="outlined" />
       <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
       <Button mode="contained" loading={busy} disabled={busy || !email.trim()} contentStyle={styles.button} onPress={() => void sendCode()}>Send reset code</Button>
-      <Link href={mode ? (`/auth/sign-in?mode=${mode}` as const) : '/auth/sign-in'} asChild><Button>Back to sign in</Button></Link>
+      <Link href={mode ? signInHref(mode) : '/auth/sign-in'} asChild><Button>Back to sign in</Button></Link>
     </Screen>;
   }
 
