@@ -21,16 +21,16 @@ export default function Root({ children }: PropsWithChildren) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="application-name" content="BuildMate" />
+        <meta name="application-name" content="BuildPair" />
         <meta name="description" content="Find trusted local tradespeople, compare quotes and manage building work." />
         <meta name="theme-color" content="#D35400" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="BuildMate" />
+        <meta name="apple-mobile-web-app-title" content="BuildPair" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-        <title>BuildMate</title>
+        <title>BuildPair</title>
         <style dangerouslySetInnerHTML={{ __html: shellCss }} />
         <ScrollViewStyleReset />
       </head>
