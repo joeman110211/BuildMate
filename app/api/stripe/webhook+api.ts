@@ -2,6 +2,7 @@ import type Stripe from 'stripe';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { jobMilestones, payments, traderProfiles } from '@/db/schema';
+import { getSql } from '@/lib/sql';
 import { getStripe } from '@/lib/stripe';
 
 export async function POST(request: Request) {
@@ -22,8 +23,7 @@ export async function POST(request: Request) {
         event = await stripe.webhooks.constructEventAsync(payload, signature, secret);
         break;
       } catch {
-        // The same endpoint is registered for both platform-account and Connect events,
-        // which have different signing secrets. Try each configured secret.
+        // Platform and Connect destinations have different signing secrets.
       }
     }
 
@@ -33,6 +33,19 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Stripe webhook failure', error);
     return new Response('Invalid webhook', { status: 400 });
+  }
+}
+
+async function recordStripeMilestoneAudit(milestoneId: string) {
+  try {
+    await getSql()`
+      UPDATE job_milestones
+      SET payment_method = 'stripe', payment_confirmed_by = NULL
+      WHERE id = ${milestoneId}
+    `;
+  } catch {
+    // Older deployments can briefly receive a webhook before migration 0009 is
+    // applied. Payment success must not be lost merely because audit columns lag.
   }
 }
 
@@ -74,6 +87,7 @@ async function handleEvent(event: Stripe.Event) {
     const chargeAmount = intent.amount_received || intent.amount;
     await db.insert(payments).values({ jobId, milestoneId, customerId, traderId, amount: chargeAmount, platformFee: intent.application_fee_amount ?? 0, stripePaymentIntentId: intent.id, status: 'paid', paidAt: new Date() }).onConflictDoUpdate({ target: payments.stripePaymentIntentId, set: { status: 'paid', paidAt: new Date() } });
     await db.update(jobMilestones).set({ status: 'paid', paidAt: new Date(), completedAt: milestone.completedAt ?? new Date() }).where(eq(jobMilestones.id, milestoneId));
+    await recordStripeMilestoneAudit(milestoneId);
     return;
   }
 
