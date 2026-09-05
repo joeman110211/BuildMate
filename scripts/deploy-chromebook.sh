@@ -19,7 +19,7 @@ if ! flock -n 9; then
   exit 0
 fi
 
-# Refuse to overwrite tracked local work. Untracked local-only files such as .env are fine.
+# Refuse to overwrite tracked local work. Ignored local files such as .env are fine.
 if ! git diff --quiet || ! git diff --cached --quiet; then
   log "Tracked local changes detected; refusing automatic deployment."
   git status --short
@@ -43,8 +43,30 @@ if ! git merge-base --is-ancestor "$LOCAL_SHA" "$REMOTE_SHA"; then
   exit 3
 fi
 
+rollback() {
+  log "Deployment failed after switching revisions. Rolling back to ${LOCAL_SHA:0:12}..."
+  git reset --hard "$LOCAL_SHA"
+  npm ci
+  npm run build:web
+  pm2 restart buildpair --update-env >/dev/null || true
+  pm2 save >/dev/null || true
+  log "Rollback completed. Inspect the deployment logs before retrying."
+}
+
+DEPLOY_SWITCHED=false
+on_error() {
+  code=$?
+  if [[ "$DEPLOY_SWITCHED" == true ]]; then
+    trap - ERR
+    rollback || true
+  fi
+  exit "$code"
+}
+trap on_error ERR
+
 log "Deploying ${LOCAL_SHA:0:12} -> ${REMOTE_SHA:0:12}..."
 git merge --ff-only "$REMOTE_SHA"
+DEPLOY_SWITCHED=true
 
 log "Installing locked dependencies..."
 npm ci
@@ -63,14 +85,16 @@ log "Checking local API health..."
 LOCAL_HEALTH="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 http://localhost:3000/api/health)"
 if [[ "$LOCAL_HEALTH" != *'"status":"ok"'* || "$LOCAL_HEALTH" != *'"database":"ok"'* ]]; then
   log "Local health check returned an unexpected response: $LOCAL_HEALTH"
-  exit 4
+  false
 fi
 
 log "Checking public staging health..."
 PUBLIC_HEALTH="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$HEALTH_URL")"
 if [[ "$PUBLIC_HEALTH" != *'"status":"ok"'* || "$PUBLIC_HEALTH" != *'"database":"ok"'* ]]; then
   log "Public health check returned an unexpected response: $PUBLIC_HEALTH"
-  exit 5
+  false
 fi
 
+DEPLOY_SWITCHED=false
+trap - ERR
 log "Deployment complete: ${REMOTE_SHA:0:12} is live."
