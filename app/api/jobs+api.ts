@@ -3,6 +3,7 @@ import { getDb } from '@/db/client';
 import { jobs, traderProfiles } from '@/db/schema';
 import { demoJobs } from '@/lib/demo-data';
 import { InvalidPostcodeError, lookupPostcode, outwardCode } from '@/lib/postcode';
+import { previewDataEnabled } from '@/lib/preview';
 import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
 import { hasActiveLeadAccess } from '@/lib/subscription';
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
       }
 
       const databaseRows = await db.select().from(jobs).where(access).orderBy(desc(jobs.createdAt)).limit(100);
-      const previewRows = activeLeadAccess
+      const previewRows = activeLeadAccess && previewDataEnabled()
         ? demoJobs
             .filter((job) => profile.subscriptionTier === 'featured' || job.category === profile.tradeCategory)
             .map((job) => ({ ...job, isPreview: true }))
