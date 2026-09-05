@@ -40,11 +40,9 @@ export default function DirectoryScreen() {
   }
 
   useEffect(() => {
-    setTrade(initialTrade);
-    setQuery(initialQuery);
     const timer = setTimeout(() => void load(initialTrade), 0);
     return () => clearTimeout(timer);
-  }, [initialQuery, initialTrade]);
+  }, [initialTrade]);
 
   const filtered = useMemo(() => searchTraders(traders, query), [traders, query]);
 
