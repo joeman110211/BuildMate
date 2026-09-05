@@ -1,6 +1,7 @@
+import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Button, Text } from 'react-native-paper';
 import { PublicFooter } from '@/components/PublicFooter';
 import { colors } from '@/constants/theme';
 
@@ -10,9 +11,13 @@ export type InfoSection = {
 };
 
 export function PublicInfoPage({ eyebrow, title, intro, sections, updated }: { eyebrow?: string; title: string; intro: string; sections: InfoSection[]; updated?: string }) {
+  const router = useRouter();
+  const goBack = () => router.canGoBack() ? router.back() : router.replace('/');
+
   return <ScrollView style={styles.page} contentContainerStyle={styles.scroll}>
     <View style={styles.hero}>
       <View style={styles.heroInner}>
+        <Button icon="arrow-left" mode="text" textColor="#FFFFFF" compact style={styles.back} onPress={goBack}>Back</Button>
         {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
         <Text variant="displaySmall" style={styles.title}>{title}</Text>
         <Text variant="bodyLarge" style={styles.intro}>{intro}</Text>
@@ -43,6 +48,7 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1 },
   hero: { backgroundColor: colors.charcoal, paddingHorizontal: 20, paddingVertical: 58 },
   heroInner: { width: '100%', maxWidth: 980, alignSelf: 'center', gap: 13 },
+  back: { alignSelf: 'flex-start', marginLeft: -8, marginBottom: 2 },
   eyebrow: { color: colors.secondary, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.3 },
   title: { color: '#FFFFFF', fontWeight: '900', letterSpacing: -1.1 },
   intro: { color: '#E4E7E9', maxWidth: 780, lineHeight: 27 },
