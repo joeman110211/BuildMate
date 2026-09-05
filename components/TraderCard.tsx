@@ -11,8 +11,14 @@ export function TraderCard({ trader }: { trader: TraderProfile }) {
   return <AppCard style={styles.card}>
     {trader.photos[0] ? <Image source={{ uri: trader.photos[0] }} style={styles.image} accessibilityLabel={`${trader.businessName} work example`} /> : <View style={styles.placeholder}><Text style={styles.placeholderLetter}>{trader.businessName.slice(0, 1).toUpperCase()}</Text></View>}
     <View style={styles.content}>
-      <View style={styles.row}><View style={styles.flex}><Text variant="titleLarge" style={styles.title}>{trader.businessName}</Text><Text style={styles.muted}>{trader.tradeCategory}{trader.locationLabel ? ` · ${trader.locationLabel}` : ''}</Text></View>{trader.subscriptionTier === 'featured' ? <Chip compact icon="star-circle">Featured</Chip> : null}</View>
-      <View style={styles.chips}><Chip compact icon="star">{Number(trader.averageRating || 0).toFixed(1)} ({trader.reviewCount})</Chip><Chip compact icon="map-marker-radius">{trader.radiusMiles} miles</Chip></View>
+      <View style={styles.row}>
+        <View style={styles.flex}><Text variant="titleLarge" style={styles.title}>{trader.businessName}</Text><Text style={styles.muted}>{trader.tradeCategory}{trader.locationLabel ? ` · ${trader.locationLabel}` : ''}</Text></View>
+        {trader.isPreview ? <Chip compact icon="flask-outline">Preview</Chip> : trader.subscriptionTier === 'featured' ? <Chip compact icon="star-circle">Featured</Chip> : null}
+      </View>
+      <View style={styles.chips}>
+        {trader.isPreview ? <Chip compact icon="information-outline">Example profile</Chip> : <Chip compact icon="star">{Number(trader.averageRating || 0).toFixed(1)} ({trader.reviewCount})</Chip>}
+        <Chip compact icon="map-marker-radius">{trader.radiusMiles} miles</Chip>
+      </View>
       <Text numberOfLines={3} style={styles.bio}>{trader.bio}</Text>
       <View style={styles.skills}>{trader.subSkills.slice(0, 4).map((skill) => <Chip key={skill} compact>{skill}</Chip>)}</View>
       <Button mode="contained" icon="account-search-outline" contentStyle={styles.button} onPress={() => router.push(`/(public)/traders/${trader.id}` as Href)}>View Profile</Button>
