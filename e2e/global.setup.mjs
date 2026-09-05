@@ -1,11 +1,15 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { createClerkClient } from '@clerk/backend';
 import { clerkSetup } from '@clerk/testing/playwright';
 import { test as setup } from '@playwright/test';
 
 const baseURL = process.env.E2E_BASE_URL || 'https://buildmate-nine.vercel.app';
-const customerEmail = process.env.E2E_CUSTOMER_EMAIL || 'customer@buildpair.test';
-const traderEmail = process.env.E2E_TRADER_EMAIL || 'trader@buildpair.test';
+const runId = (process.env.GITHUB_RUN_ID || Date.now().toString()).replace(/[^a-zA-Z0-9-]/g, '');
+const customerEmail = process.env.E2E_CUSTOMER_EMAIL || `customer-${runId}@buildpair.test`;
+const traderEmail = process.env.E2E_TRADER_EMAIL || `trader-${runId}@buildpair.test`;
+const stateFile = path.join(process.cwd(), 'playwright', '.e2e-users.json');
 
 async function ensureTestUser(client, email, firstName) {
   const existing = await client.users.getUserList({ emailAddress: [email], limit: 1 });
@@ -32,5 +36,7 @@ setup('prepare Clerk production testing token and users', async () => {
   const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
   await ensureTestUser(clerkClient, customerEmail, 'Customer');
   await ensureTestUser(clerkClient, traderEmail, 'Trader');
+  await fs.mkdir(path.dirname(stateFile), { recursive: true });
+  await fs.writeFile(stateFile, JSON.stringify({ customerEmail, traderEmail }), 'utf8');
   await clerkSetup();
 });
