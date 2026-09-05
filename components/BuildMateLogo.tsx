@@ -12,7 +12,7 @@ export function BuildMateLogo({ compact = false, tagline = false, style }: Props
   const wordSize = compact ? 22 : 36;
 
   return (
-    <View style={[styles.wrap, style]} accessibilityLabel="BuildMate">
+    <View style={[styles.wrap, style]} accessibilityLabel="BuildPair">
       <View style={[styles.mark, { width: size, height: size, borderRadius: size * 0.24 }]}>
         <View style={[styles.roof, {
           width: size * 0.34,
@@ -50,7 +50,7 @@ export function BuildMateLogo({ compact = false, tagline = false, style }: Props
       </View>
       <View style={styles.copy}>
         <Text style={[styles.wordmark, { fontSize: wordSize, lineHeight: wordSize * 1.05 }]}>
-          <Text style={styles.build}>Build</Text><Text style={styles.mate}>Mate</Text>
+          <Text style={styles.build}>Build</Text><Text style={styles.pair}>Pair</Text>
         </Text>
         {tagline && !compact ? <Text style={styles.tagline}>BUILD  •  CONNECT  •  GET IT DONE</Text> : null}
       </View>
@@ -70,6 +70,6 @@ const styles = StyleSheet.create({
   copy: { justifyContent: 'center' },
   wordmark: { fontWeight: '900', letterSpacing: -1.1 },
   build: { color: colors.charcoal },
-  mate: { color: colors.primary },
+  pair: { color: colors.primary },
   tagline: { color: colors.muted, fontSize: 9, lineHeight: 12, fontWeight: '800', letterSpacing: 1.3, marginTop: 2 },
 });
