@@ -12,7 +12,7 @@ export function PayMilestoneButton({ milestoneId, onPaid }: { milestoneId: strin
     try {
       setBusy(true);
       const { clientSecret } = await apiFetch<{ clientSecret: string }>('/api/stripe/payment-intent', { method: 'POST', body: JSON.stringify({ milestoneId, platform: 'native' }) }, getToken);
-      const initialized = await initPaymentSheet({ merchantDisplayName: 'BuildPair', paymentIntentClientSecret: clientSecret, returnURL: 'buildpair://status?type=payment&state=complete', allowsDelayedPaymentMethods: false, googlePay: { merchantCountryCode: 'GB', testEnv: __DEV__ }, applePay: { merchantCountryCode: 'GB' }, style: 'alwaysLight' });
+      const initialized = await initPaymentSheet({ merchantDisplayName: 'BuildMate', paymentIntentClientSecret: clientSecret, returnURL: 'buildpair://status?type=payment&state=complete', allowsDelayedPaymentMethods: false, googlePay: { merchantCountryCode: 'GB', testEnv: __DEV__ }, applePay: { merchantCountryCode: 'GB' }, style: 'alwaysLight' });
       if (initialized.error) throw new Error(initialized.error.message);
       const presented = await presentPaymentSheet();
       if (presented.error) throw new Error(presented.error.message);

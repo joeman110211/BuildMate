@@ -10,8 +10,8 @@ import { trialEndsAt } from '@/lib/subscription';
 const inputSchema = z.object({ tier: z.enum(['basic', 'featured']) });
 
 const plans = {
-  basic: { name: 'BuildPair Basic', unitAmount: 1999, priceEnv: 'STRIPE_BASIC_PRICE_ID' },
-  featured: { name: 'BuildPair Featured', unitAmount: 2999, priceEnv: 'STRIPE_FEATURED_PRICE_ID' },
+  basic: { name: 'BuildMate Basic', unitAmount: 1999, priceEnv: 'STRIPE_BASIC_PRICE_ID' },
+  featured: { name: 'BuildMate Featured', unitAmount: 2999, priceEnv: 'STRIPE_FEATURED_PRICE_ID' },
 } as const;
 
 export async function POST(request: Request) {

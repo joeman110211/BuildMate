@@ -50,7 +50,7 @@ export default function TraderJobBoard() {
   }), [directOnly, jobs, profile?.userId, search, urgentOnly]);
 
   if (loading) return <LoadingScreen label="Finding suitable jobs…" />;
-  return <Screen title="Job Board" subtitle="New work matching your trade, service area and BuildPair plan.">
+  return <Screen title="Job Board" subtitle="New work matching your trade, service area and BuildMate plan.">
     <Searchbar placeholder="Search jobs or locations" value={search} onChangeText={setSearch} style={styles.search} />
     <View style={styles.filters}>
       <Chip selected={!directOnly && !urgentOnly} showSelectedCheck onPress={() => { setDirectOnly(false); setUrgentOnly(false); }}>All</Chip>
@@ -80,11 +80,11 @@ export default function TraderJobBoard() {
 }
 
 const styles = StyleSheet.create({
-  search: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  search: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border },
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' },
   titleBlock: { flex: 1, minWidth: 220, gap: 4 },
-  title: { fontWeight: '900', color: colors.text },
+  title: { fontWeight: '900', color: colors.charcoal },
   muted: { color: colors.muted, lineHeight: 21 },
   badges: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   photo: { width: '100%', height: 210, borderRadius: 14, backgroundColor: colors.border },

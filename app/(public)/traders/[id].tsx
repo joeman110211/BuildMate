@@ -49,14 +49,14 @@ export default function TraderProfileScreen() {
 
   return <Screen>
     <View style={styles.hero}>
-      {profile.coverPhotoUrl ? <Image source={{ uri: profile.coverPhotoUrl }} style={styles.cover} /> : <View style={styles.coverFallback}><Text style={styles.coverFallbackText}>BuildPair</Text></View>}
+      {profile.coverPhotoUrl ? <Image source={{ uri: profile.coverPhotoUrl }} style={styles.cover} /> : <View style={styles.coverFallback}><Text style={styles.coverFallbackText}>BuildMate</Text></View>}
       <View style={styles.heroBody}>
         <View style={styles.identityRow}>
           {profile.profileImageUrl ? <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} /> : <View style={styles.avatarFallback}><Text style={styles.avatarLetter}>{profile.businessName.slice(0, 1).toUpperCase()}</Text></View>}
           <View style={styles.identityText}>
             <Text variant="headlineMedium" style={styles.businessName}>{profile.businessName}</Text>
             <Text variant="bodyLarge" style={styles.muted}>{profile.tradeCategory}{profile.locationLabel ? ` · ${profile.locationLabel}` : ''}</Text>
-            <View style={styles.meta}><Chip icon="star">{profile.averageRating.toFixed(1)} ({profile.reviewCount} reviews)</Chip><Chip icon="map-marker-radius">{profile.radiusMiles} mile radius</Chip><Chip icon="check-decagram-outline">BuildPair member</Chip></View>
+            <View style={styles.meta}><Chip icon="star">{profile.averageRating.toFixed(1)} ({profile.reviewCount} reviews)</Chip><Chip icon="map-marker-radius">{profile.radiusMiles} mile radius</Chip><Chip icon="check-decagram-outline">BuildMate member</Chip></View>
           </View>
           {profile.logoUrl ? <Image source={{ uri: profile.logoUrl }} style={styles.logo} /> : null}
         </View>
@@ -94,34 +94,34 @@ export default function TraderProfileScreen() {
     <AppCard>
       {profile.qualifications.length ? profile.qualifications.map((item) => <View key={item} style={styles.credential}><Text style={styles.credentialTick}>✓</Text><Text style={styles.credentialText}>{item}</Text></View>) : <Text style={styles.muted}>No qualifications have been listed yet.</Text>}
       {Object.entries(profile.externalLinks ?? {}).filter(([, url]) => url).map(([name, url]) => <Button key={name} icon="open-in-new" onPress={() => Linking.openURL(url)}>{name}</Button>)}
-      <Text variant="bodySmall" style={styles.muted}>Trade qualifications and register links are declared by the tradesperson unless specifically marked as verified by BuildPair.</Text>
+      <Text variant="bodySmall" style={styles.muted}>Trade qualifications and register links are declared by the tradesperson unless specifically marked as verified by BuildMate.</Text>
     </AppCard>
 
     <View style={styles.sectionHeader}><Text variant="titleLarge" style={styles.sectionTitle}>Customer Reviews</Text></View>
     <AppCard>
       <View style={styles.ratingSummary}><View><Text style={styles.bigRating}>{profile.averageRating.toFixed(1)}</Text><Text style={styles.stars}>★★★★★</Text><Text style={styles.muted}>{profile.reviewCount} verified review{profile.reviewCount === 1 ? '' : 's'}</Text></View><View style={styles.ratingBars}>{ratingCounts.map((item) => <View key={item.rating} style={styles.ratingRow}><Text style={styles.ratingLabel}>{item.rating} ★</Text><ProgressBar progress={item.count / maxRatingCount} color={colors.primary} style={styles.ratingBar} /><Text style={styles.ratingCount}>{item.count}</Text></View>)}</View></View>
     </AppCard>
-    {profile.reviews.length ? profile.reviews.map((review) => <AppCard key={review.id}><View style={styles.reviewTop}><View><Text variant="titleMedium" style={styles.sectionTitle}>Verified customer</Text><Text style={styles.stars}>{'★'.repeat(review.rating)}</Text></View><Chip compact icon="check-circle">Verified BuildPair job</Chip></View><Text style={styles.reviewText}>{review.comment}</Text><Text variant="bodySmall" style={styles.muted}>{new Date(review.createdAt).toLocaleDateString('en-GB')}</Text></AppCard>) : <AppCard><Text style={styles.muted}>No verified BuildPair reviews yet.</Text></AppCard>}
+    {profile.reviews.length ? profile.reviews.map((review) => <AppCard key={review.id}><View style={styles.reviewTop}><View><Text variant="titleMedium" style={styles.sectionTitle}>Verified customer</Text><Text style={styles.stars}>{'★'.repeat(review.rating)}</Text></View><Chip compact icon="check-circle">Verified BuildMate job</Chip></View><Text style={styles.reviewText}>{review.comment}</Text><Text variant="bodySmall" style={styles.muted}>{new Date(review.createdAt).toLocaleDateString('en-GB')}</Text></AppCard>) : <AppCard><Text style={styles.muted}>No verified BuildMate reviews yet.</Text></AppCard>}
 
     <Divider />
     <AppCard style={styles.finalCta}>
       <Text variant="headlineSmall" style={styles.sectionTitle}>Ready to discuss your job?</Text>
-      <Text style={styles.muted}>Send {profile.businessName} your job details through BuildPair and keep the quote, messages and work record together.</Text>
+      <Text style={styles.muted}>Send {profile.businessName} your job details through BuildMate and keep the quote, messages and work record together.</Text>
       <View style={styles.heroActions}>{quoteButton}{profile.contact?.phone ? <Button icon="phone" mode="outlined" onPress={() => Linking.openURL(`tel:${profile.contact?.phone}`)}>Call Direct</Button> : null}</View>
-      <Text variant="bodySmall" style={styles.muted}>BuildPair member since {memberSince}.{profile.contactLocked ? ' Direct contact details are hidden until available through the trader’s listing.' : ''}</Text>
+      <Text variant="bodySmall" style={styles.muted}>BuildMate member since {memberSince}.{profile.contactLocked ? ' Direct contact details are hidden until available through the trader’s listing.' : ''}</Text>
     </AppCard>
   </Screen>;
 }
 
 const styles = StyleSheet.create({
-  hero: { borderRadius: 22, overflow: 'hidden', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, shadowColor: '#111827', shadowOpacity: 0.08, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  hero: { borderRadius: 22, overflow: 'hidden', backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, shadowColor: colors.charcoal, shadowOpacity: 0.08, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
   cover: { width: '100%', height: 250, backgroundColor: colors.border },
-  coverFallback: { width: '100%', height: 180, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  coverFallbackText: { color: '#FFFFFF', fontSize: 30, fontWeight: '900', opacity: 0.8 },
+  coverFallback: { width: '100%', height: 180, backgroundColor: colors.charcoal, alignItems: 'center', justifyContent: 'center' },
+  coverFallbackText: { color: '#FFFFFF', fontSize: 30, fontWeight: '900', opacity: 0.92 },
   heroBody: { padding: 18, gap: 16 },
   identityRow: { flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
   identityText: { flex: 1, minWidth: 220, gap: 6 },
-  businessName: { fontWeight: '900', color: colors.text, letterSpacing: -0.5 },
+  businessName: { fontWeight: '900', color: colors.charcoal, letterSpacing: -0.5 },
   avatar: { width: 92, height: 92, borderRadius: 46, backgroundColor: colors.border, borderWidth: 4, borderColor: '#FFFFFF' },
   avatarFallback: { width: 92, height: 92, borderRadius: 46, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: '#FFFFFF' },
   avatarLetter: { color: '#FFFFFF', fontSize: 34, fontWeight: '900' },
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   statNumber: { color: colors.primary, fontWeight: '900' },
   statLabel: { color: colors.muted, fontWeight: '700', textAlign: 'center' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 },
-  sectionTitle: { fontWeight: '900', color: colors.text },
+  sectionTitle: { fontWeight: '900', color: colors.charcoal },
   bio: { lineHeight: 25, color: colors.text },
   gallery: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   photo: { flexGrow: 1, flexBasis: 170, height: 170, borderRadius: 14, backgroundColor: colors.border },
@@ -148,14 +148,14 @@ const styles = StyleSheet.create({
   credentialTick: { color: colors.success, fontWeight: '900' },
   credentialText: { flex: 1, color: colors.text, lineHeight: 22 },
   ratingSummary: { flexDirection: 'row', gap: 22, flexWrap: 'wrap', alignItems: 'center' },
-  bigRating: { fontSize: 42, fontWeight: '900', color: colors.text },
+  bigRating: { fontSize: 42, fontWeight: '900', color: colors.charcoal },
   stars: { color: '#E0A400', fontWeight: '900', fontSize: 18, letterSpacing: 1 },
   ratingBars: { flex: 1, minWidth: 240, gap: 5 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   ratingLabel: { width: 34, color: colors.muted, fontWeight: '700' },
-  ratingBar: { flex: 1, height: 7, borderRadius: 4, backgroundColor: '#F1EEE9' },
+  ratingBar: { flex: 1, height: 7, borderRadius: 4, backgroundColor: colors.surfaceStrong },
   ratingCount: { width: 22, textAlign: 'right', color: colors.muted },
   reviewTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
   reviewText: { color: colors.text, lineHeight: 23 },
-  finalCta: { backgroundColor: '#FFF9F4' },
+  finalCta: { backgroundColor: '#FFF8F3' },
 });

@@ -10,7 +10,7 @@ type ResultCopy = { title: string; body: string; action: string };
 const results: Record<string, ResultCopy> = {
   'subscription:complete': {
     title: 'Subscription confirmed',
-    body: 'Stripe has accepted your subscription. BuildPair will update your plan as soon as the verified webhook arrives.',
+    body: 'Stripe has accepted your subscription. BuildMate will update your plan as soon as the verified webhook arrives.',
     action: 'Return to plans',
   },
   'subscription:cancelled': {
@@ -20,7 +20,7 @@ const results: Record<string, ResultCopy> = {
   },
   'connect:complete': {
     title: 'Payout details submitted',
-    body: 'Stripe is checking your payout account. BuildPair will enable customer payments when Stripe confirms that charges are active.',
+    body: 'Stripe is checking your payout account. BuildMate will enable customer payments when Stripe confirms that charges are active.',
     action: 'Return to plans',
   },
   'connect:retry': {
@@ -30,12 +30,12 @@ const results: Record<string, ResultCopy> = {
   },
   'payment:complete': {
     title: 'Payment submitted',
-    body: 'Stripe is confirming the payment. The job milestone will update after BuildPair receives the verified payment event.',
+    body: 'Stripe is confirming the payment. The job milestone will update after BuildMate receives the verified payment event.',
     action: 'Open dashboard',
   },
   'payment:cancelled': {
     title: 'Payment cancelled',
-    body: 'The checkout was closed before payment completed. No BuildPair milestone has been marked as paid.',
+    body: 'The checkout was closed before payment completed. No BuildMate milestone has been marked as paid.',
     action: 'Open dashboard',
   },
 };
@@ -45,8 +45,8 @@ export default function ProviderStatusScreen() {
   const { user } = useCurrentUser();
   const key = `${params.type ?? ''}:${params.state ?? ''}`;
   const copy = results[key] ?? {
-    title: 'Back to BuildPair',
-    body: 'The external service returned you to BuildPair. Open your dashboard to see the latest verified status.',
+    title: 'Back to BuildMate',
+    body: 'The external service returned you to BuildMate. Open your dashboard to see the latest verified status.',
     action: 'Continue',
   };
   const isTraderFlow = params.type === 'subscription' || params.type === 'connect';

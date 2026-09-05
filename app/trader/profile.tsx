@@ -31,7 +31,7 @@ export default function TraderProfileHub() {
   if (loading) return <LoadingScreen />;
   if (!profile) return <Screen title="Your Tradesperson Profile"><EmptyState title="No public profile yet" body="Complete your profile setup so homeowners can see your work and request quotes." action={<Link href="/trader/onboarding" asChild><Button mode="contained">Create Profile</Button></Link>} /></Screen>;
 
-  return <Screen title="Your Profile" subtitle="This is the business identity homeowners see on BuildPair.">
+  return <Screen title="Your Profile" subtitle="This is the business identity homeowners see on BuildMate.">
     <AppCard style={styles.profileCard}>
       {profile.coverPhotoUrl ? <Image source={{ uri: profile.coverPhotoUrl }} style={styles.cover} /> : <View style={styles.coverFallback} />}
       <View style={styles.identity}>
@@ -62,13 +62,13 @@ export default function TraderProfileHub() {
 const styles = StyleSheet.create({
   profileCard: { padding: 0, overflow: 'hidden' },
   cover: { width: '100%', height: 190, backgroundColor: colors.border },
-  coverFallback: { width: '100%', height: 130, backgroundColor: colors.surfaceSoft },
+  coverFallback: { width: '100%', height: 130, backgroundColor: colors.charcoal },
   identity: { padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' },
-  avatar: { width: 78, height: 78, borderRadius: 39, backgroundColor: colors.border },
-  avatarFallback: { width: 78, height: 78, borderRadius: 39, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  avatarLetter: { color: '#FFF', fontSize: 28, fontWeight: '900' },
+  avatar: { width: 78, height: 78, borderRadius: 24, backgroundColor: colors.border },
+  avatarFallback: { width: 78, height: 78, borderRadius: 24, backgroundColor: colors.charcoal, alignItems: 'center', justifyContent: 'center' },
+  avatarLetter: { color: colors.primary, fontSize: 28, fontWeight: '900' },
   flex: { flex: 1, minWidth: 220, gap: 5 },
-  title: { fontWeight: '900', color: colors.text },
+  title: { fontWeight: '900', color: colors.charcoal },
   muted: { color: colors.muted, lineHeight: 22 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

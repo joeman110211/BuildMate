@@ -1,11 +1,20 @@
 import { Stack } from 'expo-router';
+import { BuildMateLogo } from '@/components/BuildMateLogo';
+import { colors } from '@/constants/theme';
 
 export default function AuthLayout() {
-  return <Stack screenOptions={{ headerTintColor: '#D35400', headerShadowVisible: false }}>
-    <Stack.Screen name="account" options={{ title: 'Join BuildPair', headerBackVisible: false }} />
-    <Stack.Screen name="sign-in" options={{ title: 'Sign in' }} />
-    <Stack.Screen name="sign-up" options={{ title: 'Create account' }} />
-    <Stack.Screen name="social-continue" options={{ title: 'Continue with BuildPair' }} />
-    <Stack.Screen name="choose-role" options={{ title: 'Choose account mode', headerBackVisible: false }} />
+  return <Stack screenOptions={{
+    headerTintColor: colors.primary,
+    headerShadowVisible: false,
+    headerTitleAlign: 'center',
+    headerStyle: { backgroundColor: colors.surfaceRaised },
+    headerTitle: () => <BuildMateLogo compact />,
+    contentStyle: { backgroundColor: colors.background },
+  }}>
+    <Stack.Screen name="account" options={{ headerBackVisible: false }} />
+    <Stack.Screen name="sign-in" />
+    <Stack.Screen name="sign-up" />
+    <Stack.Screen name="social-continue" />
+    <Stack.Screen name="choose-role" options={{ headerBackVisible: false }} />
   </Stack>;
 }
