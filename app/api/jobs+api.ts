@@ -2,7 +2,10 @@ import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { jobs, traderProfiles } from '@/db/schema';
 import { demoJobs } from '@/lib/demo-data';
+import { addJobEvent, createNotification } from '@/lib/notifications';
 import { InvalidPostcodeError, lookupPostcode, outwardCode } from '@/lib/postcode';
+import { previewDataEnabled } from '@/lib/preview';
+import { assertRateLimit } from '@/lib/rate-limit';
 import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
 import { hasActiveLeadAccess, TRADER_TRIAL_DAYS } from '@/lib/subscription';
@@ -37,14 +40,7 @@ export async function GET(request: Request) {
       const acceptedWork = sql`${jobs.acceptedQuoteId} in (select id from quotes where trader_id = ${user.id})`;
       let access = acceptedWork;
 
-      if (activeLeadAccess && profile.subscriptionTier === 'basic') {
-        access = or(
-          acceptedWork,
-          and(eq(jobs.targetTraderId, user.id), inArray(jobs.status, ['open', 'quoted'])),
-        )!;
-      }
-
-      if (activeLeadAccess && profile.subscriptionTier === 'featured') {
+      if (activeLeadAccess && profile.subscriptionTier !== 'free') {
         const withinRadius = profile.latitude != null && profile.longitude != null
           ? sql`${jobs.latitude} is not null and ${jobs.longitude} is not null and (
               3959 * acos(least(1, greatest(-1,
@@ -71,11 +67,11 @@ export async function GET(request: Request) {
         )!;
       }
 
-      const databaseRows = await db.select().from(jobs).where(access).orderBy(desc(jobs.createdAt)).limit(100);
-      const previewRows = activeLeadAccess
+      const databaseRows = await db.select().from(jobs).where(access).orderBy(desc(jobs.isEmergency), desc(jobs.createdAt)).limit(100);
+      const previewRows = activeLeadAccess && profile.subscriptionTier !== 'free' && previewDataEnabled()
         ? demoJobs
-            .filter((job) => profile.subscriptionTier === 'featured' || job.category === profile.tradeCategory)
-            .map((job) => ({ ...job, isPreview: true }))
+            .filter((job) => job.category === profile.tradeCategory)
+            .map((job) => ({ ...job, isPreview: true, isEmergency: false }))
         : [];
       rows = [...databaseRows.map((job) => ({ ...job, isPreview: false })), ...previewRows].slice(0, 100);
       rows = rows.map((job) => {
@@ -92,6 +88,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await requireRole(request, 'customer');
+    await assertRateLimit(request, 'post-job', 20, 3600, user.id);
     const payload = jobSchema.parse(await request.json());
     const db = getDb();
 
@@ -113,6 +110,7 @@ export async function POST(request: Request) {
         JOIN users u ON u.id = tp.user_id
         WHERE tp.user_id = ${payload.targetTraderId}
           AND coalesce(u.is_suspended, false) = false
+          AND coalesce(u.is_deleted, false) = false
         LIMIT 1
       ` as unknown as { tradeCategory: string; subscriptionTier: string; isSubscriptionActive: boolean }[];
       const target = targets[0];
@@ -129,14 +127,24 @@ export async function POST(request: Request) {
 
     const [job] = await db.insert(jobs).values({
       customerId: user.id,
-      ...payload,
       targetTraderId: payload.targetTraderId ?? null,
+      title: payload.title,
+      category: payload.category,
+      propertyType: payload.propertyType,
       postcode: location.postcode,
       locationLabel: location.locationLabel,
       latitude: location.latitude,
       longitude: location.longitude,
+      urgency: payload.urgency,
+      description: payload.description,
+      aiGeneratedSpec: payload.aiGeneratedSpec ?? null,
+      budgetRange: payload.budgetRange,
+      photos: payload.photos,
+      isEmergency: payload.isEmergency,
     }).returning();
     if (!job) throw new Error('Job could not be created');
+
+    await addJobEvent(job.id, user.id, 'job_posted', payload.isEmergency ? 'Emergency job posted' : 'Job posted', payload.title, { category: payload.category, emergency: payload.isEmergency });
 
     let conversationId: string | null = null;
     if (payload.targetTraderId) {
@@ -148,6 +156,58 @@ export async function POST(request: Request) {
         RETURNING id
       ` as unknown as { id: string }[];
       conversationId = conversations[0]?.id ?? null;
+      await createNotification(payload.targetTraderId, {
+        type: 'direct_lead',
+        title: payload.isEmergency ? 'Emergency direct job request' : 'New direct job request',
+        body: `${payload.title} has been sent directly to you.`,
+        href: `/trader/job-board`,
+        email: payload.isEmergency,
+      });
+    } else {
+      const matched = await getSql()`
+        SELECT DISTINCT tp.user_id AS "userId"
+        FROM trader_profiles tp
+        JOIN users u ON u.id = tp.user_id
+        LEFT JOIN saved_job_searches s ON s.trader_id = tp.user_id AND s.enabled = true
+        WHERE tp.trade_category = ${payload.category}
+          AND tp.subscription_tier <> 'free'
+          AND tp.is_subscription_active = true
+          AND (tp.stripe_subscription_id IS NOT NULL OR greatest(coalesce(tp.trial_ends_at, tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')), tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')) > now())
+          AND coalesce(u.is_suspended, false) = false
+          AND coalesce(u.is_deleted, false) = false
+          AND tp.latitude IS NOT NULL AND tp.longitude IS NOT NULL
+          AND (3959 * acos(least(1, greatest(-1,
+            cos(radians(tp.latitude)) * cos(radians(${location.latitude})) *
+            cos(radians(${location.longitude}) - radians(tp.longitude)) +
+            sin(radians(tp.latitude)) * sin(radians(${location.latitude}))
+          )))) <= tp.radius_miles
+          AND (
+            (
+              ${payload.isEmergency} = true
+              AND EXISTS (
+                SELECT 1 FROM trader_availability ta
+                WHERE ta.trader_id = tp.user_id AND ta.status = 'available'
+                  AND ta.starts_at <= now() AND ta.ends_at >= now()
+              )
+            )
+            OR tp.subscription_tier = 'featured'
+            OR (
+              s.id IS NOT NULL
+              AND (s.category IS NULL OR s.category = ${payload.category})
+              AND (s.emergency_only = false OR ${payload.isEmergency} = true)
+              AND (s.keywords IS NULL OR lower(${payload.title + ' ' + payload.description}) LIKE '%' || lower(s.keywords) || '%')
+            )
+          )
+        LIMIT 100
+      ` as unknown as { userId: string }[];
+
+      await Promise.allSettled(matched.map(({ userId }) => createNotification(userId, {
+        type: payload.isEmergency ? 'emergency_job_match' : 'job_match',
+        title: payload.isEmergency ? `Emergency ${payload.category} job nearby` : `New ${payload.category} job match`,
+        body: `${payload.title} · ${outwardCode(location.postcode) ?? location.locationLabel}`,
+        href: '/trader/job-board',
+        email: payload.isEmergency,
+      })));
     }
 
     return Response.json({ ...job, isPreview: false, conversationId }, { status: 201 });
