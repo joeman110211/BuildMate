@@ -8,7 +8,6 @@ import { previewDataEnabled } from '@/lib/preview';
 import { assertRateLimit } from '@/lib/rate-limit';
 import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
-import { hasActiveLeadAccess, TRADER_TRIAL_DAYS } from '@/lib/subscription';
 import { jobSchema } from '@/lib/validation';
 
 function distanceMiles(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -36,52 +35,37 @@ export async function GET(request: Request) {
     } else if (activeMode === 'trader' && modes.traderEnabled) {
       const [profile] = await db.select({
         tradeCategory: traderProfiles.tradeCategory,
-        subSkills: traderProfiles.subSkills,
+        tradeCategories: traderProfiles.tradeCategories,
         subscriptionTier: traderProfiles.subscriptionTier,
         isSubscriptionActive: traderProfiles.isSubscriptionActive,
-        stripeSubscriptionId: traderProfiles.stripeSubscriptionId,
-        trialEndsAt: traderProfiles.trialEndsAt,
         latitude: traderProfiles.latitude,
         longitude: traderProfiles.longitude,
         radiusMiles: traderProfiles.radiusMiles,
-        createdAt: traderProfiles.createdAt,
       }).from(traderProfiles).where(eq(traderProfiles.userId, user.id)).limit(1);
       if (!profile) throw new HttpError(409, 'Complete your trader profile first');
 
-      const activeLeadAccess = hasActiveLeadAccess(profile);
-      const acceptedCategories = [...new Set([profile.tradeCategory, ...(profile.subSkills ?? [])])];
+      const acceptedCategories = profile.tradeCategories?.length ? profile.tradeCategories : [profile.tradeCategory];
       const acceptedWork = sql`${jobs.acceptedQuoteId} in (select id from quotes where trader_id = ${user.id})`;
-      let access = acceptedWork;
+      const directWork = eq(jobs.targetTraderId, user.id);
+      const withinRadius = profile.latitude != null && profile.longitude != null
+        ? sql`${jobs.latitude} is not null and ${jobs.longitude} is not null and (
+            3959 * acos(least(1, greatest(-1,
+              cos(radians(${profile.latitude})) * cos(radians(${jobs.latitude})) *
+              cos(radians(${jobs.longitude}) - radians(${profile.longitude})) +
+              sin(radians(${profile.latitude})) * sin(radians(${jobs.latitude}))
+            )))
+          ) <= ${profile.radiusMiles}`
+        : sql`false`;
+      const openMarketplace = and(
+        inArray(jobs.status, ['open', 'quoted']),
+        sql`${jobs.targetTraderId} is null`,
+        inArray(jobs.category, acceptedCategories),
+        withinRadius,
+      );
 
-      if (activeLeadAccess && profile.subscriptionTier !== 'free') {
-        const withinRadius = profile.latitude != null && profile.longitude != null
-          ? sql`${jobs.latitude} is not null and ${jobs.longitude} is not null and (
-              3959 * acos(least(1, greatest(-1,
-                cos(radians(${profile.latitude})) * cos(radians(${jobs.latitude})) *
-                cos(radians(${jobs.longitude}) - radians(${profile.longitude})) +
-                sin(radians(${profile.latitude})) * sin(radians(${jobs.latitude}))
-              )))
-            ) <= ${profile.radiusMiles}`
-          : sql`false`;
-
-        access = or(
-          acceptedWork,
-          and(
-            inArray(jobs.status, ['open', 'quoted']),
-            or(
-              eq(jobs.targetTraderId, user.id),
-              and(
-                sql`${jobs.targetTraderId} is null`,
-                inArray(jobs.category, acceptedCategories),
-                withinRadius,
-              ),
-            ),
-          ),
-        )!;
-      }
-
+      const access = or(acceptedWork, directWork, openMarketplace)!;
       const databaseRows = await db.select().from(jobs).where(access).orderBy(desc(jobs.isEmergency), desc(jobs.createdAt)).limit(100);
-      const previewRows = activeLeadAccess && profile.subscriptionTier !== 'free' && previewDataEnabled()
+      const previewRows = previewDataEnabled(request)
         ? demoJobs
             .filter((job) => acceptedCategories.includes(job.category))
             .map((job) => ({ ...job, isPreview: true, isEmergency: false }))
@@ -107,8 +91,6 @@ export async function POST(request: Request) {
     await assertRateLimit(request, 'post-job', 20, 3600, user.id);
     const payload = jobSchema.parse(await request.json());
     if (payload.isEmergency) {
-      // Emergency broadcasts can fan out to many opted-in local trades. Treat
-      // them as a scarce action rather than letting one account hammer alerts.
       await assertRateLimit(request, 'post-emergency-job-hour', 3, 3600, user.id);
       await assertRateLimit(request, 'post-emergency-job-day', 10, 86400, user.id);
     }
@@ -125,21 +107,12 @@ export async function POST(request: Request) {
     if (payload.targetTraderId) {
       const targets = await getSql()`
         SELECT tp.trade_category AS "tradeCategory",
-               tp.sub_skills AS "subSkills",
+               CASE WHEN cardinality(tp.trade_categories) > 0 THEN tp.trade_categories ELSE ARRAY[tp.trade_category]::text[] END AS "tradeCategories",
                tp.subscription_tier AS "subscriptionTier",
+               tp.is_subscription_active AS "isSubscriptionActive",
                tp.latitude,
                tp.longitude,
-               tp.radius_miles AS "radiusMiles",
-               (
-                 tp.is_subscription_active = true
-                 AND (
-                   tp.stripe_subscription_id IS NOT NULL
-                   OR greatest(
-                     coalesce(tp.trial_ends_at, tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')),
-                     tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')
-                   ) > now()
-                 )
-               ) AS "isSubscriptionActive"
+               tp.radius_miles AS "radiusMiles"
         FROM trader_profiles tp
         JOIN users u ON u.id = tp.user_id
         WHERE tp.user_id = ${payload.targetTraderId}
@@ -148,7 +121,7 @@ export async function POST(request: Request) {
         LIMIT 1
       ` as unknown as Array<{
         tradeCategory: string;
-        subSkills: string[];
+        tradeCategories: string[];
         subscriptionTier: string;
         isSubscriptionActive: boolean;
         latitude: number | null;
@@ -157,8 +130,7 @@ export async function POST(request: Request) {
       }>;
       const target = targets[0];
       if (!target || !target.isSubscriptionActive || target.subscriptionTier === 'free') throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildPair leads');
-      const listedCategories = new Set([target.tradeCategory, ...(target.subSkills ?? [])]);
-      if (!listedCategories.has(payload.category)) throw new HttpError(400, `This direct request must use one of the tradesperson's listed work types.`);
+      if (!target.tradeCategories.includes(payload.category)) throw new HttpError(400, `This direct request must use one of the tradesperson's listed trade categories.`);
       if (target.latitude == null || target.longitude == null) throw new HttpError(409, 'This tradesperson does not currently have a valid service location');
       if (distanceMiles(target.latitude, target.longitude, location.latitude, location.longitude) > target.radiusMiles) {
         throw new HttpError(409, 'This job is outside the tradesperson’s published service radius');
@@ -205,14 +177,12 @@ export async function POST(request: Request) {
       });
     } else {
       const matched = await getSql()`
-        SELECT DISTINCT tp.user_id AS "userId"
+        SELECT DISTINCT tp.user_id AS "userId", tp.subscription_tier AS "subscriptionTier"
         FROM trader_profiles tp
         JOIN users u ON u.id = tp.user_id
-        LEFT JOIN saved_job_searches s ON s.trader_id = tp.user_id AND s.enabled = true
-        WHERE (tp.trade_category = ${payload.category} OR ${payload.category} = ANY(tp.sub_skills))
+        WHERE ${payload.category} = ANY(CASE WHEN cardinality(tp.trade_categories) > 0 THEN tp.trade_categories ELSE ARRAY[tp.trade_category]::text[] END)
           AND tp.subscription_tier <> 'free'
           AND tp.is_subscription_active = true
-          AND (tp.stripe_subscription_id IS NOT NULL OR greatest(coalesce(tp.trial_ends_at, tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')), tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')) > now())
           AND coalesce(u.is_suspended, false) = false
           AND coalesce(u.is_deleted, false) = false
           AND tp.latitude IS NOT NULL AND tp.longitude IS NOT NULL
@@ -221,53 +191,15 @@ export async function POST(request: Request) {
             cos(radians(${location.longitude}) - radians(tp.longitude)) +
             sin(radians(tp.latitude)) * sin(radians(${location.latitude}))
           )))) <= tp.radius_miles
-          AND (
-            (
-              ${payload.isEmergency} = true
-              AND EXISTS (
-                SELECT 1 FROM trader_availability ta
-                WHERE ta.trader_id = tp.user_id AND ta.status = 'available'
-                  AND ta.starts_at <= now() AND ta.ends_at >= now()
-              )
-            )
-            OR (
-              ${payload.isEmergency} = false
-              AND (
-                tp.subscription_tier = 'featured'
-                OR (
-                  s.id IS NOT NULL
-                  AND (s.category IS NULL OR s.category = ${payload.category})
-                  AND s.emergency_only = false
-                  AND (
-                    s.keywords IS NULL OR btrim(s.keywords) = ''
-                    OR EXISTS (
-                      SELECT 1
-                      FROM regexp_split_to_table(lower(s.keywords), '[,[:space:]]+') AS keyword
-                      WHERE length(keyword) >= 2
-                        AND lower(${payload.title + ' ' + payload.description}) LIKE '%' || keyword || '%'
-                    )
-                  )
-                  AND (
-                    s.latitude IS NULL OR s.longitude IS NULL
-                    OR (3959 * acos(least(1, greatest(-1,
-                      cos(radians(s.latitude)) * cos(radians(${location.latitude})) *
-                      cos(radians(${location.longitude}) - radians(s.longitude)) +
-                      sin(radians(s.latitude)) * sin(radians(${location.latitude}))
-                    )))) <= s.radius_miles
-                  )
-                )
-              )
-            )
-          )
         LIMIT 100
-      ` as unknown as { userId: string }[];
+      ` as unknown as { userId: string; subscriptionTier: 'basic' | 'featured' }[];
 
-      await Promise.allSettled(matched.map(({ userId }) => createNotification(userId, {
+      await Promise.allSettled(matched.map(({ userId, subscriptionTier }) => createNotification(userId, {
         type: payload.isEmergency ? 'emergency_job_match' : 'job_match',
         title: payload.isEmergency ? `Emergency ${payload.category} job nearby` : `New ${payload.category} job match`,
         body: `${payload.title} · ${outwardCode(location.postcode) ?? location.locationLabel}`,
         href: '/trader/job-board',
-        email: payload.isEmergency,
+        email: payload.isEmergency || subscriptionTier === 'featured',
       })));
     }
 
