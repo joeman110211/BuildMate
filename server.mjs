@@ -2,19 +2,32 @@
 
 import http from 'node:http';
 import path from 'node:path';
-import { createReadStream, existsSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { parseEnv } from 'node:util';
 
-// PM2 restarts do not automatically re-read BuildPair's local environment file.
-// Load it here so server-only values such as CLERK_SECRET_KEY and DATABASE_URL are
-// available after every staging restart, without relying on the shell that launched PM2.
+// PM2 keeps a snapshot of old environment variables across restarts. Node's
+// process.loadEnvFile() deliberately does not overwrite variables that already
+// exist, which meant stale Clerk/DB credentials could survive even after
+// .env.local was corrected. Treat BuildPair's local env file as authoritative
+// for application configuration while preserving the few runtime values the
+// deploy script intentionally injects for the staging process.
 const localEnvFile = path.resolve(process.cwd(), '.env.local');
 const fallbackEnvFile = path.resolve(process.cwd(), '.env');
-if (existsSync(localEnvFile)) {
-  process.loadEnvFile(localEnvFile);
-} else if (existsSync(fallbackEnvFile)) {
-  process.loadEnvFile(fallbackEnvFile);
+const runtimeOverrides = new Set([
+  'PORT',
+  'NODE_ENV',
+  'APP_URL',
+  'EXPO_PUBLIC_API_URL',
+  'BUILDPAIR_NOINDEX',
+]);
+const envFile = existsSync(localEnvFile) ? localEnvFile : (existsSync(fallbackEnvFile) ? fallbackEnvFile : null);
+if (envFile) {
+  const parsed = parseEnv(readFileSync(envFile, 'utf8'));
+  for (const [name, value] of Object.entries(parsed)) {
+    if (!runtimeOverrides.has(name)) process.env[name] = value;
+  }
 }
 
 // expo-server 57 publishes both ESM and CommonJS adapters. Its ESM build currently
