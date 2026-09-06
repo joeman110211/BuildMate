@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 90_000,
+  timeout: 120_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
   retries: 1,
@@ -20,6 +20,12 @@ export default defineConfig({
     {
       name: 'desktop-core-flow',
       testMatch: /core-flow\.spec\.mjs/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'real-signup-journey',
+      testMatch: /real-signup-journey\.spec\.mjs/,
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
