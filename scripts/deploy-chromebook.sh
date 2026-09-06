@@ -83,20 +83,26 @@ env_value() {
 
 build_web() {
   local clerk_publishable_key
+  local build_sha
   clerk_publishable_key="$(env_value EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY)"
+  build_sha="$(git rev-parse HEAD)"
   log "Building web output for $PUBLIC_ORIGIN..."
   EXPO_PUBLIC_API_URL="$PUBLIC_ORIGIN" \
   APP_URL="$PUBLIC_ORIGIN" \
   EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$clerk_publishable_key" \
+  BUILDPAIR_BUILD_SHA="$build_sha" \
   npm run build:web
 }
 
 restart_buildpair() {
   local clerk_publishable_key
+  local build_sha
   clerk_publishable_key="$(env_value EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY)"
+  build_sha="$(git rev-parse HEAD)"
   EXPO_PUBLIC_API_URL="$PUBLIC_ORIGIN" \
   APP_URL="$PUBLIC_ORIGIN" \
   EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$clerk_publishable_key" \
+  BUILDPAIR_BUILD_SHA="$build_sha" \
   pm2 restart buildpair --update-env >/dev/null
   pm2 save >/dev/null
 }
