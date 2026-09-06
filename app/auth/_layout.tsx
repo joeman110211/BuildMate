@@ -29,6 +29,7 @@ export default function AuthLayout() {
     <Stack.Screen name="account" options={{ headerBackVisible: false }} />
     <Stack.Screen name="sign-in" />
     <Stack.Screen name="sign-up" />
+    <Stack.Screen name="sign-up/verify-email-address" />
     <Stack.Screen name="social-continue" />
     <Stack.Screen name="choose-role" options={{ headerBackVisible: false }} />
   </Stack>;
