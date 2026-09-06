@@ -47,6 +47,7 @@ export interface AvailabilitySlot {
 
 export interface ProjectStory {
   id: string;
+  traderId?: string;
   title: string;
   locationLabel?: string | null;
   summary: string;
@@ -61,8 +62,15 @@ export interface TraderProfile {
   id: string;
   userId: string;
   businessName: string;
+  /** Legacy primary category retained while routes migrate to tradeCategories. */
   tradeCategory: string;
+  /** Legacy flattened service labels retained for compatibility/search. */
   subSkills: string[];
+  tradeCategories?: string[];
+  serviceSelections?: Record<string, string[]>;
+  categoriesChangedAt?: string | null;
+  categoryChangeAvailableAt?: string | null;
+  categoryLimit?: number;
   bio: string;
   radiusMiles: number;
   postcode?: string | null;
@@ -91,6 +99,11 @@ export interface TraderProfile {
   reviewCount: number;
   stripeAccountId?: string | null;
   isPreview?: boolean;
+  shareOnly?: boolean;
+  canRequestQuote?: boolean;
+  monthlyQuotesUsed?: number;
+  monthlyQuoteLimit?: number;
+  monthlyQuoteResetAt?: string;
 }
 
 export interface Job {
@@ -137,6 +150,7 @@ export interface Quote {
   proposedStartAt?: string | null;
   validUntil?: string | null;
   status: QuoteStatus;
+  createdAt?: string;
 }
 
 export interface JobVariation {
