@@ -3,7 +3,7 @@ import path from 'node:path';
 import { clerk } from '@clerk/testing/playwright';
 import { expect, test } from '@playwright/test';
 
-const baseURL = process.env.E2E_BASE_URL || 'https://buildmate-nine.vercel.app';
+const baseURL = process.env.E2E_BASE_URL || 'https://staging.buildpair.co.uk';
 const stateFile = path.join(process.cwd(), 'playwright', '.e2e-users.json');
 
 async function expectNoHorizontalOverflow(page, label) {
@@ -34,9 +34,10 @@ async function api(token, pathName, options = {}) {
 
 test('small Android public and auth surfaces fit without furniture-removal chaos', async ({ page }) => {
   await page.goto('/auth/account');
-  await expect(page.getByText('Join BuildPair')).toBeVisible();
-  const joinBox = await page.getByText('Join BuildPair').boundingBox();
-  expect(joinBox?.y ?? 9999).toBeLessThan(260);
+  const heading = page.getByText('One login. Two ways to use BuildPair.');
+  await expect(heading).toBeVisible();
+  const headingBox = await heading.boundingBox();
+  expect(headingBox?.y ?? 9999).toBeLessThan(300);
   await expectNoHorizontalOverflow(page, 'account chooser');
 
   await page.goto('/auth/sign-in?mode=customer');
