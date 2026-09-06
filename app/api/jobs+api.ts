@@ -106,6 +106,12 @@ export async function POST(request: Request) {
     const user = await requireRole(request, 'customer');
     await assertRateLimit(request, 'post-job', 20, 3600, user.id);
     const payload = jobSchema.parse(await request.json());
+    if (payload.isEmergency) {
+      // Emergency broadcasts can fan out to many opted-in local trades. Treat
+      // them as a scarce action rather than letting one account hammer alerts.
+      await assertRateLimit(request, 'post-emergency-job-hour', 3, 3600, user.id);
+      await assertRateLimit(request, 'post-emergency-job-day', 10, 86400, user.id);
+    }
     const db = getDb();
 
     let location;
