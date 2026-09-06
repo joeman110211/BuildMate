@@ -8,8 +8,8 @@ type Props = {
 };
 
 export function BuildPairLogo({ compact = false, tagline = false, style }: Props) {
-  const size = compact ? 34 : 58;
-  const wordSize = compact ? 22 : 36;
+  const size = compact ? 39 : 58;
+  const wordSize = compact ? 25 : 36;
 
   return (
     <View style={[styles.wrap, style]} accessibilityLabel="BuildPair">
