@@ -5,10 +5,10 @@ import { createClerkClient } from '@clerk/backend';
 import { clerkSetup } from '@clerk/testing/playwright';
 import { test as setup } from '@playwright/test';
 
-const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000';
+const baseURL = process.env.E2E_BASE_URL || 'https://staging.buildpair.co.uk';
 const runId = (process.env.GITHUB_RUN_ID || Date.now().toString()).replace(/[^a-zA-Z0-9-]/g, '');
-const customerEmail = process.env.E2E_CUSTOMER_EMAIL || `customer-${runId}@buildpair.test`;
-const traderEmail = process.env.E2E_TRADER_EMAIL || `trader-${runId}@buildpair.test`;
+const customerEmail = process.env.E2E_CUSTOMER_EMAIL || `buildpair-customer+clerk_test_${runId}@example.com`;
+const traderEmail = process.env.E2E_TRADER_EMAIL || `buildpair-trader+clerk_test_${runId}@example.com`;
 const stateFile = path.join(process.cwd(), 'playwright', '.e2e-users.json');
 
 async function ensureTestUser(client, email, firstName) {
@@ -24,7 +24,7 @@ async function ensureTestUser(client, email, firstName) {
 
 setup.describe.configure({ mode: 'serial' });
 
-setup('prepare Clerk testing token and users', async () => {
+setup('prepare Clerk testing token and disposable users', async () => {
   if (!process.env.CLERK_SECRET_KEY) throw new Error('CLERK_SECRET_KEY is required for authenticated E2E tests');
 
   const response = await fetch(`${baseURL}/api/client-config`);
