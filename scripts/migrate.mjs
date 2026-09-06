@@ -3,8 +3,14 @@ import { resolve } from 'node:path';
 import process from 'node:process';
 import pg from 'pg';
 
-const connectionString = process.env.DATABASE_URL_UNPOOLED;
-if (!connectionString) throw new Error('DATABASE_URL_UNPOOLED is required. Use the direct Neon URL, not the -pooler host.');
+// Prefer a direct Neon connection for migrations. During beta/self-hosted staging
+// some environments only expose DATABASE_URL; PostgreSQL DDL used by BuildPair is
+// compatible with that connection too, so do not leave the schema silently stale.
+const connectionString = process.env.DATABASE_URL_UNPOOLED?.trim() || process.env.DATABASE_URL?.trim();
+if (!connectionString) throw new Error('DATABASE_URL_UNPOOLED or DATABASE_URL is required to run BuildPair migrations.');
+if (!process.env.DATABASE_URL_UNPOOLED?.trim()) {
+  console.warn('DATABASE_URL_UNPOOLED is not configured; using DATABASE_URL for this migration run.');
+}
 
 const migrationsDir = resolve('db/migrations');
 const migrationFiles = (await readdir(migrationsDir))
