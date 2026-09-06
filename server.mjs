@@ -160,6 +160,30 @@ async function serveStatic(req, res) {
   return true;
 }
 
+
+function requestWantsHtml(req) {
+  const pathName = String(req.url || '/').split('?')[0];
+  if (pathName.startsWith('/api/')) return false;
+  const accept = String(req.headers.accept || '');
+  return accept.includes('text/html');
+}
+
+function sendServerError(req, res) {
+  if (res.writableEnded) return;
+  if (res.headersSent) {
+    res.end();
+    return;
+  }
+  res.statusCode = 500;
+  if (requestWantsHtml(req)) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.end(`<!DOCTYPE html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BuildPair</title></head><body style="font-family:system-ui,sans-serif;background:#ECEFF1;color:#20252B;margin:0;padding:48px 24px;text-align:center"><h1>BuildPair is restarting this page</h1><p>Please refresh. If this keeps happening, try again in a moment.</p><p><a href="/">Go to homepage</a></p></body></html>`);
+    return;
+  }
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.end(JSON.stringify({ error: 'Internal server error' }));
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     applySecurityHeaders(res);
@@ -176,9 +200,7 @@ const server = http.createServer(async (req, res) => {
       if (res.writableEnded) return;
       if (error) {
         console.error('[BuildPair] Request failed:', error);
-        res.statusCode = 500;
-        res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.end(JSON.stringify({ error: 'Internal server error' }));
+        sendServerError(req, res);
         return;
       }
       res.statusCode = 404;
@@ -186,11 +208,7 @@ const server = http.createServer(async (req, res) => {
     });
   } catch (error) {
     console.error('[BuildPair] Server error:', error);
-    if (!res.headersSent) {
-      res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    }
-    if (!res.writableEnded) res.end(JSON.stringify({ error: 'Internal server error' }));
+    sendServerError(req, res);
   }
 });
 

@@ -18,7 +18,7 @@ export default function ChooseRoleScreen() {
   const params = useLocalSearchParams<{ mode?: string | string[] }>();
   const requestedMode = parseAccountMode(params.mode);
   const { getToken, isLoaded: authLoaded, isSignedIn } = useAuth();
-  const { user, loading, error: loadError, refresh } = useCurrentUser();
+  const { user, error: loadError, refresh } = useCurrentUser();
   const [role, setRole] = useState<UserRole | null>(requestedMode);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

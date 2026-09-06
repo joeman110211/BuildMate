@@ -7,6 +7,7 @@ import { AppCard } from '@/components/AppCard';
 import { TRADE_CATEGORIES } from '@/constants/options';
 import { colors } from '@/constants/theme';
 import { modeSetupHref, parseAccountMode, signInHref } from '@/lib/account-mode';
+import { clerkWebAppearance, clerkWebLocalization } from '@/lib/clerk-web';
 import type { UserRole } from '@/types';
 
 const PENDING_JOB_KEY = 'buildpair:pending-quote-job';
@@ -52,25 +53,6 @@ function readPrimaryTrade() {
   if (typeof window === 'undefined') return '';
   try { return window.sessionStorage.getItem(PRIMARY_TRADE_KEY) ?? ''; } catch { return ''; }
 }
-
-const appearance = {
-  variables: {
-    colorPrimary: '#D35400',
-    colorBackground: '#FFFFFF',
-    colorText: '#20252B',
-    colorTextSecondary: '#66707C',
-    colorInputBackground: '#F8F9FA',
-    colorInputText: '#20252B',
-    borderRadius: '16px',
-  },
-  elements: {
-    rootBox: { width: '100%', alignItems: 'flex-start', justifyContent: 'flex-start' },
-    cardBox: { width: '100%', boxShadow: 'none' },
-    card: { width: '100%', maxWidth: '480px', margin: '10px auto 28px', boxShadow: '0 8px 28px rgba(37,42,49,0.08)', border: '1px solid #D4D9DE' },
-    formButtonPrimary: { minHeight: '48px', fontWeight: '800' },
-    socialButtonsBlockButton: { minHeight: '46px', borderColor: '#D4D9DE', backgroundColor: '#F8F9FA' },
-  },
-} as const;
 
 export default function SignUpWebScreen() {
   const params = useLocalSearchParams<{
@@ -176,7 +158,8 @@ export default function SignUpWebScreen() {
         forceRedirectUrl={redirectUrl}
         signInForceRedirectUrl={redirectUrl}
         initialValues={initialValues}
-        appearance={appearance}
+        appearance={clerkWebAppearance}
+        localization={clerkWebLocalization}
       />
     </ScrollView>
   );
