@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { assertRateLimit } from '@/lib/rate-limit';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
 import { getSql } from '@/lib/sql';
 
@@ -42,6 +43,7 @@ export async function POST(request: Request, { id }: { id: string }) {
     const userId = await authenticatedUserId(request);
     await ensureDbUser(userId);
     await requireParticipant(id, userId);
+    await assertRateLimit(request, 'job-message', 120, 3600, userId);
     const payload = messageSchema.parse(await request.json());
     const sql = getSql();
     const rows = await sql`
