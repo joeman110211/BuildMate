@@ -91,6 +91,7 @@ export interface TraderProfile {
   beforeAfterProjects?: BeforeAfterProject[];
   verifiedCredentialCount?: number;
   availabilitySummary?: string | null;
+  rankingScore?: number;
   createdAt?: string;
   subscriptionTier: SubscriptionTier;
   isSubscriptionActive: boolean;
@@ -150,7 +151,6 @@ export interface Quote {
   proposedStartAt?: string | null;
   validUntil?: string | null;
   status: QuoteStatus;
-  createdAt?: string;
 }
 
 export interface JobVariation {
