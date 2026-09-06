@@ -7,7 +7,7 @@ import { AppCard } from '@/components/AppCard';
 import { TRADE_CATEGORIES } from '@/constants/options';
 import { colors } from '@/constants/theme';
 import { modeSetupHref, parseAccountMode, signInHref } from '@/lib/account-mode';
-import { clerkWebAppearance, clerkWebLocalization } from '@/lib/clerk-web';
+import { clerkWebAppearance } from '@/lib/clerk-web';
 import type { UserRole } from '@/types';
 
 const PENDING_JOB_KEY = 'buildpair:pending-quote-job';
@@ -159,7 +159,6 @@ export default function SignUpWebScreen() {
         signInForceRedirectUrl={redirectUrl}
         initialValues={initialValues}
         appearance={clerkWebAppearance}
-        localization={clerkWebLocalization}
       />
     </ScrollView>
   );

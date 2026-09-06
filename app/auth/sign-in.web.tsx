@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { colors } from '@/constants/theme';
 import { modeSetupHref, parseAccountMode, signUpHref } from '@/lib/account-mode';
-import { clerkWebAppearance, clerkWebLocalization } from '@/lib/clerk-web';
+import { clerkWebAppearance } from '@/lib/clerk-web';
 
 export default function SignInWebScreen() {
   const params = useLocalSearchParams<{ mode?: string | string[] }>();
@@ -24,7 +24,6 @@ export default function SignInWebScreen() {
         forceRedirectUrl={redirectUrl}
         signUpForceRedirectUrl={redirectUrl}
         appearance={clerkWebAppearance}
-        localization={clerkWebLocalization}
       />
     </View>
   );
