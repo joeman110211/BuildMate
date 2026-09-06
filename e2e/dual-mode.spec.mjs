@@ -36,8 +36,9 @@ test('one BuildPair login can add both profiles and switch cleanly between homeo
   expect(me.traderEnabled).toBe(true);
 
   await page.goto(`${baseURL}/auth/choose-role`, { waitUntil: 'domcontentloaded' });
-  await expect(page.getByText('Homeowner', { exact: true }).last()).toBeVisible();
-  await page.getByText('Homeowner', { exact: true }).last().click();
+  const homeownerChoice = page.getByText(/Homeowner$/, { exact: false }).last();
+  await expect(homeownerChoice).toBeVisible();
+  await homeownerChoice.click();
   const addHomeowner = page.getByRole('button', { name: /Add Homeowner Profile|Continue as Homeowner/ });
   await expect(addHomeowner).toBeEnabled();
   await addHomeowner.click();
@@ -49,7 +50,7 @@ test('one BuildPair login can add both profiles and switch cleanly between homeo
   expect(me.activeMode).toBe('customer');
 
   await page.goto(`${baseURL}/auth/choose-role`, { waitUntil: 'domcontentloaded' });
-  await page.getByText('Tradesperson', { exact: true }).last().click();
+  await page.getByText(/Tradesperson$/, { exact: false }).last().click();
   const switchTrader = page.getByRole('button', { name: /Continue as Tradesperson|Add Tradesperson Profile/ });
   await expect(switchTrader).toBeEnabled();
   await switchTrader.click();
