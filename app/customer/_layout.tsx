@@ -5,7 +5,7 @@ import { DashboardHeader } from '@/components/DashboardHeader';
 import { RoleGate } from '@/components/RoleGate';
 
 export default function CustomerLayout() {
-  return <RoleGate role="customer"><View style={{ flex: 1 }}><DashboardHeader home="/customer/dashboard" /><Stack screenOptions={{ headerTintColor: '#D35400', headerShadowVisible: false }}>
+  return <RoleGate role="customer"><View style={{ flex: 1, minHeight: 0 }}><DashboardHeader home="/customer/dashboard" /><Stack screenOptions={{ headerTintColor: '#D35400', headerShadowVisible: false }}>
     <Stack.Screen name="dashboard" options={{ headerShown: false }} />
     <Stack.Screen name="jobs" options={{ headerShown: false }} />
     <Stack.Screen name="profile" options={{ headerShown: false }} />
