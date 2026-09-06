@@ -1,4 +1,4 @@
-const CACHE_NAME = 'buildpair-static-v2';
+const CACHE_NAME = 'buildpair-static-v3';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/favicon.png', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -12,6 +12,19 @@ self.addEventListener('activate', (event) => {
   );
   self.clients.claim();
 });
+
+async function fetchAndCache(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (!response.ok) return response;
+
+  const cacheCopy = response.clone();
+  const cache = await caches.open(CACHE_NAME);
+  await cache.put(request, cacheCopy);
+  return response;
+}
 
 self.addEventListener('fetch', (event) => {
   const request = event.request;
@@ -27,13 +40,5 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/favicon.png' || url.pathname === '/manifest.webmanifest';
   if (!isStaticAsset) return;
 
-  event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      if (response.ok) {
-        const cacheCopy = response.clone();
-        event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, cacheCopy)));
-      }
-      return response;
-    })),
-  );
+  event.respondWith(fetchAndCache(request));
 });
