@@ -84,6 +84,7 @@ setup('prepare Clerk testing token, disposable users and verify the staging auth
     traderEmail,
     customerClerkId: customer.id,
     traderClerkId: trader.id,
+    cleanupEmails: [customerEmail, traderEmail],
   }), 'utf8');
 
   await clerkSetup();
