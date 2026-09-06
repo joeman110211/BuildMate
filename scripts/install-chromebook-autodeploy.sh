@@ -25,11 +25,34 @@ require_systemd_user() {
   fi
 }
 
+runtime_path() {
+  local current_path="${PATH:-/usr/local/bin:/usr/bin:/bin}"
+  local pm2_bin=""
+  local pm2_dir=""
+
+  pm2_bin="$(command -v pm2 2>/dev/null || true)"
+  if [[ -z "$pm2_bin" ]]; then
+    echo "PM2 is not available in this terminal. Start the normal Chromebook Linux Terminal and ensure 'pm2 status' works first." >&2
+    return 1
+  fi
+
+  pm2_dir="$(dirname "$pm2_bin")"
+  case ":$current_path:" in
+    *":$pm2_dir:"*) ;;
+    *) current_path="$pm2_dir:$current_path" ;;
+  esac
+
+  printf '%s\n' "$current_path"
+}
+
 install_timer() {
   require_systemd_user
   cd "$REPO_DIR"
   git config core.fileMode false
   mkdir -p "$SYSTEMD_DIR"
+
+  local service_path
+  service_path="$(runtime_path)"
 
   # Remove the superseded Quick-Tunnel supervisor if it was installed.
   systemctl --user disable --now buildpair-host.service >/dev/null 2>&1 || true
@@ -45,6 +68,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=$REPO_DIR
 Environment=BUILDPAIR_REPO_DIR=$REPO_DIR
+Environment="PATH=$service_path"
 ExecStart=/usr/bin/env bash $DEPLOY_SCRIPT
 TimeoutStartSec=20min
 Nice=10
@@ -72,6 +96,7 @@ EOF
   echo "BuildPair automatic deployment is enabled."
   echo "The Chromebook will check origin/main roughly every two minutes while Linux is running."
   echo "Existing PM2 and Cloudflare services are left in place."
+  echo "The deploy service is using the same Node/PM2 runtime path as this terminal."
   echo
   systemctl --user --no-pager --full status buildpair-autodeploy.timer || true
 }
@@ -87,6 +112,7 @@ show_status() {
 
 run_now() {
   require_systemd_user
+  systemctl --user reset-failed buildpair-autodeploy.service >/dev/null 2>&1 || true
   systemctl --user start buildpair-autodeploy.service
   systemctl --user --no-pager --full status buildpair-autodeploy.service || true
 }
