@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { assertRateLimit } from '@/lib/rate-limit';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
 
@@ -9,6 +10,9 @@ const createSchema = z.object({
   note: z.string().trim().max(300).optional(),
 });
 const deleteSchema = z.object({ id: z.string().uuid() });
+const MAX_AVAILABILITY_SLOTS = 180;
+const MAX_WINDOW_MS = 31 * 24 * 60 * 60 * 1000;
+const MAX_FUTURE_MS = 400 * 24 * 60 * 60 * 1000;
 
 export async function GET(request: Request) {
   try {
@@ -25,7 +29,7 @@ export async function GET(request: Request) {
       WHERE trader_id = ${traderId}
         AND ends_at >= now() - interval '1 day'
       ORDER BY starts_at ASC
-      LIMIT 180
+      LIMIT ${MAX_AVAILABILITY_SLOTS}
     `;
     return Response.json(rows);
   } catch (error) { return jsonError(error); }
@@ -34,8 +38,21 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const trader = await requireRole(request, 'trader');
+    await assertRateLimit(request, 'availability-create', 40, 3600, trader.id);
     const input = createSchema.parse(await request.json());
-    if (new Date(input.endsAt) <= new Date(input.startsAt)) throw new HttpError(400, 'Availability end must be after the start');
+    const startsAt = new Date(input.startsAt);
+    const endsAt = new Date(input.endsAt);
+    const now = Date.now();
+    if (endsAt <= startsAt) throw new HttpError(400, 'Availability end must be after the start');
+    if (endsAt.getTime() <= now) throw new HttpError(400, 'Availability must end in the future');
+    if (startsAt.getTime() > now + MAX_FUTURE_MS) throw new HttpError(400, 'Availability can be published up to 400 days ahead');
+    if (endsAt.getTime() - startsAt.getTime() > MAX_WINDOW_MS) throw new HttpError(400, 'A single availability window cannot be longer than 31 days');
+    const countRows = await getSql()`
+      SELECT count(*)::int AS count
+      FROM trader_availability
+      WHERE trader_id = ${trader.id} AND ends_at >= now()
+    ` as unknown as Array<{ count: number }>;
+    if ((countRows[0]?.count ?? 0) >= MAX_AVAILABILITY_SLOTS) throw new HttpError(409, `You can keep up to ${MAX_AVAILABILITY_SLOTS} upcoming availability slots`);
     const rows = await getSql()`
       INSERT INTO trader_availability(trader_id, starts_at, ends_at, status, note)
       VALUES (${trader.id}, ${input.startsAt}::timestamptz, ${input.endsAt}::timestamptz, ${input.status}, ${input.note ?? null})
