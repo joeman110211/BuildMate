@@ -34,6 +34,7 @@
           "origin": "https://www.buildpair.co.uk"
         }
       ],
+      "@clerk/expo",
       "expo-secure-store",
       [
         "expo-splash-screen",

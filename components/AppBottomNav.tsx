@@ -13,6 +13,7 @@ const traderItems: NavItem[] = [
   { label: 'My Jobs', icon: 'briefcase-outline', href: '/trader/my-jobs', match: '/trader/my-jobs' },
   { label: 'Messages', icon: 'message-text-outline', href: '/trader/messages', match: '/trader/messages' },
   { label: 'Profile', icon: 'account-circle-outline', href: '/trader/profile', match: '/trader/profile' },
+  { label: 'Settings', icon: 'cog-outline', href: '/settings', match: '/settings' },
 ];
 
 const customerItems: NavItem[] = [
@@ -21,9 +22,10 @@ const customerItems: NavItem[] = [
   { label: 'My Jobs', icon: 'clipboard-text-outline', href: '/customer/jobs', match: '/customer/jobs' },
   { label: 'Messages', icon: 'message-text-outline', href: '/customer/messages', match: '/customer/messages' },
   { label: 'Profile', icon: 'account-circle-outline', href: '/customer/profile', match: '/customer/profile' },
+  { label: 'Settings', icon: 'cog-outline', href: '/settings', match: '/settings' },
 ];
 
-const detailPaths = ['/onboarding', '/quotes/', '/invoices/new', '/new-job', '/compare/', '/messages/'];
+const detailPaths = ['/onboarding', '/quotes/', '/invoices/new', '/new-job', '/compare/', '/messages/', '/settings'];
 
 export function AppBottomNav({ role }: { role: UserRole }) {
   const router = useRouter();
@@ -36,18 +38,18 @@ export function AppBottomNav({ role }: { role: UserRole }) {
     {items.map((item) => {
       const active = pathname.includes(item.match);
       return <Pressable key={item.label} onPress={() => router.push(item.href)} style={styles.item} accessibilityRole="button" accessibilityState={{ selected: active }}>
-        <View style={[styles.iconWrap, active && styles.iconWrapActive]}><Icon source={item.icon} size={23} color={active ? colors.primary : colors.muted} /></View>
-        <Text variant="labelSmall" style={[styles.label, active && styles.labelActive]}>{item.label}</Text>
+        <View style={[styles.iconWrap, active && styles.iconWrapActive]}><Icon source={item.icon} size={22} color={active ? colors.primary : colors.muted} /></View>
+        <Text variant="labelSmall" numberOfLines={1} style={[styles.label, active && styles.labelActive]}>{item.label}</Text>
       </Pressable>;
     })}
   </View>;
 }
 
 const styles = StyleSheet.create({
-  wrap: { minHeight: 70, paddingHorizontal: 6, paddingTop: 7, paddingBottom: 7, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', justifyContent: 'space-around', shadowColor: '#111827', shadowOpacity: 0.07, shadowRadius: 12, shadowOffset: { width: 0, height: -3 }, elevation: 8 },
-  item: { flex: 1, minWidth: 60, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  iconWrap: { minWidth: 38, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  wrap: { minHeight: 70, paddingHorizontal: 4, paddingTop: 7, paddingBottom: 7, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', justifyContent: 'space-around', shadowColor: '#111827', shadowOpacity: 0.07, shadowRadius: 12, shadowOffset: { width: 0, height: -3 }, elevation: 8 },
+  item: { flex: 1, minWidth: 48, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  iconWrap: { minWidth: 36, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   iconWrapActive: { backgroundColor: colors.surfaceSoft },
-  label: { color: colors.muted, fontWeight: '700' },
+  label: { color: colors.muted, fontWeight: '700', fontSize: 10 },
   labelActive: { color: colors.primary, fontWeight: '900' },
 });

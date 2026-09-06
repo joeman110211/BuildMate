@@ -25,6 +25,7 @@ function AppShell() {
             <Stack.Screen name="customer" options={{ headerShown: false }} />
             <Stack.Screen name="trader" options={{ headerShown: false }} />
             <Stack.Screen name="admin" options={{ headerShown: false }} />
+            <Stack.Screen name="settings" options={{ headerShown: false }} />
           </Stack>
         </AppStripeProvider>
       </PaperProvider>

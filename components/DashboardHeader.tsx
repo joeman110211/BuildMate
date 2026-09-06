@@ -29,6 +29,7 @@ export function DashboardHeader({ home }: { home: '/customer/dashboard' | '/trad
       {!compact ? <Link href="/(public)/directory" asChild><Button>Find Trades</Button></Link> : null}
       {!compact ? <Link href={messagesHref} asChild><Button>Messages</Button></Link> : null}
       <IconButton icon="bell-outline" size={22} onPress={() => router.push(notificationsHref)} accessibilityLabel="Notifications" />
+      <IconButton icon="cog-outline" size={22} onPress={() => router.push('/settings')} accessibilityLabel="Settings" />
       <Link href={modeSetupHref(otherMode)} asChild><Button compact mode={otherEnabled ? 'text' : 'outlined'}>{compact && otherEnabled ? 'Switch mode' : modeAction}</Button></Link>
       {user?.isAdmin && !compact ? <Link href="/admin/moderation" asChild><Button>Moderation</Button></Link> : null}
       <Button compact icon="logout" onPress={() => signOut(() => router.replace('/auth/account'))}>{compact ? '' : 'Sign out'}</Button>
