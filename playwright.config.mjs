@@ -51,6 +51,12 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     {
+      name: 'desktop-onboarding-validation',
+      testMatch: /onboarding-validation\.spec\.mjs/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    {
       name: 'desktop-core-flow',
       testMatch: /core-flow\.spec\.mjs/,
       use: { ...devices['Desktop Chrome'] },
