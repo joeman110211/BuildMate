@@ -16,7 +16,7 @@ export default function ChooseRoleScreen() {
   const params = useLocalSearchParams<{ mode?: string | string[] }>();
   const requestedMode = parseAccountMode(params.mode);
   const { getToken } = useAuth();
-  const { user, loading, error: loadError } = useCurrentUser();
+  const { user, loading, error: loadError, refresh } = useCurrentUser();
   const [role, setRole] = useState<UserRole | null>(requestedMode);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -56,7 +56,11 @@ export default function ChooseRoleScreen() {
   }
 
   return (
-    <Screen title="How will you use BuildPair?" subtitle="One login can have both profiles. Choose the side you want to open or add.">
+    <Screen
+      title="How will you use BuildPair?"
+      subtitle="One login can have both profiles. Choose the side you want to open or add."
+      backHref="/auth/account"
+    >
       <View style={styles.grid}>
         {([['customer', '🏠 Homeowner', 'Post jobs, compare quotes and pay safely.'], ['trader', '🔨 Tradesperson', 'Build a public profile, find work, quote and invoice customers.']] as const).map(([value, title, body]) => {
           const enabled = value === 'customer' ? user?.customerEnabled : user?.traderEnabled;
@@ -77,7 +81,16 @@ export default function ChooseRoleScreen() {
           );
         })}
       </View>
-      <HelperText type="error" visible={Boolean(error || loadError)}>{error || loadError || ''}</HelperText>
+
+      {loadError ? (
+        <AppCard style={styles.errorCard}>
+          <Text variant="titleMedium" style={styles.errorTitle}>We couldn’t load your BuildPair account</Text>
+          <Text style={styles.errorBody}>{loadError}</Text>
+          <Button mode="outlined" icon="refresh" onPress={() => void refresh()}>Retry account connection</Button>
+        </AppCard>
+      ) : null}
+
+      <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
       <Button mode="contained" disabled={!role || busy || !user} loading={busy} onPress={() => void save()} contentStyle={styles.continueButton} style={styles.continueAction}>
         {role === 'trader' ? (user?.traderEnabled ? 'Continue as Tradesperson' : 'Add Tradesperson Profile') : role === 'customer' ? (user?.customerEnabled ? 'Continue as Homeowner' : 'Add Homeowner Profile') : 'Continue'}
       </Button>
@@ -99,6 +112,9 @@ const styles = StyleSheet.create({
   enabledText: { color: colors.success, fontWeight: '800' },
   addText: { color: colors.charcoalSoft, fontWeight: '800' },
   selectedText: { color: colors.primary, fontWeight: '900' },
+  errorCard: { gap: 10, borderWidth: 1, borderColor: '#F0B9B3', backgroundColor: '#FFF7F6' },
+  errorTitle: { color: colors.charcoal, fontWeight: '900' },
+  errorBody: { color: colors.danger, lineHeight: 22 },
   continueButton: { minHeight: 50 },
   continueAction: { borderRadius: 16 },
 });
