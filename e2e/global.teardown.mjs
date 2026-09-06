@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { createClerkClient } from '@clerk/backend';
 import { clerk } from '@clerk/testing/playwright';
 import { test as teardown } from '@playwright/test';
 
@@ -21,10 +22,23 @@ async function deleteBuildPairAccount(browser, email) {
       body: JSON.stringify({ confirmation: 'DELETE MY ACCOUNT' }),
     });
     if (!response.ok) throw new Error(`Cleanup failed for ${email}: HTTP ${response.status} ${await response.text()}`);
+    return true;
   } catch (error) {
     console.warn(error instanceof Error ? error.message : String(error));
+    return false;
   } finally {
     await context.close();
+  }
+}
+
+async function deleteRemainingClerkUsers(client, email) {
+  try {
+    const result = await client.users.getUserList({ emailAddress: [email], limit: 10 });
+    for (const user of result.data) {
+      await client.users.deleteUser(user.id);
+    }
+  } catch (error) {
+    console.warn(`Could not remove remaining Clerk test user ${email}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -37,8 +51,20 @@ teardown('remove disposable homeowner and tradesperson test accounts', async ({ 
     return;
   }
 
-  for (const email of [state.customerEmail, state.traderEmail].filter(Boolean)) {
+  const emails = [...new Set([
+    ...(Array.isArray(state.cleanupEmails) ? state.cleanupEmails : []),
+    state.customerEmail,
+    state.traderEmail,
+  ].filter(Boolean))];
+
+  const clerkClient = process.env.CLERK_SECRET_KEY
+    ? createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
+    : null;
+
+  for (const email of emails) {
     await deleteBuildPairAccount(browser, email);
+    if (clerkClient) await deleteRemainingClerkUsers(clerkClient, email);
   }
+
   await fs.rm(stateFile, { force: true });
 });
