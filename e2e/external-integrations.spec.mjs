@@ -35,17 +35,20 @@ async function api(token, pathName, options = {}) {
 }
 
 test.describe('external integrations', () => {
-  test.skip(process.env.E2E_EXTERNAL !== '1', 'External AI/media checks run nightly or when explicitly requested.');
+  test.skip(process.env.E2E_EXTERNAL !== '1', 'External AI/media checks run nightly, on main pushes or when explicitly requested.');
 
-  test('Gemini trade matching, job specification, quote assistant and Cloudinary signing are healthy', async ({ browser }) => {
+  test('all Gemini assistants and Cloudinary signing are healthy', async ({ browser }) => {
     const state = JSON.parse(await fs.readFile(stateFile, 'utf8'));
     const customer = await signIn(browser, state.customerEmail, 'customer');
     const trader = await signIn(browser, state.traderEmail, 'trader');
     try {
+      const traderMe = await api(trader.token, '/api/me');
+
       const tradeMatch = await api(null, '/api/ai/trade-match', {
         method: 'POST',
         body: JSON.stringify({ problem: 'The shower walls need removing, waterproofing and retiling because the grout and tiles are failing.' }),
       });
+      expect(tradeMatch.source).toBe('ai');
       expect(typeof tradeMatch.primaryTrade).toBe('string');
       expect(tradeMatch.primaryTrade.length).toBeGreaterThan(1);
 
@@ -76,10 +79,44 @@ test.describe('external integrations', () => {
           vatRegistered: false,
         }),
       });
+      expect(quoteDraft.source).toBe('ai');
       expect(quoteDraft.laborCost).toBe(120000);
       expect(quoteDraft.materialsCost).toBe(25000);
       expect(typeof quoteDraft.scope).toBe('string');
       expect(quoteDraft.scope.length).toBeGreaterThan(20);
+
+      const aiJob = await api(customer.token, '/api/jobs', {
+        method: 'POST',
+        body: JSON.stringify({
+          targetTraderId: traderMe.id,
+          title: `AI assistant verification ${Date.now()}`,
+          category: 'Tiling',
+          propertyType: 'House',
+          postcode: 'TW18 4AB',
+          urgency: 'Flexible',
+          description: 'Retile a bathroom shower area, waterproof the substrate, grout and silicone the finished work.',
+          aiGeneratedSpec: null,
+          budgetRange: '£1,500–£5,000',
+          photos: [],
+        }),
+      });
+      expect(aiJob.conversationId).toBeTruthy();
+
+      await api(customer.token, `/api/conversations/${aiJob.conversationId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ body: 'Could you confirm when you could inspect the bathroom and what information you need before quoting?' }),
+      });
+
+      const messageDraft = await api(trader.token, '/api/ai/message-assistant', {
+        method: 'POST',
+        body: JSON.stringify({ conversationId: aiJob.conversationId, draft: 'Thanks for the details.' }),
+      });
+      expect(messageDraft.source).toBe('ai');
+      expect(typeof messageDraft.summary).toBe('string');
+      expect(messageDraft.summary.length).toBeGreaterThan(10);
+      expect(Array.isArray(messageDraft.suggestions)).toBe(true);
+      expect(messageDraft.suggestions).toHaveLength(3);
+      expect(messageDraft.suggestions.every((suggestion) => typeof suggestion === 'string' && suggestion.length > 10)).toBe(true);
 
       const customerUpload = await api(customer.token, '/api/uploads/sign', { method: 'POST', body: JSON.stringify({ kind: 'job' }) });
       expect(customerUpload.assetFolder).toBe('buildpair/job-photos');
