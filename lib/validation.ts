@@ -24,7 +24,11 @@ export const traderShowcaseSchema = z.object({
 export const traderProfileSchema = z.object({
   businessName: z.string().trim().min(2, 'Enter your business or trading name').max(100),
   tradeCategory: z.enum(TRADE_CATEGORIES),
-  subSkills: z.array(z.enum(TRADE_CATEGORIES)).min(1, 'Select at least one work type').max(9, 'A trader profile can contain no more than 9 work types'),
+  // Historical BuildPair profiles stored specialist labels in this field while the
+  // current multi-work-type UI also stores selected top-level trade labels here.
+  // Keep both forms valid until the dedicated specialist-skills migration lands,
+  // while still bounding length/count server-side.
+  subSkills: z.array(z.string().trim().min(1).max(80)).min(1, 'Select at least one work type').max(9, 'A trader profile can contain no more than 9 work types'),
   bio: z.string().trim().min(TRADER_BIO_MIN_LENGTH, `Business bio must be at least ${TRADER_BIO_MIN_LENGTH} characters`).max(1500),
   radiusMiles: z.number().int().min(1).max(150),
   postcode: postcodeSchema,
