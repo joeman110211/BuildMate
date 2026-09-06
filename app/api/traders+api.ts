@@ -120,7 +120,7 @@ export async function GET(request: Request) {
                + least((SELECT count(*) FROM trader_credentials tc WHERE tc.trader_id = tp.user_id AND tc.status = 'verified' AND (tc.expires_at IS NULL OR tc.expires_at > now())), 5) * 3
                + CASE WHEN char_length(trim(tp.bio)) >= 100 THEN 8 ELSE 3 END
                + CASE WHEN cardinality(tp.photos) > 0 THEN 6 ELSE 0 END
-               + CASE WHEN jsonb_object_length(tp.service_selections) > 0 THEN 6 ELSE 0 END
+               + CASE WHEN tp.service_selections <> '{}'::jsonb THEN 6 ELSE 0 END
                + CASE WHEN cardinality(tp.qualifications) > 0 THEN 5 ELSE 0 END
                + coalesce((
                    SELECT avg(CASE WHEN EXISTS (
