@@ -33,6 +33,12 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     {
+      name: 'desktop-auth-entrypoints',
+      testMatch: /auth-entrypoints\.spec\.mjs/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    {
       name: 'desktop-auth-recovery',
       testMatch: /auth-recovery\.spec\.mjs/,
       use: { ...devices['Desktop Chrome'] },
