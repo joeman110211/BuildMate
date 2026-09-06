@@ -1,7 +1,7 @@
 import { SignUp } from '@clerk/expo/web';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
 import { TRADE_CATEGORIES } from '@/constants/options';
@@ -134,7 +134,12 @@ export default function SignUpWebScreen() {
   }
 
   return (
-    <View style={styles.page}>
+    <ScrollView
+      style={styles.scroller}
+      contentContainerStyle={styles.page}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator
+    >
       <View style={styles.intro}>
         <Text variant="headlineSmall" style={styles.heading}>{title}</Text>
 
@@ -173,12 +178,13 @@ export default function SignUpWebScreen() {
         initialValues={initialValues}
         appearance={appearance}
       />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.background, paddingTop: 18, paddingHorizontal: 12 },
+  scroller: { flex: 1, backgroundColor: colors.background },
+  page: { flexGrow: 1, backgroundColor: colors.background, paddingTop: 18, paddingHorizontal: 12, paddingBottom: 56 },
   intro: { width: '100%', maxWidth: 640, alignSelf: 'center', gap: 12 },
   heading: { textAlign: 'center', fontWeight: '900', color: colors.charcoal },
   contextCard: { backgroundColor: '#FFF8F3' },
