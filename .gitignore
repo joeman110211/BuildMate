@@ -7,6 +7,8 @@ web-build/
 .env.production
 .env.*.local
 .neon
+.vercel/
+cloudflared.deb
 *.jks
 *.keystore
 *.mobileprovision
