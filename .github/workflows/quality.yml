@@ -45,6 +45,18 @@ jobs:
       - name: Match repository npm version
         run: npm install --global npm@11.19.0
       - run: npm ci --no-audit --no-fund --prefer-offline
+
+      - name: Validate E2E and operations script syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in server.mjs playwright.config.mjs e2e/*.mjs; do
+            node --check "$file"
+          done
+          for file in scripts/*.sh; do
+            bash -n "$file"
+          done
+
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
