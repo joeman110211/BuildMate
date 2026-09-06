@@ -41,7 +41,8 @@ export async function POST(request: Request) {
     if (!hasActiveLeadAccess(profile) || profile.subscriptionTier === 'free') throw new HttpError(402, 'An active BuildPair trade plan or trial is required to send quotes');
 
     if (!job.targetTraderId) {
-      if (job.category !== profile.tradeCategory) throw new HttpError(403, 'This marketplace job does not match your listed trade category');
+      const listedWorkTypes = new Set([profile.tradeCategory, ...(profile.subSkills ?? [])]);
+      if (!listedWorkTypes.has(job.category)) throw new HttpError(403, 'This marketplace job does not match one of your listed work types');
       if (profile.latitude == null || profile.longitude == null || job.latitude == null || job.longitude == null) {
         throw new HttpError(403, 'Location matching is required to quote this marketplace job');
       }
