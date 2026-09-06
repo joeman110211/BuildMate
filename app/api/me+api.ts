@@ -82,7 +82,8 @@ export async function PUT(request: Request) {
     const tradeCategories = payload.tradeCategories?.length
       ? [...new Set(payload.tradeCategories)]
       : payload.tradeCategory ? [payload.tradeCategory] : [];
-    if (!tradeCategories.length) throw new HttpError(400, 'Select at least one trade category');
+    const primaryTradeCategory = tradeCategories[0];
+    if (!primaryTradeCategory) throw new HttpError(400, 'Select at least one trade category');
 
     const serviceSelections = Object.fromEntries(
       Object.entries(payload.serviceSelections ?? {})
@@ -134,7 +135,7 @@ export async function PUT(request: Request) {
 
     const values = {
       businessName: payload.businessName,
-      tradeCategory: tradeCategories[0],
+      tradeCategory: primaryTradeCategory,
       tradeCategories,
       serviceSelections,
       subSkills: legacySubSkills,
