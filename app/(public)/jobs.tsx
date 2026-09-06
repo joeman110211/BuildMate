@@ -7,6 +7,8 @@ import { AppCard } from '@/components/AppCard';
 import { EmptyState, LoadingScreen, Screen } from '@/components/Screen';
 import { colors } from '@/constants/theme';
 import { apiFetch, errorMessage } from '@/lib/api';
+import { clientPreviewDataEnabled } from '@/lib/client-preview';
+import { demoJobs } from '@/lib/demo-data';
 import type { Job } from '@/types';
 
 function jobDetailsHref(job: Job): Href {
@@ -16,6 +18,10 @@ function jobDetailsHref(job: Job): Href {
 function joinJobHref(job: Job): Href {
   const location = job.locationLabel ?? job.postcode ?? '';
   return `/auth/sign-up?mode=trader&jobId=${encodeURIComponent(job.id)}&jobTitle=${encodeURIComponent(job.title)}&jobCategory=${encodeURIComponent(job.category)}&jobLocation=${encodeURIComponent(location)}` as Href;
+}
+
+function seededJobs(): Job[] {
+  return demoJobs.map((job) => ({ ...job, isPreview: true }));
 }
 
 export default function PublicJobsScreen() {
@@ -29,7 +35,12 @@ export default function PublicJobsScreen() {
       setError('');
       setJobs(await apiFetch('/api/public/jobs'));
     } catch (e) {
-      setError(errorMessage(e));
+      if (clientPreviewDataEnabled()) {
+        setJobs(seededJobs());
+        setError('');
+      } else {
+        setError(errorMessage(e));
+      }
     } finally {
       setLoading(false);
     }
