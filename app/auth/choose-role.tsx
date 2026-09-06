@@ -9,13 +9,15 @@ import { colors } from '@/constants/theme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { dashboardHref, parseAccountMode } from '@/lib/account-mode';
 import { apiFetch, errorMessage } from '@/lib/api';
-import type { UserRole } from '@/types';
+import type { CurrentUser, UserRole } from '@/types';
+
+type ModeActivationResponse = CurrentUser & { wasEnabled?: boolean };
 
 export default function ChooseRoleScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string | string[] }>();
   const requestedMode = parseAccountMode(params.mode);
-  const { getToken } = useAuth();
+  const { getToken, isLoaded: authLoaded, isSignedIn } = useAuth();
   const { user, loading, error: loadError, refresh } = useCurrentUser();
   const [role, setRole] = useState<UserRole | null>(requestedMode);
   const [busy, setBusy] = useState(false);
@@ -23,12 +25,22 @@ export default function ChooseRoleScreen() {
   const autoStarted = useRef(false);
 
   async function save(selectedRole = role) {
-    if (!selectedRole || !user || busy) return;
-    const wasEnabled = selectedRole === 'customer' ? user.customerEnabled : user.traderEnabled;
+    if (!selectedRole || busy || !authLoaded || !isSignedIn) return;
+
     try {
       setBusy(true);
       setError('');
-      await apiFetch('/api/me', { method: 'PATCH', body: JSON.stringify({ role: selectedRole }) }, getToken);
+      const result = await apiFetch<ModeActivationResponse>(
+        '/api/me',
+        { method: 'PATCH', body: JSON.stringify({ role: selectedRole }) },
+        getToken,
+      );
+      const wasEnabled = typeof result.wasEnabled === 'boolean'
+        ? result.wasEnabled
+        : selectedRole === 'customer'
+          ? Boolean(user?.customerEnabled)
+          : Boolean(user?.traderEnabled);
+
       if (selectedRole === 'trader' && !wasEnabled) {
         router.replace('/trader/onboarding');
       } else {
@@ -43,15 +55,15 @@ export default function ChooseRoleScreen() {
   }
 
   useEffect(() => {
-    if (!requestedMode || loading || !user || autoStarted.current) return;
+    if (!requestedMode || !authLoaded || !isSignedIn || autoStarted.current) return;
     autoStarted.current = true;
     setRole(requestedMode);
     void save(requestedMode);
-    // save intentionally runs once after the requested account mode and DB user are ready.
+    // save intentionally runs once after Clerk has established the signed-in session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestedMode, loading, user?.id]);
+  }, [requestedMode, authLoaded, isSignedIn]);
 
-  if (loading || (requestedMode && busy && !error)) {
+  if (!authLoaded || (requestedMode && busy && !error)) {
     return <LoadingScreen label={requestedMode === 'trader' ? 'Opening Tradesperson mode…' : 'Opening Homeowner mode…'} />;
   }
 
@@ -84,14 +96,23 @@ export default function ChooseRoleScreen() {
 
       {loadError ? (
         <AppCard style={styles.errorCard}>
-          <Text variant="titleMedium" style={styles.errorTitle}>We couldn’t load your BuildPair account</Text>
+          <Text variant="titleMedium" style={styles.errorTitle}>We couldn’t preload your BuildPair account</Text>
           <Text style={styles.errorBody}>{loadError}</Text>
+          <Text style={styles.errorHint}>You can still choose a profile below. BuildPair will retry the account connection when you continue.</Text>
           <Button mode="outlined" icon="refresh" onPress={() => void refresh()}>Retry account connection</Button>
         </AppCard>
       ) : null}
 
+      {!isSignedIn ? <HelperText type="error" visible>You need to be signed in before choosing a profile.</HelperText> : null}
       <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
-      <Button mode="contained" disabled={!role || busy || !user} loading={busy} onPress={() => void save()} contentStyle={styles.continueButton} style={styles.continueAction}>
+      <Button
+        mode="contained"
+        disabled={!role || busy || !authLoaded || !isSignedIn}
+        loading={busy}
+        onPress={() => void save()}
+        contentStyle={styles.continueButton}
+        style={styles.continueAction}
+      >
         {role === 'trader' ? (user?.traderEnabled ? 'Continue as Tradesperson' : 'Add Tradesperson Profile') : role === 'customer' ? (user?.customerEnabled ? 'Continue as Homeowner' : 'Add Homeowner Profile') : 'Continue'}
       </Button>
     </Screen>
@@ -115,6 +136,7 @@ const styles = StyleSheet.create({
   errorCard: { gap: 10, borderWidth: 1, borderColor: '#F0B9B3', backgroundColor: '#FFF7F6' },
   errorTitle: { color: colors.charcoal, fontWeight: '900' },
   errorBody: { color: colors.danger, lineHeight: 22 },
+  errorHint: { color: colors.muted, lineHeight: 21 },
   continueButton: { minHeight: 50 },
   continueAction: { borderRadius: 16 },
 });
