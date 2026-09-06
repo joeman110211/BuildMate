@@ -148,6 +148,9 @@ fi
 log "Running TypeScript checks..."
 npm run typecheck
 
+log "Running unit tests..."
+npm test
+
 log "Building web production output..."
 npm run build:web
 
