@@ -6,7 +6,6 @@ import { demoTraders } from '@/lib/demo-data';
 import { previewDataEnabled } from '@/lib/preview';
 import { authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
 import { getSql } from '@/lib/sql';
-import { TRADER_TRIAL_DAYS } from '@/lib/subscription';
 
 const defaultShowcase = {
   template: 'classic' as const,
@@ -27,6 +26,8 @@ function previewProfile(id: string) {
   if (!demoProfile) return null;
   return {
     ...demoProfile,
+    tradeCategories: [demoProfile.tradeCategory],
+    serviceSelections: { [demoProfile.tradeCategory]: demoProfile.subSkills },
     averageRating: 0,
     reviewCount: 0,
     verifiedCredentialCount: 0,
@@ -35,6 +36,8 @@ function previewProfile(id: string) {
     stories: [],
     savedByViewer: false,
     isPreview: true,
+    shareOnly: false,
+    canRequestQuote: false,
     ...defaultShowcase,
     yearsExperience: 12,
     serviceAreas: demoProfile.locationLabel ? [demoProfile.locationLabel] : [],
@@ -52,15 +55,14 @@ export async function GET(request: Request, { id }: { id: string }) {
     if (preview) return Response.json(preview);
 
     const db = getDb();
-    const createdTrialEnd = sql<Date>`${traderProfiles.createdAt} + (${TRADER_TRIAL_DAYS} * interval '1 day')`;
-    const effectiveTrialEnd = sql<Date>`greatest(coalesce(${traderProfiles.trialEndsAt}, ${createdTrialEnd}), ${createdTrialEnd})`;
-    const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
     const [profile] = await db.select({
       id: traderProfiles.id,
       userId: traderProfiles.userId,
       businessName: traderProfiles.businessName,
       tradeCategory: traderProfiles.tradeCategory,
+      tradeCategories: traderProfiles.tradeCategories,
       subSkills: traderProfiles.subSkills,
+      serviceSelections: traderProfiles.serviceSelections,
       bio: traderProfiles.bio,
       radiusMiles: traderProfiles.radiusMiles,
       locationLabel: traderProfiles.locationLabel,
@@ -68,15 +70,15 @@ export async function GET(request: Request, { id }: { id: string }) {
       externalLinks: traderProfiles.externalLinks,
       photos: traderProfiles.photos,
       subscriptionTier: traderProfiles.subscriptionTier,
-      isSubscriptionActive: activeLeadAccess,
-      trialEndsAt: effectiveTrialEnd,
+      isSubscriptionActive: traderProfiles.isSubscriptionActive,
       createdAt: traderProfiles.createdAt,
-      averageRating: sql<number>`coalesce(avg(${reviews.rating}), 0)::float`,
-      reviewCount: sql<number>`count(${reviews.id})::int`,
-    }).from(traderProfiles).leftJoin(reviews, and(eq(reviews.traderId, traderProfiles.userId), eq(reviews.verifiedCompletion, true)))
+    }).from(traderProfiles)
       .where(and(eq(traderProfiles.id, id), sql`NOT EXISTS (SELECT 1 FROM users u WHERE u.id = ${traderProfiles.userId} AND (coalesce(u.is_suspended, false) = true OR coalesce(u.is_deleted, false) = true))`))
-      .groupBy(traderProfiles.id).limit(1);
+      .limit(1);
     if (!profile) throw new HttpError(404, 'Trader profile not found');
+
+    const paidProfile = profile.subscriptionTier !== 'free' && profile.isSubscriptionActive;
+    const tradeCategories = profile.tradeCategories?.length ? profile.tradeCategories : [profile.tradeCategory];
 
     let showcase: Record<string, unknown> = {};
     try {
@@ -86,11 +88,17 @@ export async function GET(request: Request, { id }: { id: string }) {
       console.warn('[buildpair-profile] Optional showcase data unavailable', { profileId: profile.id });
     }
 
-    const loadVerifiedReviews = () => db.select({ id: reviews.id, rating: reviews.rating, comment: reviews.comment, createdAt: reviews.createdAt })
-      .from(reviews).where(and(eq(reviews.traderId, profile.userId), eq(reviews.verifiedCompletion, true))).limit(50);
-    let verifiedReviews: Awaited<ReturnType<typeof loadVerifiedReviews>> = [];
-    try { verifiedReviews = await loadVerifiedReviews(); }
-    catch { console.warn('[buildpair-profile] Verified reviews unavailable', { profileId: profile.id }); }
+    let verifiedReviews: { id: string; rating: number; comment: string; createdAt: Date }[] = [];
+    if (paidProfile) {
+      try {
+        verifiedReviews = await db.select({ id: reviews.id, rating: reviews.rating, comment: reviews.comment, createdAt: reviews.createdAt })
+          .from(reviews).where(and(eq(reviews.traderId, profile.userId), eq(reviews.verifiedCompletion, true))).limit(50);
+      } catch {
+        console.warn('[buildpair-profile] Verified reviews unavailable', { profileId: profile.id });
+      }
+    }
+    const reviewCount = paidProfile ? verifiedReviews.length : 0;
+    const averageRating = reviewCount ? verifiedReviews.reduce((sum, review) => sum + review.rating, 0) / reviewCount : 0;
 
     const sqlClient = getSql();
     const [credentials, availability, stories] = await Promise.all([
@@ -123,7 +131,7 @@ export async function GET(request: Request, { id }: { id: string }) {
     try {
       viewerId = await authenticatedUserId(request);
       await ensureDbUser(viewerId);
-      if (profile.isSubscriptionActive) {
+      if (paidProfile) {
         const mayViewContact = viewerId === profile.userId || Boolean((await sqlClient`
           SELECT 1
           FROM jobs j
@@ -136,9 +144,9 @@ export async function GET(request: Request, { id }: { id: string }) {
           const [owner] = await db.select({ email: users.email, phone: users.phone }).from(users).where(eq(users.id, profile.userId)).limit(1);
           contact = owner ?? null;
         }
+        const saved = await sqlClient`SELECT 1 FROM saved_traders WHERE customer_id = ${viewerId} AND trader_id = ${profile.userId} LIMIT 1`;
+        savedByViewer = saved.length > 0;
       }
-      const saved = await sqlClient`SELECT 1 FROM saved_traders WHERE customer_id = ${viewerId} AND trader_id = ${profile.userId} LIMIT 1`;
-      savedByViewer = saved.length > 0;
     } catch { /* guest or unrelated viewer: deliberately no contact details or saved state */ }
 
     if (viewerId !== profile.userId) {
@@ -152,9 +160,16 @@ export async function GET(request: Request, { id }: { id: string }) {
 
     return Response.json({
       ...profile,
+      tradeCategories,
+      externalLinks: paidProfile ? profile.externalLinks : {},
+      isSubscriptionActive: paidProfile,
       isPreview: false,
+      shareOnly: !paidProfile,
+      canRequestQuote: paidProfile,
       ...defaultShowcase,
       ...showcase,
+      averageRating,
+      reviewCount,
       reviews: verifiedReviews,
       credentials,
       verifiedCredentialCount: credentials.length,
