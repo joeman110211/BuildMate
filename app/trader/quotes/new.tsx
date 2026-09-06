@@ -119,7 +119,9 @@ export default function NewQuoteScreen() {
     finally { setBusy(false); }
   }
 
-  return <Screen title="Create an itemised quote" subtitle={job?.title ?? title ?? 'Customer job'}>
+  const footer = <Button mode="contained" loading={busy} disabled={busy || totals.totalAmount <= 0 || depositTooHigh || terms.length < 5} onPress={() => void submit()}>Send Quote & Open Conversation</Button>;
+
+  return <Screen title="Create an itemised quote" subtitle={job?.title ?? title ?? 'Customer job'} footer={footer}>
     {job ? <AppCard><Text variant="titleMedium">{job.title}</Text><Text>{job.description}</Text><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}><Chip compact>{job.category}</Chip><Chip compact>{job.budgetRange}</Chip>{job.isEmergency ? <Chip compact icon="alert">Emergency</Chip> : null}</View></AppCard> : null}
 
     <AppCard>
@@ -150,6 +152,6 @@ export default function NewQuoteScreen() {
     </AppCard>
 
     <AppCard><Text>Net: {formatMoney(totals.net)}</Text><Text>VAT: {formatMoney(totals.vatAmount)}</Text><Text variant="headlineSmall">Total: {formatMoney(totals.totalAmount)}</Text><Text variant="bodySmall">Sending this quote opens the BuildPair job conversation. A new open-marketplace job uses one monthly offer; direct homeowner requests do not.</Text></AppCard>
-    <HelperText type="error" visible={Boolean(error)}>{error}</HelperText><Button mode="contained" loading={busy} disabled={busy || totals.totalAmount <= 0 || depositTooHigh || terms.length < 5} onPress={() => void submit()}>Send Quote & Open Conversation</Button>
+    <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
   </Screen>;
 }
