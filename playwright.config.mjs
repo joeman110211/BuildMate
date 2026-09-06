@@ -2,20 +2,34 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 120_000,
-  expect: { timeout: 15_000 },
+  timeout: 150_000,
+  expect: { timeout: 20_000 },
   fullyParallel: false,
   retries: 1,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:3000',
+    baseURL: process.env.E2E_BASE_URL || 'https://staging.buildpair.co.uk',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    actionTimeout: 20_000,
+    navigationTimeout: 30_000,
   },
   projects: [
     {
       name: 'setup',
       testMatch: /global\.setup\.mjs/,
+      teardown: 'cleanup',
+    },
+    {
+      name: 'cleanup',
+      testMatch: /global\.teardown\.mjs/,
+    },
+    {
+      name: 'real-signup-journey',
+      testMatch: /real-signup-journey\.spec\.mjs/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
     {
       name: 'desktop-core-flow',
@@ -24,8 +38,14 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     {
-      name: 'real-signup-journey',
-      testMatch: /real-signup-journey\.spec\.mjs/,
+      name: 'desktop-marketplace-features',
+      testMatch: /marketplace-features\.spec\.mjs/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'desktop-route-coverage',
+      testMatch: /route-coverage\.spec\.mjs/,
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
