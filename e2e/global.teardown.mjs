@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createClerkClient } from '@clerk/backend';
-import { clerk } from '@clerk/testing/playwright';
+import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright';
 import { test as teardown } from '@playwright/test';
 
 const baseURL = process.env.E2E_BASE_URL || 'https://staging.buildpair.co.uk';
@@ -11,6 +11,7 @@ async function deleteBuildPairAccount(browser, email) {
   const context = await browser.newContext();
   const page = await context.newPage();
   try {
+    await setupClerkTestingToken({ page });
     await page.goto(`${baseURL}/`, { waitUntil: 'domcontentloaded' });
     await clerk.signIn({ page, emailAddress: email });
     await page.waitForFunction(() => Boolean(globalThis.Clerk?.session));
