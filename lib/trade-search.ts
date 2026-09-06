@@ -96,7 +96,11 @@ function phraseIncludes(value: string, term: string) {
   if (!termWords.length || termWords.length > valueWords.length) return false;
 
   for (let index = 0; index <= valueWords.length - termWords.length; index += 1) {
-    if (termWords.every((word, offset) => wordsRelated(valueWords[index + offset], word))) return true;
+    const matches = termWords.every((word, offset) => {
+      const candidate = valueWords[index + offset];
+      return candidate !== undefined && wordsRelated(candidate, word);
+    });
+    if (matches) return true;
   }
   return false;
 }
