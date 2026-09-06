@@ -1,7 +1,8 @@
-import { createClerkClient, verifyToken } from '@clerk/backend';
+import { createClerkClient } from '@clerk/backend';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { users } from '@/db/schema';
+import { verifyBuildPairClerkSession } from '@/lib/clerk-session';
 import { getSql } from '@/lib/sql';
 
 export class HttpError extends Error {
@@ -50,20 +51,15 @@ export async function authenticatedUserId(request: Request) {
   const token = sessionTokenFromRequest(request);
   if (!token) throw new HttpError(401, 'Authentication required');
 
-  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
-  if (!secretKey) throw new Error('CLERK_SECRET_KEY is not configured');
-
   try {
-    // BuildPair's Expo clients explicitly send Clerk's session token as a Bearer
-    // token. Verify that token directly instead of asking authenticateRequest()
-    // to infer request state through the Cloudflare/Expo proxy chain.
-    const payload = await verifyToken(token, { secretKey });
+    const payload = await verifyBuildPairClerkSession(token);
     if (!payload.sub) throw new HttpError(401, 'Invalid authentication token');
     return payload.sub;
   } catch (error) {
     if (error instanceof HttpError) throw error;
     console.warn('[buildpair-auth] Clerk token verification failed', {
       name: error instanceof Error ? error.name : typeof error,
+      message: error instanceof Error ? redactServerError(error.message) : undefined,
     });
     throw new HttpError(401, 'Invalid authentication token');
   }
@@ -93,7 +89,7 @@ export async function accountModes(userId: string): Promise<AccountModes> {
     FROM users
     WHERE id = ${userId}
     LIMIT 1
-  ` as Array<{ customerEnabled: boolean; traderEnabled: boolean; activeMode: AccountMode | null }>;
+  ` as { customerEnabled: boolean; traderEnabled: boolean; activeMode: AccountMode | null }[];
   const row = rows[0];
   return {
     customerEnabled: Boolean(row?.customerEnabled),
