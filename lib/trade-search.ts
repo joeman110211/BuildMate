@@ -57,6 +57,7 @@ const SEARCH_GROUPS = [
 ];
 
 const GROUP_ANCHOR_LIMIT = 6;
+const GENERIC_ANCHORS = new Set(['repair', 'repairs', 'maintenance']);
 
 function normalise(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -108,10 +109,14 @@ function phraseIncludes(value: string, term: string) {
 function matchedGroups(query: string) {
   const raw = normalise(query);
   if (!raw) return [];
+  const rawWordCount = raw.split(' ').filter(Boolean).length;
 
   return SEARCH_GROUPS.filter((group) => group.slice(0, GROUP_ANCHOR_LIMIT).some((term) => {
     const anchor = normalise(term);
-    return anchor.length > 1 && (phraseIncludes(raw, anchor) || phraseIncludes(anchor, raw));
+    if (anchor.length <= 1) return false;
+    if (raw === anchor) return true;
+    if (rawWordCount > 1 && GENERIC_ANCHORS.has(anchor)) return false;
+    return phraseIncludes(raw, anchor) || phraseIncludes(anchor, raw);
   }));
 }
 
