@@ -1,7 +1,7 @@
 import type { TraderProfile } from '@/types';
 
 const SEARCH_GROUPS = [
-  ['tile', 'tiles', 'tiler', 'tilers', 'tiling', 'grout', 'grouting', 'ceramic', 'porcelain', 'splashback', 'wetroom', 'wet room', 'bathroom', 'kitchen'],
+  ['tile', 'tiles', 'tiler', 'tilers', 'tiling', 'grout', 'grouting', 'ceramic', 'porcelain', 'splashback', 'wetroom', 'wet room', 'bathroom', 'kitchen', 'mosaic', 'large format'],
   ['bath', 'bathroom', 'bathrooms', 'shower', 'showers', 'wetroom', 'wet room', 'ensuite', 'toilet', 'wc', 'basin', 'sink', 'vanity', 'plumber', 'plumbing', 'tiler', 'tiling', 'bathroom fitting'],
   ['kitchen', 'kitchens', 'sink', 'worktop', 'worktops', 'cabinet', 'cabinets', 'units', 'splashback', 'joiner', 'carpenter', 'tiler', 'tiling', 'plumber', 'kitchen fitting'],
   ['plumber', 'plumbing', 'pipe', 'pipes', 'tap', 'taps', 'leak', 'leaks', 'sink', 'toilet', 'radiator', 'shower', 'bath', 'drain', 'water'],
@@ -128,34 +128,32 @@ export function scoreTraderSearch(trader: TraderProfile, query: string) {
   const raw = normalise(query);
   if (!raw) return 1;
 
-  const category = normalise(trader.tradeCategory);
+  const categoryValues = [...new Set([trader.tradeCategory, ...(trader.tradeCategories ?? [])].filter(Boolean))];
+  const categories = normalise(categoryValues.join(' '));
   const business = normalise(trader.businessName);
-  const skills = normalise(trader.subSkills.join(' '));
+  const selectedServices = Object.values(trader.serviceSelections ?? {}).flat();
+  const skills = normalise([...new Set([...(trader.subSkills ?? []), ...selectedServices])].join(' '));
   const bio = normalise(trader.bio || '');
 
   let score = 0;
 
-  // Literal user wording is strongest. Word-aware matching handles useful
-  // variants such as tiler/tiling and sink/sinks without matching spa/spark.
   if (phraseIncludes(business, raw)) score += 150;
-  if (category === raw) score += 145;
-  else if (phraseIncludes(category, raw) || phraseIncludes(raw, category)) score += 115;
-  if (phraseIncludes(skills, raw)) score += 90;
+  if (categoryValues.some((category) => normalise(category) === raw)) score += 145;
+  else if (phraseIncludes(categories, raw) || phraseIncludes(raw, categories)) score += 115;
+  if (phraseIncludes(skills, raw)) score += 95;
   if (phraseIncludes(bio, raw)) score += 18;
 
   for (const group of matchedGroups(query)) {
     const primaryTerms = group.slice(0, GROUP_ANCHOR_LIMIT).map(normalise);
     const relatedTerms = group.slice(GROUP_ANCHOR_LIMIT).map(normalise);
 
-    // Primary aliases describe the core trade/problem represented by the group.
-    // Related terms broaden results without being allowed to dominate ranking.
-    score += bestFieldMatch(category, primaryTerms, 95);
-    score += bestFieldMatch(skills, primaryTerms, 58);
+    score += bestFieldMatch(categories, primaryTerms, 95);
+    score += bestFieldMatch(skills, primaryTerms, 62);
     score += bestFieldMatch(business, primaryTerms, 38);
     score += bestFieldMatch(bio, primaryTerms, 8);
 
-    score += bestFieldMatch(category, relatedTerms, 28);
-    score += bestFieldMatch(skills, relatedTerms, 20);
+    score += bestFieldMatch(categories, relatedTerms, 28);
+    score += bestFieldMatch(skills, relatedTerms, 24);
     score += bestFieldMatch(business, relatedTerms, 12);
     score += bestFieldMatch(bio, relatedTerms, 3);
   }
@@ -168,6 +166,8 @@ export function searchTraders(traders: TraderProfile[], query: string) {
   return traders
     .map((trader) => ({ trader, score: scoreTraderSearch(trader, query) }))
     .filter((result) => result.score > 0)
-    .sort((a, b) => b.score - a.score || b.trader.averageRating - a.trader.averageRating)
+    .sort((a, b) => b.score - a.score
+      || (b.trader.rankingScore ?? 0) - (a.trader.rankingScore ?? 0)
+      || b.trader.averageRating - a.trader.averageRating)
     .map((result) => result.trader);
 }
