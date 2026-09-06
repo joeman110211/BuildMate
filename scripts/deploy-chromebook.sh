@@ -249,6 +249,8 @@ log "Running TypeScript checks..."
 npm run typecheck
 log "Running unit tests..."
 npm test
+log "Applying pending database migrations..."
+node --env-file="$ENV_FILE" scripts/migrate.mjs
 build_web
 
 log "Restarting BuildPair through PM2..."
