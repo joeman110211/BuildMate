@@ -16,6 +16,14 @@ async function expectNoHorizontalOverflow(page, label) {
   expect(metrics.bodyWidth, `${label}: body overflows horizontally`).toBeLessThanOrEqual(metrics.innerWidth + 2);
 }
 
+async function expectActionInViewport(page, action, label) {
+  await expect(action).toBeVisible();
+  const box = await action.boundingBox();
+  const viewportHeight = await page.evaluate(() => window.innerHeight);
+  expect(box, `${label}: action has no layout box`).not.toBeNull();
+  expect((box?.y ?? viewportHeight) + (box?.height ?? 0), `${label}: action is below the usable viewport`).toBeLessThanOrEqual(viewportHeight + 2);
+}
+
 async function getToken(page) {
   await page.waitForFunction(() => Boolean(globalThis.Clerk?.session));
   const token = await page.evaluate(() => globalThis.Clerk.session.getToken());
@@ -59,7 +67,7 @@ test('small Android public and auth surfaces fit without furniture-removal chaos
   await expectNoHorizontalOverflow(page, 'preview trader profile');
 });
 
-test('small Android trader onboarding starts above the fold and stays usable', async ({ page }) => {
+test('small Android trader onboarding keeps Continue reachable', async ({ page }) => {
   const state = JSON.parse(await fs.readFile(stateFile, 'utf8'));
   await page.goto('/');
   await clerk.signIn({ page, emailAddress: state.traderEmail });
@@ -70,6 +78,19 @@ test('small Android trader onboarding starts above the fold and stays usable', a
   await expect(page.getByText('Business Details', { exact: true }).first()).toBeVisible();
   const titleBox = await page.getByText('Business Details', { exact: true }).first().boundingBox();
   expect(titleBox?.y ?? 9999, 'Trader onboarding starts too far below the top of a small phone').toBeLessThan(300);
-  await expect(page.getByLabel('Business or trading name')).toBeVisible();
+  await expectActionInViewport(page, page.getByRole('button', { name: 'Continue' }), 'trader onboarding');
   await expectNoHorizontalOverflow(page, 'trader onboarding');
+});
+
+test('small Android post-a-job keeps Continue reachable', async ({ page }) => {
+  const state = JSON.parse(await fs.readFile(stateFile, 'utf8'));
+  await page.goto('/');
+  await clerk.signIn({ page, emailAddress: state.customerEmail });
+  const token = await getToken(page);
+  await api(token, '/api/me', { method: 'PATCH', body: JSON.stringify({ role: 'customer' }) });
+
+  await page.goto('/customer/new-job');
+  await expect(page.getByText('What do you need?', { exact: true }).first()).toBeVisible();
+  await expectActionInViewport(page, page.getByRole('button', { name: 'Continue' }), 'post a job');
+  await expectNoHorizontalOverflow(page, 'post a job');
 });
