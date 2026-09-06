@@ -5,6 +5,8 @@ set -Eeuo pipefail
 REPO_DIR="${BUILDPAIR_REPO_DIR:-/home/jloveridge1102/BuildPair}"
 BRANCH="${BUILDPAIR_DEPLOY_BRANCH:-main}"
 HEALTH_URL="${BUILDPAIR_HEALTH_URL:-https://staging.buildpair.co.uk/api/health}"
+READINESS_URL="${BUILDPAIR_READINESS_URL:-https://staging.buildpair.co.uk/api/readiness}"
+ENV_FILE="${BUILDPAIR_ENV_FILE:-$REPO_DIR/.env.local}"
 LOCK_FILE="${BUILDPAIR_DEPLOY_LOCK:-/tmp/buildpair-deploy.lock}"
 FAILED_SHA_FILE="${BUILDPAIR_FAILED_SHA_FILE:-/home/jloveridge1102/.buildpair-last-failed-sha}"
 DEPLOYED_SHA_FILE="${BUILDPAIR_DEPLOYED_SHA_FILE:-/home/jloveridge1102/.buildpair-last-deployed-sha}"
@@ -19,6 +21,18 @@ health_response_ok() {
     try {
       const data = JSON.parse(process.argv[1]);
       process.exit(data.status === "ok" && data.database === "ok" ? 0 : 1);
+    } catch {
+      process.exit(1);
+    }
+  ' "$response" >/dev/null 2>&1
+}
+
+readiness_response_ok() {
+  local response="$1"
+  node -e '
+    try {
+      const data = JSON.parse(process.argv[1]);
+      process.exit(data.status === "ready" && data.ready === true ? 0 : 1);
     } catch {
       process.exit(1);
     }
@@ -43,6 +57,24 @@ wait_for_health() {
   return 1
 }
 
+wait_for_readiness() {
+  local url="$1"
+  local label="$2"
+  local response=""
+
+  for attempt in $(seq 1 30); do
+    response="$(curl --silent --show-error --connect-timeout 2 --max-time 5 "$url" 2>/dev/null || true)"
+    if [[ -n "$response" ]] && readiness_response_ok "$response"; then
+      log "$label readiness check passed on attempt $attempt."
+      return 0
+    fi
+    sleep 2
+  done
+
+  log "$label readiness check failed after 60 seconds. Last response: ${response:-<no response>}"
+  return 1
+}
+
 write_deployed_sha() {
   printf '%s\n' "$1" > "$DEPLOYED_SHA_FILE"
   chmod 600 "$DEPLOYED_SHA_FILE"
@@ -54,6 +86,33 @@ exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
   log "Another deployment is already running; exiting."
   exit 0
+fi
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  log "Required runtime environment file is missing: $ENV_FILE"
+  exit 4
+fi
+
+missing_env="$({ node --env-file="$ENV_FILE" - <<'NODE'
+const required = [
+  'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY',
+  'CLERK_SECRET_KEY',
+  'DATABASE_URL',
+  'GEMINI_API_KEY',
+  'RESEND_API_KEY',
+  'INVOICE_FROM_EMAIL',
+  'CLOUDINARY_API_KEY',
+  'CLOUDINARY_API_SECRET',
+];
+const missing = required.filter((name) => !process.env[name]?.trim());
+process.stdout.write(missing.join('\n'));
+NODE
+} 2>/dev/null || true)"
+
+if [[ -n "$missing_env" ]]; then
+  log "Deployment blocked because required runtime values are missing from $ENV_FILE:"
+  printf '%s\n' "$missing_env"
+  exit 4
 fi
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
@@ -111,10 +170,11 @@ rollback() {
   npm run build:web
   pm2 restart buildpair --update-env >/dev/null || true
   pm2 save >/dev/null || true
-  if wait_for_health "http://localhost:3000/api/health" "Rollback local API"; then
+  if wait_for_health "http://localhost:3000/api/health" "Rollback local API" \
+    && wait_for_readiness "http://localhost:3000/api/readiness" "Rollback local API"; then
     write_deployed_sha "$ROLLBACK_SHA"
   else
-    log "Rollback process finished, but local API health could not be confirmed."
+    log "Rollback process finished, but local API health/readiness could not be confirmed."
   fi
   log "Rollback completed. This failed revision will not be retried unless GitHub changes again."
 }
@@ -161,11 +221,17 @@ pm2 save >/dev/null
 log "Waiting for local API health..."
 wait_for_health "http://localhost:3000/api/health" "Local API"
 
+log "Waiting for local API readiness..."
+wait_for_readiness "http://localhost:3000/api/readiness" "Local API"
+
 log "Waiting for public staging health..."
 wait_for_health "$HEALTH_URL" "Public staging"
+
+log "Waiting for public staging readiness..."
+wait_for_readiness "$READINESS_URL" "Public staging"
 
 write_deployed_sha "$REMOTE_SHA"
 rm -f "$FAILED_SHA_FILE"
 DEPLOY_ACTIVE=false
 trap - ERR
-log "Deployment complete: ${REMOTE_SHA:0:12} is live."
+log "Deployment complete: ${REMOTE_SHA:0:12} is live and fully ready."
