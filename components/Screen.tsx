@@ -1,16 +1,26 @@
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 
-export function Screen({ children, title, subtitle, scroll = true }: PropsWithChildren<{ title?: string; subtitle?: string; scroll?: boolean }>) {
+export function Screen({ children, title, subtitle, scroll = true, backHref }: PropsWithChildren<{ title?: string; subtitle?: string; scroll?: boolean; backHref?: Href }>) {
   const router = useRouter();
   const canGoBack = router.canGoBack();
+  const showBack = canGoBack || Boolean(backHref);
+
+  function goBack() {
+    if (canGoBack) {
+      router.back();
+      return;
+    }
+    if (backHref) router.replace(backHref);
+  }
+
   const content = (
     <View style={styles.content}>
-      {canGoBack ? <View style={styles.backRow}><Button icon="arrow-left" mode="text" compact onPress={() => router.back()}>Back</Button></View> : null}
+      {showBack ? <View style={styles.backRow}><Button icon="arrow-left" mode="text" compact onPress={goBack}>Back</Button></View> : null}
       {title || subtitle ? <View style={styles.headingBlock}>
         {title ? <Text variant="headlineMedium" style={styles.title}>{title}</Text> : null}
         {subtitle ? <Text variant="bodyLarge" style={styles.subtitle}>{subtitle}</Text> : null}
