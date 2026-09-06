@@ -6,24 +6,78 @@ import { Button, Chip, HelperText, ProgressBar, Text, TextInput } from 'react-na
 import { AppCard } from '@/components/AppCard';
 import { FormSelect } from '@/components/FormSelect';
 import { PhotoUploader } from '@/components/PhotoUploader';
-import { PillSelector } from '@/components/PillSelector';
 import { Screen } from '@/components/Screen';
-import { RADIUS_OPTIONS, TRADE_CATEGORIES, TRADER_BIO_MIN_LENGTH } from '@/constants/options';
+import { TradeCategorySelector } from '@/components/TradeCategorySelector';
+import { RADIUS_OPTIONS, SUB_SKILLS, TRADE_CATEGORIES, TRADER_BIO_MIN_LENGTH, type TradeCategory } from '@/constants/options';
 import { colors } from '@/constants/theme';
 import { apiFetch, ApiError, errorMessage } from '@/lib/api';
 import { clearDraft, loadDraft, saveDraft } from '@/lib/draft-storage';
 import type { BeforeAfterProject, TraderProfile } from '@/types';
 
 const STEP_TITLES = ['Business Details', 'Build Your Profile', 'Portfolio', 'Review & Publish'] as const;
-const DRAFT_KEY = 'trader-onboarding-v1';
+const DRAFT_KEY = 'trader-onboarding-v2';
 
-type TradeCategory = (typeof TRADE_CATEGORIES)[number];
+const LEGACY_CATEGORY_MAP: Record<string, TradeCategory> = {
+  'Bathroom Fitting': 'Bathrooms',
+  'Kitchen Fitting': 'Kitchens',
+  'EV Chargers': 'Renewables & EV',
+  'Solar & Renewables': 'Renewables & EV',
+  'General Building': 'Building & Extensions',
+  Extensions: 'Building & Extensions',
+  'Loft Conversions': 'Conversions',
+  'Loft Boarding & Storage': 'Conversions',
+  'Garage Conversions': 'Conversions',
+  'Basement & Cellar Conversions': 'Conversions',
+  Bricklaying: 'Brickwork & Masonry',
+  'Stone Masonry': 'Brickwork & Masonry',
+  'Plastering & Rendering': 'Plastering, Rendering & Dry Lining',
+  'Dry Lining & Partitioning': 'Plastering, Rendering & Dry Lining',
+  Roofing: 'Roofing & Roofline',
+  'Guttering, Fascias & Soffits': 'Roofing & Roofline',
+  'Windows & Doors': 'Windows, Doors & Glazing',
+  Glazing: 'Windows, Doors & Glazing',
+  'Garage Doors & Automated Gates': 'Windows, Doors & Glazing',
+  Flooring: 'Flooring & Screeding',
+  'Carpet Fitting': 'Flooring & Screeding',
+  'Screeding & Floor Preparation': 'Flooring & Screeding',
+  'Driveways & Paving': 'Driveways, Paving & Groundworks',
+  Groundworks: 'Driveways, Paving & Groundworks',
+  'Concrete & Formwork': 'Driveways, Paving & Groundworks',
+  'Piling & Foundations': 'Driveways, Paving & Groundworks',
+  Drainage: 'Drainage & Sewage',
+  'Septic Tanks & Sewage Treatment': 'Drainage & Sewage',
+  'Damp Proofing': 'Damp Proofing & Insulation',
+  Insulation: 'Damp Proofing & Insulation',
+  Cladding: 'Cladding & Exterior Finishes',
+  'Smart Home, CCTV & Alarms': 'Security, Smart Home & Locksmiths',
+  Locksmith: 'Security, Smart Home & Locksmiths',
+  Handyman: 'Handyman & Property Maintenance',
+  'Property Maintenance': 'Handyman & Property Maintenance',
+  'Shopfitting & Commercial Fit-Out': 'Commercial Fit-Out & Access',
+  Scaffolding: 'Commercial Fit-Out & Access',
+  Demolition: 'Demolition, Asbestos & Waste',
+  'Asbestos Survey & Removal': 'Demolition, Asbestos & Waste',
+  'Waste Removal': 'Demolition, Asbestos & Waste',
+  'Pressure Washing': 'Cleaning, Exterior Care & Pest Control',
+  Cleaning: 'Cleaning, Exterior Care & Pest Control',
+  'Pest Control': 'Cleaning, Exterior Care & Pest Control',
+  'Garden Rooms & Outbuildings': 'Garden Buildings & Leisure',
+  Conservatories: 'Garden Buildings & Leisure',
+  'Swimming Pools & Hot Tubs': 'Garden Buildings & Leisure',
+  'Architectural & Planning Services': 'Professional Building Services',
+  'Structural Engineering': 'Professional Building Services',
+  'Building Surveying': 'Professional Building Services',
+};
+
+type ServiceSelections = Partial<Record<TradeCategory, string[]>>;
 
 type OnboardingDraft = {
   step: number;
   businessName: string;
+  tradeCategories?: string[];
+  serviceSelections?: Record<string, string[]>;
   tradeCategory?: string;
-  subSkills: string[];
+  subSkills?: string[];
   postcode: string;
   radius: string;
   serviceAreasText: string;
@@ -44,13 +98,31 @@ type OnboardingDraft = {
   beforeAfterProjects: BeforeAfterProject[];
 };
 
-function normaliseWorkTypes(primary?: string | null, stored: readonly string[] = []) {
-  const selected = stored.filter((value): value is TradeCategory => TRADE_CATEGORIES.includes(value as TradeCategory));
-  const primaryMatch = TRADE_CATEGORIES.find((item) => item === primary);
+function canonicalCategory(value?: string | null): TradeCategory | undefined {
+  if (!value) return undefined;
+  const direct = TRADE_CATEGORIES.find((item) => item === value);
+  return direct ?? LEGACY_CATEGORY_MAP[value];
+}
 
-  if (!selected.length) return primaryMatch ? [primaryMatch] : [];
-  if (!primaryMatch || selected.includes(primaryMatch)) return [...new Set(selected)];
-  return [primaryMatch, ...new Set(selected)];
+function normaliseCategories(primary?: string | null, stored: readonly string[] = []) {
+  const values = [...stored, primary ?? '']
+    .map(canonicalCategory)
+    .filter((value): value is TradeCategory => Boolean(value));
+  return [...new Set(values)];
+}
+
+function normaliseServices(categories: TradeCategory[], stored?: Record<string, string[]>, legacySkills: readonly string[] = []): ServiceSelections {
+  const result: ServiceSelections = {};
+  for (const category of categories) {
+    const allowed = new Set<string>(SUB_SKILLS[category]);
+    const direct = Object.entries(stored ?? {})
+      .filter(([key]) => canonicalCategory(key) === category)
+      .flatMap(([, services]) => services)
+      .filter((service) => allowed.has(service));
+    const legacy = legacySkills.filter((service) => allowed.has(service));
+    result[category] = [...new Set([...direct, ...legacy])];
+  }
+  return result;
 }
 
 export default function TraderOnboarding() {
@@ -59,7 +131,10 @@ export default function TraderOnboarding() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [businessName, setBusinessName] = useState('');
-  const [workTypes, setWorkTypes] = useState<TradeCategory[]>([]);
+  const [tradeCategories, setTradeCategories] = useState<TradeCategory[]>([]);
+  const [serviceSelections, setServiceSelections] = useState<ServiceSelections>({});
+  const [categoryLimit, setCategoryLimit] = useState(2);
+  const [categoryChangeAvailableAt, setCategoryChangeAvailableAt] = useState<string | null>(null);
   const [postcode, setPostcode] = useState('');
   const [radius, setRadius] = useState('15');
   const [serviceAreasText, setServiceAreasText] = useState('');
@@ -88,14 +163,18 @@ export default function TraderOnboarding() {
   const [draftStatus, setDraftStatus] = useState('');
   const [error, setError] = useState('');
 
-  const tradeCategory = workTypes[0];
+  const tradeCategory = tradeCategories[0];
+  const selectedServiceCount = useMemo(() => tradeCategories.reduce((sum, category) => sum + (serviceSelections[category]?.length ?? 0), 0), [serviceSelections, tradeCategories]);
+  const everyCategoryHasService = tradeCategories.every((category) => (serviceSelections[category]?.length ?? 0) > 0);
 
   useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
 
   const applyDraft = useCallback((draft: OnboardingDraft) => {
     setStep(Math.max(0, Math.min(3, draft.step ?? 0)));
     setBusinessName(draft.businessName ?? '');
-    setWorkTypes(normaliseWorkTypes(draft.tradeCategory, draft.subSkills ?? []));
+    const categories = normaliseCategories(draft.tradeCategory, draft.tradeCategories ?? draft.subSkills ?? []);
+    setTradeCategories(categories);
+    setServiceSelections(normaliseServices(categories, draft.serviceSelections, draft.subSkills ?? []));
     setPostcode(draft.postcode ?? '');
     setRadius(draft.radius ?? '15');
     setServiceAreasText(draft.serviceAreasText ?? '');
@@ -120,8 +199,12 @@ export default function TraderOnboarding() {
     try {
       const profile = await apiFetch<TraderProfile>('/api/me/profile', {}, () => getTokenRef.current());
       await clearDraft(DRAFT_KEY);
+      const categories = normaliseCategories(profile.tradeCategory, profile.tradeCategories ?? []);
       setBusinessName(profile.businessName ?? '');
-      setWorkTypes(normaliseWorkTypes(profile.tradeCategory, profile.subSkills ?? []));
+      setTradeCategories(categories);
+      setServiceSelections(normaliseServices(categories, profile.serviceSelections, profile.subSkills ?? []));
+      setCategoryLimit(profile.categoryLimit ?? 2);
+      setCategoryChangeAvailableAt(profile.categoryChangeAvailableAt ?? null);
       setPostcode(profile.postcode ?? '');
       setRadius(String(profile.radiusMiles ?? 15));
       setServiceAreasText((profile.serviceAreas ?? []).join(', '));
@@ -162,7 +245,9 @@ export default function TraderOnboarding() {
     step,
     businessName,
     tradeCategory,
-    subSkills: workTypes,
+    tradeCategories,
+    serviceSelections: serviceSelections as Record<string, string[]>,
+    subSkills: Object.values(serviceSelections).flatMap((value) => value ?? []),
     postcode,
     radius,
     serviceAreasText,
@@ -181,7 +266,7 @@ export default function TraderOnboarding() {
     profileImage,
     logo,
     beforeAfterProjects,
-  }), [beforeAfterProjects, bio, businessName, coverPhoto, facebook, gasSafe, instagram, logo, photos, postcode, profileImage, qualificationsText, radius, serviceAreasText, step, tiktok, tradeCategory, trustMark, whatsapp, workTypes, yearEstablished, yearsExperience]);
+  }), [beforeAfterProjects, bio, businessName, coverPhoto, facebook, gasSafe, instagram, logo, photos, postcode, profileImage, qualificationsText, radius, serviceAreasText, serviceSelections, step, tiktok, tradeCategories, tradeCategory, trustMark, whatsapp, yearEstablished, yearsExperience]);
 
   useEffect(() => {
     if (!draftReady || certified) return;
@@ -194,11 +279,11 @@ export default function TraderOnboarding() {
   const bioLength = bio.trim().length;
   const bioCharactersRemaining = Math.max(0, TRADER_BIO_MIN_LENGTH - bioLength);
   const valid = useMemo(() => [
-    Boolean(businessName.trim().length >= 2 && workTypes.length && postcode.trim().length >= 5),
+    Boolean(businessName.trim().length >= 2 && tradeCategories.length && tradeCategories.length <= categoryLimit && everyCategoryHasService && postcode.trim().length >= 5),
     bioLength >= TRADER_BIO_MIN_LENGTH,
     true,
     certified,
-  ][step], [bioLength, businessName, certified, postcode, step, workTypes.length]);
+  ][step], [bioLength, businessName, categoryLimit, certified, everyCategoryHasService, postcode, step, tradeCategories.length]);
 
   function addBeforeAfter() {
     const before = beforeDraft[0];
@@ -211,18 +296,21 @@ export default function TraderOnboarding() {
   }
 
   async function save() {
-    if (!tradeCategory || !workTypes.length) return;
+    if (!tradeCategory || !tradeCategories.length || !everyCategoryHasService) return;
     try {
       setBusy(true);
       setError('');
       const links = { gasSafe, trustMark, facebook, instagram, tiktok, whatsapp };
       const serviceAreas = serviceAreasText.split(/[,\n]/).map((value) => value.trim()).filter(Boolean).slice(0, 20);
+      const flattenedServices = [...new Set(Object.values(serviceSelections).flatMap((value) => value ?? []))];
       await apiFetch('/api/me', {
         method: 'PUT',
         body: JSON.stringify({
           businessName,
+          tradeCategories,
+          serviceSelections,
           tradeCategory,
-          subSkills: workTypes,
+          subSkills: flattenedServices,
           bio,
           postcode,
           radiusMiles: Number(radius),
@@ -277,17 +365,19 @@ export default function TraderOnboarding() {
 
     {step === 0 ? <AppCard>
       <Text variant="titleLarge" style={styles.title}>Tell us about your business</Text>
-      <Text style={styles.muted}>These details control job matching and the basic information shown on your public profile.</Text>
+      <Text style={styles.muted}>Choose broad trade categories first, then expand each one and tick the services you actually offer. Services do not use extra plan slots.</Text>
       <TextInput label="Business or trading name" value={businessName} onChangeText={setBusinessName} mode="outlined" />
 
       <Text variant="titleMedium" style={styles.title}>What work do you offer?</Text>
-      <Text style={styles.muted}>Choose every trade type you want BuildPair to match you with. Your first selection is used as your primary trade.</Text>
-      <PillSelector
-        options={TRADE_CATEGORIES}
-        values={workTypes}
-        onChange={(values) => setWorkTypes(normaliseWorkTypes(null, values))}
+      <TradeCategorySelector
+        selectedCategories={tradeCategories}
+        serviceSelections={serviceSelections}
+        categoryLimit={categoryLimit}
+        categoryChangeAvailableAt={categoryChangeAvailableAt}
+        onCategoriesChange={setTradeCategories}
+        onServicesChange={setServiceSelections}
       />
-      <HelperText type="info">Choose at least one work type. New and trial profiles can select up to 3; paid Basic can select 6 and Featured can select 9.</HelperText>
+      {!everyCategoryHasService && tradeCategories.length ? <HelperText type="error">Choose at least one service inside each selected trade category.</HelperText> : null}
 
       <View style={styles.twoCol}>
         <TextInput style={styles.flex} label="Years of experience" value={yearsExperience} onChangeText={setYearsExperience} mode="outlined" keyboardType="number-pad" />
@@ -357,13 +447,13 @@ export default function TraderOnboarding() {
             <Text style={styles.muted}>{tradeCategory || 'Primary trade'} · {postcode || 'Service area'}</Text>
           </View>
         </View>
-        <View style={styles.previewChips}>{workTypes.map((workType) => <Chip key={workType} compact>{workType}</Chip>)}</View>
+        <View style={styles.previewChips}>{tradeCategories.map((category) => <Chip key={category} compact>{category} · {serviceSelections[category]?.length ?? 0} services</Chip>)}</View>
         <Text numberOfLines={5} style={styles.previewBio}>{bio || 'Your business bio will appear here.'}</Text>
-        <Text style={styles.muted}>{photos.length} work photo{photos.length === 1 ? '' : 's'} · {beforeAfterProjects.length} before/after project{beforeAfterProjects.length === 1 ? '' : 's'} · {qualificationsText.split('\n').filter((value) => value.trim()).length} qualification{qualificationsText.split('\n').filter((value) => value.trim()).length === 1 ? '' : 's'}</Text>
+        <Text style={styles.muted}>{tradeCategories.length} trade categor{tradeCategories.length === 1 ? 'y' : 'ies'} · {selectedServiceCount} service{selectedServiceCount === 1 ? '' : 's'} · {photos.length} work photo{photos.length === 1 ? '' : 's'} · {beforeAfterProjects.length} before/after project{beforeAfterProjects.length === 1 ? '' : 's'}</Text>
       </AppCard>
       <AppCard>
         <Text variant="titleLarge" style={styles.title}>Confirm & publish</Text>
-        <Text style={styles.muted}>Your 14-day free tradesperson period starts when this profile is first published. No Stripe setup is required during onboarding.</Text>
+        <Text style={styles.muted}>Starter Free lets you complete and externally share this profile and browse BuildPair jobs. Starter profiles are hidden from BuildPair search and cannot offer on jobs until you choose Plus or Pro. There is no trial during beta testing.</Text>
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: certified }} onPress={() => setCertified((value) => !value)} style={styles.check}>
           <View style={[styles.checkBox, certified && styles.checkBoxSelected]}>{certified ? <Text style={styles.checkMark}>✓</Text> : null}</View>
           <Text style={styles.checkText}>I confirm that the information I have provided is accurate and that I hold any insurance or trade accreditation required for the work I offer.</Text>
