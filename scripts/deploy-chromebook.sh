@@ -6,6 +6,7 @@ BRANCH="${BUILDPAIR_DEPLOY_BRANCH:-main}"
 HEALTH_URL="${BUILDPAIR_HEALTH_URL:-https://staging.buildpair.co.uk/api/health}"
 LOCK_FILE="${BUILDPAIR_DEPLOY_LOCK:-/tmp/buildpair-deploy.lock}"
 FAILED_SHA_FILE="${BUILDPAIR_FAILED_SHA_FILE:-/home/jloveridge1102/.buildpair-last-failed-sha}"
+DEPLOYED_SHA_FILE="${BUILDPAIR_DEPLOYED_SHA_FILE:-/home/jloveridge1102/.buildpair-last-deployed-sha}"
 
 log() {
   printf '[%s] %s\n' "$(date -Is)" "$*"
@@ -18,7 +19,7 @@ wait_for_health() {
 
   for attempt in $(seq 1 30); do
     response="$(curl --fail --silent --show-error --connect-timeout 2 --max-time 5 "$url" 2>/dev/null || true)"
-    if [[ "$response" == *'"status":"ok"'* && "$response" == *'"database":"ok"'* ]]; then
+    if [[ "$response" == *'\"status\":\"ok\"'* && "$response" == *'\"database\":\"ok\"'* ]]; then
       log "$label health check passed on attempt $attempt."
       return 0
     fi
@@ -29,16 +30,19 @@ wait_for_health() {
   return 1
 }
 
+write_deployed_sha() {
+  printf '%s\n' "$1" > "$DEPLOYED_SHA_FILE"
+  chmod 600 "$DEPLOYED_SHA_FILE"
+}
+
 cd "$REPO_DIR"
 
-# Never run two deploys at once.
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
   log "Another deployment is already running; exiting."
   exit 0
 fi
 
-# Refuse to overwrite tracked local work. Ignored local files such as .env are fine.
 if ! git diff --quiet || ! git diff --cached --quiet; then
   log "Tracked local changes detected; refusing automatic deployment."
   git status --short
@@ -50,9 +54,13 @@ git fetch --quiet origin "$BRANCH"
 
 LOCAL_SHA="$(git rev-parse HEAD)"
 REMOTE_SHA="$(git rev-parse "origin/$BRANCH")"
+DEPLOYED_SHA=""
+if [[ -f "$DEPLOYED_SHA_FILE" ]]; then
+  DEPLOYED_SHA="$(cat "$DEPLOYED_SHA_FILE")"
+fi
 
-if [[ "$LOCAL_SHA" == "$REMOTE_SHA" ]]; then
-  log "Already current at ${LOCAL_SHA:0:12}."
+if [[ "$LOCAL_SHA" == "$REMOTE_SHA" && "$DEPLOYED_SHA" == "$REMOTE_SHA" ]]; then
+  log "Already deployed at ${REMOTE_SHA:0:12}."
   exit 0
 fi
 
@@ -61,35 +69,41 @@ if [[ -f "$FAILED_SHA_FILE" ]] && [[ "$(cat "$FAILED_SHA_FILE")" == "$REMOTE_SHA
   exit 0
 fi
 
-# Only accept a fast-forward from the deployed checkout.
-if ! git merge-base --is-ancestor "$LOCAL_SHA" "$REMOTE_SHA"; then
+if [[ "$LOCAL_SHA" != "$REMOTE_SHA" ]] && ! git merge-base --is-ancestor "$LOCAL_SHA" "$REMOTE_SHA"; then
   log "Local branch has diverged from origin/$BRANCH; refusing automatic deployment."
   exit 3
 fi
 
-CHANGED_FILES="$(git diff --name-only "$LOCAL_SHA" "$REMOTE_SHA")"
+ROLLBACK_SHA="$LOCAL_SHA"
+if [[ -n "$DEPLOYED_SHA" ]] && git cat-file -e "$DEPLOYED_SHA^{commit}" 2>/dev/null; then
+  ROLLBACK_SHA="$DEPLOYED_SHA"
+fi
+
+BASE_SHA="$ROLLBACK_SHA"
+CHANGED_FILES="$(git diff --name-only "$BASE_SHA" "$REMOTE_SHA" 2>/dev/null || true)"
 NEEDS_NPM_CI=false
 if [[ ! -d node_modules ]] || grep -Eq '^(package\.json|package-lock\.json)$' <<<"$CHANGED_FILES"; then
   NEEDS_NPM_CI=true
 fi
 
 rollback() {
-  log "Deployment failed after switching revisions. Marking ${REMOTE_SHA:0:12} as failed and rolling back to ${LOCAL_SHA:0:12}..."
+  log "Deployment failed. Marking ${REMOTE_SHA:0:12} as failed and rolling back to ${ROLLBACK_SHA:0:12}..."
   printf '%s\n' "$REMOTE_SHA" > "$FAILED_SHA_FILE"
   chmod 600 "$FAILED_SHA_FILE"
-  git reset --hard "$LOCAL_SHA"
+  git reset --hard "$ROLLBACK_SHA"
   npm ci
   npm run build:web
   pm2 restart buildpair --update-env >/dev/null || true
   pm2 save >/dev/null || true
   wait_for_health "http://localhost:3000/api/health" "Rollback local API" || true
+  write_deployed_sha "$ROLLBACK_SHA"
   log "Rollback completed. This failed revision will not be retried unless GitHub changes again."
 }
 
-DEPLOY_SWITCHED=false
+DEPLOY_ACTIVE=false
 on_error() {
   code=$?
-  if [[ "$DEPLOY_SWITCHED" == true ]]; then
+  if [[ "$DEPLOY_ACTIVE" == true ]]; then
     trap - ERR
     rollback || true
   fi
@@ -97,9 +111,13 @@ on_error() {
 }
 trap on_error ERR
 
-log "Deploying ${LOCAL_SHA:0:12} -> ${REMOTE_SHA:0:12}..."
-git merge --ff-only "$REMOTE_SHA"
-DEPLOY_SWITCHED=true
+if [[ "$LOCAL_SHA" != "$REMOTE_SHA" ]]; then
+  log "Deploying ${LOCAL_SHA:0:12} -> ${REMOTE_SHA:0:12}..."
+  git merge --ff-only "$REMOTE_SHA"
+else
+  log "Repository is at ${REMOTE_SHA:0:12}, but that revision is not marked successfully deployed. Resuming deployment..."
+fi
+DEPLOY_ACTIVE=true
 
 if [[ "$NEEDS_NPM_CI" == true ]]; then
   log "Dependency files changed; installing locked dependencies..."
@@ -124,7 +142,8 @@ wait_for_health "http://localhost:3000/api/health" "Local API"
 log "Waiting for public staging health..."
 wait_for_health "$HEALTH_URL" "Public staging"
 
+write_deployed_sha "$REMOTE_SHA"
 rm -f "$FAILED_SHA_FILE"
-DEPLOY_SWITCHED=false
+DEPLOY_ACTIVE=false
 trap - ERR
 log "Deployment complete: ${REMOTE_SHA:0:12} is live."
