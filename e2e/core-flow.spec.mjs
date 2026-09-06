@@ -3,7 +3,7 @@ import path from 'node:path';
 import { clerk } from '@clerk/testing/playwright';
 import { expect, test } from '@playwright/test';
 
-const baseURL = process.env.E2E_BASE_URL || 'https://buildmate-nine.vercel.app';
+const baseURL = process.env.E2E_BASE_URL || 'https://staging.buildpair.co.uk';
 const stateFile = path.join(process.cwd(), 'playwright', '.e2e-users.json');
 
 async function signInAndGetToken(browser, email) {
@@ -52,7 +52,7 @@ test('homeowner to tradesperson job lifecycle works end to end', async ({ browse
       body: JSON.stringify({
         businessName: 'BuildPair Automated QA Trade',
         tradeCategory: 'Tiling',
-        subSkills: ['Bathrooms', 'Floors'],
+        subSkills: ['Tiling', 'Bathroom Fitting'],
         bio: 'Automated BuildPair end-to-end test tradesperson profile used only to verify the complete customer and trader workflow.',
         radiusMiles: 20,
         postcode: 'TW18 4AA',

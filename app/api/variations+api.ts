@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { addJobEvent, createNotification } from '@/lib/notifications';
+import { assertRateLimit } from '@/lib/rate-limit';
 import { getSql } from '@/lib/sql';
 import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError, requireRole } from '@/lib/server';
 
@@ -35,6 +36,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const trader = await requireRole(request, 'trader');
+    await assertRateLimit(request, 'propose-variation', 30, 3600, trader.id);
     const input = createSchema.parse(await request.json());
     const sql = getSql();
     const jobs = await sql`
@@ -48,6 +50,13 @@ export async function POST(request: Request) {
     if (!job) throw new HttpError(403, 'Only the hired tradesperson can propose a variation');
     if (!['in_progress','completed'].includes(job.status)) throw new HttpError(409, 'Variations are available after a quote has been accepted');
     if (job.status === 'completed') throw new HttpError(409, 'Completed jobs cannot receive new variations');
+
+    const pending = await sql`
+      SELECT count(*)::int AS count
+      FROM job_variations
+      WHERE job_id = ${input.jobId} AND status = 'pending'
+    ` as unknown as Array<{ count: number }>;
+    if ((pending[0]?.count ?? 0) >= 20) throw new HttpError(409, 'Resolve or withdraw an existing variation before adding more changes');
 
     const rows = await sql`
       INSERT INTO job_variations(job_id, trader_id, customer_id, title, description, amount_delta, duration_delta_days)

@@ -19,6 +19,7 @@ const defaultShowcase = {
   serviceAreas: [] as string[],
   beforeAfterProjects: [] as { before: string; after: string; caption?: string }[],
 };
+const PUBLIC_REFERENCE_TYPES = ['gas_safe', 'niceic', 'napit', 'trustmark'] as const;
 
 function previewProfile(id: string) {
   if (!previewDataEnabled()) return null;
@@ -94,11 +95,13 @@ export async function GET(request: Request, { id }: { id: string }) {
     const sqlClient = getSql();
     const [credentials, availability, stories] = await Promise.all([
       sqlClient`
-        SELECT id, credential_type AS "credentialType", name, issuer, reference_number AS "referenceNumber",
+        SELECT id, credential_type AS "credentialType", name, issuer,
+               CASE WHEN credential_type = ANY(${PUBLIC_REFERENCE_TYPES}::text[]) THEN reference_number ELSE NULL END AS "referenceNumber",
                expires_at AS "expiresAt", verified_at AS "verifiedAt", status
         FROM trader_credentials
         WHERE trader_id = ${profile.userId} AND status = 'verified' AND (expires_at IS NULL OR expires_at > now())
         ORDER BY verified_at DESC NULLS LAST, created_at DESC
+        LIMIT 50
       `,
       sqlClient`
         SELECT id, starts_at AS "startsAt", ends_at AS "endsAt", status, note
@@ -121,12 +124,22 @@ export async function GET(request: Request, { id }: { id: string }) {
       viewerId = await authenticatedUserId(request);
       await ensureDbUser(viewerId);
       if (profile.isSubscriptionActive) {
-        const [owner] = await db.select({ email: users.email, phone: users.phone }).from(users).where(eq(users.id, profile.userId)).limit(1);
-        contact = owner ?? null;
+        const mayViewContact = viewerId === profile.userId || Boolean((await sqlClient`
+          SELECT 1
+          FROM jobs j
+          JOIN quotes q ON q.id = j.accepted_quote_id
+          WHERE j.customer_id = ${viewerId}
+            AND q.trader_id = ${profile.userId}
+          LIMIT 1
+        `).length);
+        if (mayViewContact) {
+          const [owner] = await db.select({ email: users.email, phone: users.phone }).from(users).where(eq(users.id, profile.userId)).limit(1);
+          contact = owner ?? null;
+        }
       }
       const saved = await sqlClient`SELECT 1 FROM saved_traders WHERE customer_id = ${viewerId} AND trader_id = ${profile.userId} LIMIT 1`;
       savedByViewer = saved.length > 0;
-    } catch { /* guest viewer: deliberately no contact details or saved state */ }
+    } catch { /* guest or unrelated viewer: deliberately no contact details or saved state */ }
 
     if (viewerId !== profile.userId) {
       void sqlClient`

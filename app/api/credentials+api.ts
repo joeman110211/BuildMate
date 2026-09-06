@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { createNotification } from '@/lib/notifications';
+import { assertRateLimit } from '@/lib/rate-limit';
 import { getSql } from '@/lib/sql';
 import { HttpError, jsonError, requireAdmin, requireRole } from '@/lib/server';
 
@@ -16,6 +17,7 @@ const reviewSchema = z.object({
   status: z.enum(['verified','rejected']),
   rejectionReason: z.string().trim().max(500).optional(),
 });
+const PUBLIC_REFERENCE_TYPES = ['gas_safe', 'niceic', 'napit', 'trustmark'] as const;
 
 export async function GET(request: Request) {
   try {
@@ -23,15 +25,19 @@ export async function GET(request: Request) {
     const publicTraderId = url.searchParams.get('traderId');
     const sql = getSql();
     if (publicTraderId) {
+      // Public profiles should prove verified status without publishing identity,
+      // insurance policy or qualification document identifiers. Register numbers
+      // remain useful only for schemes that homeowners can independently check.
       const rows = await sql`
         SELECT id, credential_type AS "credentialType", name, issuer,
-               reference_number AS "referenceNumber", expires_at AS "expiresAt",
-               verified_at AS "verifiedAt", status
+               CASE WHEN credential_type = ANY(${PUBLIC_REFERENCE_TYPES}::text[]) THEN reference_number ELSE NULL END AS "referenceNumber",
+               expires_at AS "expiresAt", verified_at AS "verifiedAt", status
         FROM trader_credentials
         WHERE trader_id = ${publicTraderId}
           AND status = 'verified'
           AND (expires_at IS NULL OR expires_at > now())
         ORDER BY verified_at DESC NULLS LAST, created_at DESC
+        LIMIT 50
       `;
       return Response.json(rows);
     }
@@ -45,6 +51,7 @@ export async function GET(request: Request) {
       FROM trader_credentials
       WHERE trader_id = ${trader.id}
       ORDER BY created_at DESC
+      LIMIT 100
     `;
     return Response.json(rows);
   } catch (error) { return jsonError(error); }
@@ -53,8 +60,15 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const trader = await requireRole(request, 'trader');
+    await assertRateLimit(request, 'credential-submit', 15, 86400, trader.id);
     const input = createSchema.parse(await request.json());
-    const rows = await getSql()`
+    if (input.expiresAt && new Date(input.expiresAt).getTime() <= Date.now()) {
+      throw new HttpError(400, 'Expired evidence cannot be submitted for current verification');
+    }
+    const sql = getSql();
+    const counts = await sql`SELECT count(*)::int AS count FROM trader_credentials WHERE trader_id = ${trader.id}` as unknown as Array<{ count: number }>;
+    if ((counts[0]?.count ?? 0) >= 50) throw new HttpError(409, 'You can keep up to 50 credential records. Remove obsolete evidence before submitting more.');
+    const rows = await sql`
       INSERT INTO trader_credentials(trader_id, credential_type, name, issuer, reference_number, document_url, expires_at)
       VALUES (${trader.id}, ${input.credentialType}, ${input.name}, ${input.issuer ?? null}, ${input.referenceNumber ?? null}, ${input.documentUrl ?? null}, ${input.expiresAt ?? null}::timestamptz)
       RETURNING id, credential_type AS "credentialType", name, status, expires_at AS "expiresAt", created_at AS "createdAt"

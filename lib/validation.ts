@@ -24,7 +24,11 @@ export const traderShowcaseSchema = z.object({
 export const traderProfileSchema = z.object({
   businessName: z.string().trim().min(2, 'Enter your business or trading name').max(100),
   tradeCategory: z.enum(TRADE_CATEGORIES),
-  subSkills: z.array(z.string().trim().min(1)).min(1, 'Select at least one work type').max(9, 'A trader profile can contain no more than 9 work types'),
+  // Historical BuildPair profiles stored specialist labels in this field while the
+  // current multi-work-type UI also stores selected top-level trade labels here.
+  // Keep both forms valid until the dedicated specialist-skills migration lands,
+  // while still bounding length/count server-side.
+  subSkills: z.array(z.string().trim().min(1).max(80)).min(1, 'Select at least one work type').max(9, 'A trader profile can contain no more than 9 work types'),
   bio: z.string().trim().min(TRADER_BIO_MIN_LENGTH, `Business bio must be at least ${TRADER_BIO_MIN_LENGTH} characters`).max(1500),
   radiusMiles: z.number().int().min(1).max(150),
   postcode: postcodeSchema,
@@ -66,6 +70,7 @@ export const quoteSchema = z.object({
 }).superRefine((data, ctx) => {
   const total = data.laborCost + data.materialsCost + data.vatAmount;
   if (data.depositAmount >= total && data.depositAmount > 0) ctx.addIssue({ code: 'custom', path: ['depositAmount'], message: 'Deposit must be less than the quote total so a final balance remains' });
+  if (data.validUntil && new Date(data.validUntil).getTime() <= Date.now()) ctx.addIssue({ code: 'custom', path: ['validUntil'], message: 'Quote expiry must be in the future' });
 });
 
 export const reviewSchema = z.object({
@@ -97,4 +102,8 @@ export const invoiceSchema = z.object({
   notes: z.string().max(2000).optional(),
   dueAt: z.iso.datetime().optional(),
   sendNow: z.boolean().default(false),
+}).superRefine((data, ctx) => {
+  const subtotal = data.items.reduce((sum, item) => sum + Math.round(item.quantity * item.unitPrice), 0);
+  const total = subtotal + data.vatAmount;
+  if (data.depositAmount > total) ctx.addIssue({ code: 'custom', path: ['depositAmount'], message: 'Deposit cannot exceed the invoice total' });
 });

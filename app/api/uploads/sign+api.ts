@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { assertRateLimit } from '@/lib/rate-limit';
 import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
 
 type UploadKind = 'job' | 'trader';
@@ -14,6 +15,7 @@ export async function POST(request: Request) {
   try {
     const userId = await authenticatedUserId(request);
     await ensureDbUser(userId);
+    await assertRateLimit(request, 'media-upload-signature', 100, 86400, userId);
     const modes = await accountModes(userId);
     const body = await request.json() as { kind?: UploadKind };
     if (!body.kind || !(body.kind in folders)) throw new HttpError(400, 'Invalid upload type');

@@ -1,7 +1,9 @@
 import { desc, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { invoices } from '@/db/schema';
-import { jsonError, requireRole } from '@/lib/server';
+import { assertRateLimit } from '@/lib/rate-limit';
+import { getSql } from '@/lib/sql';
+import { HttpError, jsonError, requireRole } from '@/lib/server';
 import { invoiceSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -14,8 +16,48 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const trader = await requireRole(request, 'trader');
+    await assertRateLimit(request, 'create-invoice', 60, 3600, trader.id);
     const payload = invoiceSchema.parse(await request.json());
     const { sendNow, dueAt, customerId, jobId, ...invoiceFields } = payload;
+
+    let linkedCustomerEmail: string | null = null;
+    if (jobId) {
+      const relationships = await getSql()`
+        SELECT j.customer_id AS "customerId", u.email AS "customerEmail"
+        FROM jobs j
+        JOIN quotes q ON q.id = j.accepted_quote_id
+        JOIN users u ON u.id = j.customer_id
+        WHERE j.id = ${jobId}
+          AND q.trader_id = ${trader.id}
+        LIMIT 1
+      ` as unknown as Array<{ customerId: string; customerEmail: string | null }>;
+      const relationship = relationships[0];
+      if (!relationship) throw new HttpError(403, 'Invoices can only be linked to BuildPair jobs you have won');
+      if (customerId && relationship.customerId !== customerId) throw new HttpError(400, 'Invoice customer does not match the selected job');
+      linkedCustomerEmail = relationship.customerEmail;
+    } else if (customerId) {
+      const relationships = await getSql()`
+        SELECT u.email AS "customerEmail"
+        FROM jobs j
+        JOIN quotes q ON q.id = j.accepted_quote_id
+        JOIN users u ON u.id = j.customer_id
+        WHERE j.customer_id = ${customerId}
+          AND q.trader_id = ${trader.id}
+        LIMIT 1
+      ` as unknown as Array<{ customerEmail: string | null }>;
+      const relationship = relationships[0];
+      if (!relationship) throw new HttpError(403, 'Invoices can only be linked to BuildPair customers you have worked with');
+      linkedCustomerEmail = relationship.customerEmail;
+    }
+
+    if (sendNow) {
+      if (!jobId || !customerId) throw new HttpError(400, 'Email delivery is only available for an invoice linked to a won BuildPair job and customer');
+      if (!linkedCustomerEmail || linkedCustomerEmail.toLowerCase() !== payload.customerEmail.toLowerCase()) {
+        throw new HttpError(400, 'Invoice email must match the customer email on the BuildPair account');
+      }
+      await assertRateLimit(request, 'send-invoice-email', 20, 86400, trader.id);
+    }
+
     const subtotal = invoiceFields.items.reduce((sum, item) => sum + Math.round(item.quantity * item.unitPrice), 0);
     const totalAmount = subtotal + invoiceFields.vatAmount;
     const db = getDb();
@@ -42,7 +84,7 @@ export async function POST(request: Request) {
         const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
         const rows = payload.items.map((item) => `<tr><td>${escape(item.description)}</td><td>${item.quantity}</td><td>${money(item.unitPrice)}</td><td>${money(Math.round(item.quantity * item.unitPrice))}</td></tr>`).join('');
         const dueText = dueAt ? new Date(dueAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : null;
-        const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [payload.customerEmail], subject: `BuildPair invoice ${payload.invoiceNumber}`, html: `<h1>Invoice ${escape(payload.invoiceNumber)}</h1><p>For ${escape(payload.customerName)}</p><table cellpadding="8" border="1" cellspacing="0"><thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><p>Subtotal: ${money(subtotal)}<br>VAT: ${money(payload.vatAmount)}<br><strong>Total: ${money(totalAmount)}</strong><br>Deposit: ${money(payload.depositAmount)}${dueText ? `<br><strong>Due: ${escape(dueText)}</strong>` : ''}</p>${payload.notes ? `<p>${escape(payload.notes)}</p>` : ''}<p>Sent securely via BuildPair.</p>` }) });
+        const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [payload.customerEmail], subject: `BuildPair invoice ${payload.invoiceNumber}`, html: `<h1>Invoice ${escape(payload.invoiceNumber)}</h1><p>For ${escape(payload.customerName)}</p><table cellpadding="8" border="1" cellspacing="0"><thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><p>Subtotal: ${money(subtotal)}<br>VAT: ${money(payload.vatAmount)}<br><strong>Total: ${money(totalAmount)}</strong><br>Deposit: ${money(payload.depositAmount)}${dueText ? `<br><strong>Due: ${escape(dueText)}</strong>` : ''}</p>${payload.notes ? `<p>${escape(payload.notes)}</p>` : ''}<p>Sent via BuildPair.</p>` }) });
         if (!response.ok) deliveryWarning = 'Invoice saved as a draft because the email provider rejected delivery';
         else {
           const [sentInvoice] = await db.update(invoices).set({ status: 'sent', updatedAt: new Date() }).where(eq(invoices.id, invoice.id)).returning();
