@@ -54,7 +54,7 @@ export async function GET(request: Request) {
         desc(sql`avg(${reviews.rating})`),
       ).limit(100);
 
-    const previewTraders = previewDataEnabled()
+    const previewTraders = previewDataEnabled(request)
       ? demoTraders
           .map((trader) => ({ ...trader, tradeCategory: canonicalTradeCategory(trader.tradeCategory) }))
           .filter((trader) => !trade || trader.tradeCategory === trade)
