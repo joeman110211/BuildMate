@@ -5,7 +5,11 @@ type TokenGetter = () => Promise<string | null>;
 const DEFAULT_API_TIMEOUT_MS = 12000;
 
 function baseUrl() {
-  if (Platform.OS === 'web') return process.env.EXPO_PUBLIC_API_URL ?? '';
+  // Web is served by the same BuildPair Node server as the API. Always use
+  // relative same-origin requests so staging, www and the eventual production
+  // host cannot accidentally call a different environment or trip CORS.
+  if (Platform.OS === 'web') return '';
+
   const url = process.env.EXPO_PUBLIC_API_URL;
   if (!url) throw new Error('EXPO_PUBLIC_API_URL is required for native builds');
   return url.replace(/\/$/, '');
