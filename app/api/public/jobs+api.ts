@@ -6,7 +6,7 @@ import { outwardCode } from '@/lib/postcode';
 import { previewDataEnabled } from '@/lib/preview';
 import { jsonError } from '@/lib/server';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const rows = await getDb().select().from(jobs)
       .where(and(isNull(jobs.targetTraderId), inArray(jobs.status, ['open', 'quoted'])))
@@ -14,7 +14,7 @@ export async function GET() {
       .limit(50);
 
     const realIds = new Set(rows.map((job) => job.id));
-    const previewJobs = previewDataEnabled()
+    const previewJobs = previewDataEnabled(request)
       ? demoJobs.filter((job) => !realIds.has(job.id)).map((job) => ({ ...job, isPreview: true }))
       : [];
     const combined = [
