@@ -58,19 +58,37 @@ jobs:
 
       - run: npm ci --no-audit --no-fund --prefer-offline
 
-      - name: Wait for staging readiness
+      - name: Wait for exact staging revision and readiness
         shell: bash
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 60); do
-            if curl --fail --silent --show-error --connect-timeout 3 --max-time 8 "$E2E_BASE_URL/api/readiness" | jq -e '.ready == true' >/dev/null 2>&1; then
-              echo "BuildPair staging is ready."
-              exit 0
+          expected_sha=""
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            expected_sha="$GITHUB_SHA"
+          fi
+
+          for attempt in $(seq 1 120); do
+            health=$(curl --fail --silent --show-error --connect-timeout 3 --max-time 8 "$E2E_BASE_URL/api/health" 2>/dev/null || true)
+            readiness=$(curl --fail --silent --show-error --connect-timeout 3 --max-time 8 "$E2E_BASE_URL/api/readiness" 2>/dev/null || true)
+            deployed_sha=$(printf '%s' "$health" | jq -r '.releaseSha // empty' 2>/dev/null || true)
+            ready=$(printf '%s' "$readiness" | jq -r '.ready // false' 2>/dev/null || true)
+
+            if [ "$ready" = "true" ]; then
+              if [ -z "$expected_sha" ] || [ "$deployed_sha" = "$expected_sha" ]; then
+                echo "BuildPair staging is ready at ${deployed_sha:-current deployed revision}."
+                exit 0
+              fi
             fi
-            echo "Waiting for staging readiness ($attempt/60)..."
+
+            if [ -n "$expected_sha" ]; then
+              echo "Waiting for staging ${expected_sha:0:12}; currently ${deployed_sha:0:12} ($attempt/120)..."
+            else
+              echo "Waiting for staging readiness ($attempt/120)..."
+            fi
             sleep 5
           done
-          echo "::error::BuildPair staging did not become ready in time"
+
+          echo "::error::BuildPair staging did not reach the required ready revision in time"
           exit 1
 
       - name: Load target Clerk publishable key
