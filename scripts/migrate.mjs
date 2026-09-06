@@ -19,13 +19,24 @@ await client.connect();
 try {
   await client.query('BEGIN');
   await client.query(`
-    CREATE TABLE IF NOT EXISTS buildmate_migrations (
+    CREATE TABLE IF NOT EXISTS buildpair_migrations (
       filename text PRIMARY KEY,
       applied_at timestamptz NOT NULL DEFAULT now()
     )
   `);
 
-  const appliedResult = await client.query('SELECT filename FROM buildmate_migrations');
+  // Preserve migration history from pre-rename deployments without replaying
+  // already-applied SQL. The legacy ledger can remain harmlessly in place.
+  const legacyLedger = await client.query(`SELECT to_regclass('public.buildmate_migrations') AS table_name`);
+  if (legacyLedger.rows[0]?.table_name) {
+    await client.query(`
+      INSERT INTO buildpair_migrations(filename, applied_at)
+      SELECT filename, applied_at FROM buildmate_migrations
+      ON CONFLICT (filename) DO NOTHING
+    `);
+  }
+
+  const appliedResult = await client.query('SELECT filename FROM buildpair_migrations');
   const applied = new Set(appliedResult.rows.map((row) => row.filename));
   let appliedCount = 0;
 
@@ -43,7 +54,7 @@ try {
 
     console.log(`Applying migration: ${filename}`);
     await client.query(sql);
-    await client.query('INSERT INTO buildmate_migrations(filename) VALUES ($1)', [filename]);
+    await client.query('INSERT INTO buildpair_migrations(filename) VALUES ($1)', [filename]);
     appliedCount += 1;
   }
 
