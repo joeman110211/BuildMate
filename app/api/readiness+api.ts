@@ -39,6 +39,20 @@ export async function GET() {
     try {
       const [schema] = await getSql()`
         SELECT
+          (
+            SELECT count(*) = 3
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'users'
+              AND column_name IN ('customer_enabled', 'trader_enabled', 'active_mode')
+          ) AS "hasAccountModeColumns",
+          (
+            SELECT count(*) = 4
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'users'
+              AND column_name IN ('is_admin', 'is_suspended', 'suspension_reason', 'is_deleted')
+          ) AS "hasAccountStateColumns",
           EXISTS (
             SELECT 1 FROM information_schema.columns
             WHERE table_schema = 'public'
@@ -47,21 +61,28 @@ export async function GET() {
           ) AS "hasTrialEndsAt",
           to_regclass('public.trader_profile_showcase') IS NOT NULL AS "hasTraderShowcase",
           to_regprocedure('accept_job_quote(uuid,text)') IS NOT NULL AS "hasAcceptQuoteFunction",
+          to_regprocedure('buildpair_delete_account(text)') IS NOT NULL AS "hasAccountDeleteFunction",
           EXISTS (
             SELECT 1 FROM pg_trigger
             WHERE tgname = 'verify_review_before_insert'
               AND NOT tgisinternal
           ) AS "hasReviewVerificationTrigger"
       ` as unknown as {
+        hasAccountModeColumns: boolean;
+        hasAccountStateColumns: boolean;
         hasTrialEndsAt: boolean;
         hasTraderShowcase: boolean;
         hasAcceptQuoteFunction: boolean;
+        hasAccountDeleteFunction: boolean;
         hasReviewVerificationTrigger: boolean;
       }[];
 
+      if (!schema?.hasAccountModeColumns) missingSchema.push('users.account_modes');
+      if (!schema?.hasAccountStateColumns) missingSchema.push('users.account_state');
       if (!schema?.hasTrialEndsAt) missingSchema.push('trader_profiles.trial_ends_at');
       if (!schema?.hasTraderShowcase) missingSchema.push('trader_profile_showcase');
       if (!schema?.hasAcceptQuoteFunction) missingSchema.push('accept_job_quote(uuid,text)');
+      if (!schema?.hasAccountDeleteFunction) missingSchema.push('buildpair_delete_account(text)');
       if (!schema?.hasReviewVerificationTrigger) missingSchema.push('verify_review_before_insert');
     } catch {
       missingSchema.push('database_schema_check');
