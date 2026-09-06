@@ -1,47 +1,82 @@
-# BuildPair Chromebook automatic deploys
+# BuildPair Chromebook automatic test hosting
 
-BuildPair staging can keep itself synced with `origin/main` while the Chromebook Linux environment is powered on, online and running.
+BuildPair can host its private test build from the Chromebook without manual `git pull`, `npm ci` and restart commands after every change.
 
-The deployment script already protects itself with a file lock, validates the required environment, refuses dirty/diverged working trees, runs TypeScript and unit checks, builds the web app, restarts PM2, verifies local/public health and readiness, and rolls back a failed revision.
+The Chromebook supervisor keeps one Cloudflare Quick Tunnel alive, runs the BuildPair web/API server, checks `origin/main` roughly every two minutes, validates new revisions, rebuilds the app and restarts only the application process. The tunnel remains running during normal code updates, so the temporary public test URL stays the same until the Chromebook Linux session or tunnel itself restarts.
 
 ## One-time installation
 
-From the BuildPair repository on the Chromebook:
+Open the Chromebook Linux Terminal and run:
 
 ```bash
-cd /home/jloveridge1102/BuildPair
+cd ~/buildpair 2>/dev/null || cd ~/BuildPair
 git pull --ff-only origin main
+chmod +x scripts/chromebook-supervisor.sh scripts/chromebook-status.sh scripts/install-chromebook-autodeploy.sh
 bash scripts/install-chromebook-autodeploy.sh install
+bash scripts/chromebook-status.sh
 ```
 
-This installs a user-level systemd timer. While Chromebook Linux is running it checks GitHub roughly every two minutes. If `main` has changed, `scripts/deploy-chromebook.sh` performs the guarded deployment. If nothing changed, it exits without rebuilding.
+The installer creates and starts a user-level systemd service named `buildpair-host.service`.
 
-## Check it
+## What happens after that
+
+While Chromebook Linux is running:
+
+1. the Cloudflare Quick Tunnel remains alive,
+2. BuildPair remains running on port 3000,
+3. GitHub `main` is checked roughly every two minutes,
+4. unchanged revisions do nothing,
+5. dependency installation only runs when required,
+6. new revisions run TypeScript checks and unit tests,
+7. a passing revision is built and made live automatically,
+8. a failed revision is recorded and not repeatedly retried, and
+9. the previous working revision is restored when a new build fails validation.
+
+Normal pushes to `main` therefore do **not** require somebody to type deployment commands on the Chromebook.
+
+## Check status and get the current URL
 
 ```bash
-bash scripts/install-chromebook-autodeploy.sh status
+cd ~/buildpair 2>/dev/null || cd ~/BuildPair
+bash scripts/chromebook-status.sh
 ```
 
-Recent deployment output is available through:
+The public URL is also stored at:
 
 ```bash
-journalctl --user -u buildpair-autodeploy.service -n 100 --no-pager
+cat ~/.cache/buildpair-host/public-url
 ```
 
-The currently deployed revision can also be checked with:
+Service logs:
 
 ```bash
-curl -s https://staging.buildpair.co.uk/api/health
+journalctl --user -u buildpair-host.service -n 100 --no-pager
 ```
 
-The `releaseSha` value should match the Git commit that staging is serving.
+Follow logs live:
 
-## Remove it
+```bash
+journalctl --user -u buildpair-host.service -f
+```
+
+## Restart the host manually
+
+Normally this is unnecessary. If the Chromebook lost connectivity or the tunnel needs replacing:
+
+```bash
+bash scripts/install-chromebook-autodeploy.sh restart
+```
+
+A service/tunnel restart can produce a new `trycloudflare.com` address. Run `bash scripts/chromebook-status.sh` to see the current one.
+
+## Remove automatic hosting
 
 ```bash
 bash scripts/install-chromebook-autodeploy.sh uninstall
 ```
 
-## Limits
+## Chromebook limitations
 
-This does not wake a powered-off or suspended Chromebook and cannot start a stopped ChromeOS Linux environment from the internet. Once Linux is running, however, normal pushes to `main` no longer require somebody to sit at the Chromebook and manually run the deploy command.
+The Chromebook still needs to be powered on, online and awake with its Linux environment running. ChromeOS does not let a user-level Linux service wake a shut-down or suspended Chromebook from the internet.
+
+This is deliberately private-test infrastructure. BuildPair's later public production host should be independent of the Chromebook.
