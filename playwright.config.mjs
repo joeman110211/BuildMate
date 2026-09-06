@@ -50,6 +50,12 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     {
+      name: 'external-integrations',
+      testMatch: /external-integrations\.spec\.mjs/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    {
       name: 'small-android-public-ui',
       testMatch: /mobile-layout\.spec\.mjs/,
       use: { ...devices['Pixel 5'] },
