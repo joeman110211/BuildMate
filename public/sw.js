@@ -1,4 +1,4 @@
-const CACHE_NAME = 'buildpair-static-v3';
+const CACHE_NAME = 'buildpair-static-v4';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/favicon.png', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -13,17 +13,19 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-async function fetchAndCache(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-
-  const response = await fetch(request);
-  if (!response.ok) return response;
-
-  const cacheCopy = response.clone();
-  const cache = await caches.open(CACHE_NAME);
-  await cache.put(request, cacheCopy);
-  return response;
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    throw error;
+  }
 }
 
 self.addEventListener('fetch', (event) => {
@@ -32,7 +34,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match('/')));
+    event.respondWith(networkFirst(request).catch(() => caches.match('/')));
     return;
   }
 
@@ -40,5 +42,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/favicon.png' || url.pathname === '/manifest.webmanifest';
   if (!isStaticAsset) return;
 
-  event.respondWith(fetchAndCache(request));
+  // Prefer the deployed asset so users do not get trapped on an old JS bundle.
+  // The cache is now strictly an offline fallback, not the source of truth.
+  event.respondWith(networkFirst(request));
 });
