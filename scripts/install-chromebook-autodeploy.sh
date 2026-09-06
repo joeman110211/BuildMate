@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Install a user-level systemd timer that keeps BuildPair staging synced with
-# origin/main while the Chromebook Linux environment is running.
+# Installs the BuildPair Chromebook self-updating test host as a user-level
+# systemd service. Once enabled, the Chromebook Linux environment keeps a
+# Cloudflare Quick Tunnel alive and checks origin/main for updates roughly
+# every two minutes.
 #
 # Usage:
 #   bash scripts/install-chromebook-autodeploy.sh install
 #   bash scripts/install-chromebook-autodeploy.sh status
+#   bash scripts/install-chromebook-autodeploy.sh restart
 #   bash scripts/install-chromebook-autodeploy.sh uninstall
 
 ACTION="${1:-install}"
 REPO_DIR="${BUILDPAIR_REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SYSTEMD_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-SERVICE_FILE="$SYSTEMD_DIR/buildpair-autodeploy.service"
-TIMER_FILE="$SYSTEMD_DIR/buildpair-autodeploy.timer"
-DEPLOY_SCRIPT="$REPO_DIR/scripts/deploy-chromebook.sh"
+SERVICE_FILE="$SYSTEMD_DIR/buildpair-host.service"
+SUPERVISOR="$REPO_DIR/scripts/chromebook-supervisor.sh"
+OLD_SERVICE="$SYSTEMD_DIR/buildpair-autodeploy.service"
+OLD_TIMER="$SYSTEMD_DIR/buildpair-autodeploy.timer"
 
 require_systemd_user() {
   if ! command -v systemctl >/dev/null 2>&1; then
@@ -27,74 +31,80 @@ require_systemd_user() {
   fi
 }
 
-install_timer() {
+install_service() {
   require_systemd_user
-  if [[ ! -x "$DEPLOY_SCRIPT" ]]; then
-    chmod +x "$DEPLOY_SCRIPT"
-  fi
-
+  chmod +x "$SUPERVISOR" "$REPO_DIR/scripts/chromebook-status.sh" 2>/dev/null || true
   mkdir -p "$SYSTEMD_DIR"
+
+  # Remove the older timer-based deploy setup if it was installed previously.
+  systemctl --user disable --now buildpair-autodeploy.timer >/dev/null 2>&1 || true
+  rm -f "$OLD_SERVICE" "$OLD_TIMER"
 
   cat > "$SERVICE_FILE" <<EOF
 [Unit]
-Description=BuildPair staging automatic deploy
+Description=BuildPair Chromebook self-updating test host
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=oneshot
+Type=simple
 WorkingDirectory=$REPO_DIR
 Environment=BUILDPAIR_REPO_DIR=$REPO_DIR
-ExecStart=/usr/bin/env bash $DEPLOY_SCRIPT
-TimeoutStartSec=15min
+Environment=BUILDPAIR_CHECK_INTERVAL_SECONDS=120
+ExecStart=/usr/bin/env bash $SUPERVISOR
+Restart=always
+RestartSec=10
+TimeoutStopSec=20
 Nice=10
-EOF
-
-  cat > "$TIMER_FILE" <<'EOF'
-[Unit]
-Description=Check GitHub for a new BuildPair staging revision
-
-[Timer]
-OnBootSec=2min
-OnUnitActiveSec=2min
-RandomizedDelaySec=15s
-Persistent=true
-Unit=buildpair-autodeploy.service
 
 [Install]
-WantedBy=timers.target
+WantedBy=default.target
 EOF
 
   systemctl --user daemon-reload
-  systemctl --user enable --now buildpair-autodeploy.timer
+  systemctl --user enable --now buildpair-host.service
 
-  echo "BuildPair automatic deployment is enabled."
-  echo "It checks origin/main roughly every two minutes while Chromebook Linux is running."
-  systemctl --user --no-pager status buildpair-autodeploy.timer || true
+  echo
+  echo "BuildPair Chromebook hosting is enabled."
+  echo "Normal pushes to main will be checked automatically about every two minutes."
+  echo "The public test URL stays the same until the Cloudflare tunnel/Linux session restarts."
+  echo
+  systemctl --user --no-pager --full status buildpair-host.service || true
 }
 
 show_status() {
   require_systemd_user
-  systemctl --user --no-pager status buildpair-autodeploy.timer || true
+  systemctl --user --no-pager --full status buildpair-host.service || true
   echo
-  systemctl --user --no-pager status buildpair-autodeploy.service || true
+  if [[ -x "$REPO_DIR/scripts/chromebook-status.sh" ]]; then
+    "$REPO_DIR/scripts/chromebook-status.sh" || true
+  fi
 }
 
-uninstall_timer() {
+restart_service() {
   require_systemd_user
+  systemctl --user restart buildpair-host.service
+  sleep 2
+  systemctl --user --no-pager --full status buildpair-host.service || true
+}
+
+uninstall_service() {
+  require_systemd_user
+  systemctl --user disable --now buildpair-host.service >/dev/null 2>&1 || true
   systemctl --user disable --now buildpair-autodeploy.timer >/dev/null 2>&1 || true
-  rm -f "$SERVICE_FILE" "$TIMER_FILE"
+  rm -f "$SERVICE_FILE" "$OLD_SERVICE" "$OLD_TIMER"
   systemctl --user daemon-reload
   systemctl --user reset-failed >/dev/null 2>&1 || true
-  echo "BuildPair automatic deployment has been removed."
+  echo "BuildPair Chromebook automatic hosting has been removed."
 }
 
 case "$ACTION" in
-  install) install_timer ;;
+  install) install_service ;;
   status) show_status ;;
-  uninstall|remove) uninstall_timer ;;
+  restart) restart_service ;;
+  uninstall|remove) uninstall_service ;;
   *)
-    echo "Usage: $0 {install|status|uninstall}" >&2
+    echo "Usage: $0 {install|status|restart|uninstall}" >&2
     exit 2
     ;;
 esac
