@@ -51,7 +51,7 @@ test('trader onboarding allows three trade work types, visibly ticks selections,
   await expect(fourthWorkType).not.toBeChecked();
   await expect(page.getByText(/Maximum reached for your current plan/)).toBeVisible();
 
-  await page.getByLabel('Base postcode').fill('TW18 4AA');
+  await page.getByLabel('Base postcode').fill('TW18 4AB');
   const firstContinue = page.getByRole('button', { name: 'Continue' });
   await expect(firstContinue).toBeVisible();
   await expect(firstContinue).toBeEnabled();
