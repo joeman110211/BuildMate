@@ -1,10 +1,22 @@
 import { getSql } from '@/lib/sql';
-import { jsonError, requireRole } from '@/lib/server';
+import { HttpError, jsonError, requireRole } from '@/lib/server';
 
 export async function GET(request: Request) {
   try {
     const trader = await requireRole(request, 'trader');
     const sql = getSql();
+    const plans = await sql`
+      SELECT subscription_tier AS "subscriptionTier", is_subscription_active AS "isSubscriptionActive"
+      FROM trader_profiles
+      WHERE user_id = ${trader.id}
+      LIMIT 1
+    ` as unknown as { subscriptionTier: 'free' | 'basic' | 'featured'; isSubscriptionActive: boolean }[];
+    const plan = plans[0];
+    if (!plan) throw new HttpError(409, 'Complete your trader profile first');
+    if (plan.subscriptionTier !== 'featured' || !plan.isSubscriptionActive) {
+      throw new HttpError(402, 'BuildPair Pro is required for advanced business analytics');
+    }
+
     const rows = await sql`
       SELECT
         coalesce((SELECT sum(view_count) FROM trader_profile_view_daily WHERE trader_id = ${trader.id} AND view_day >= current_date - 29), 0)::int AS "profileViews30d",
