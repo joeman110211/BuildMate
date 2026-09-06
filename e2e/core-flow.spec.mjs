@@ -52,7 +52,7 @@ test('homeowner to tradesperson job lifecycle works end to end', async ({ browse
       body: JSON.stringify({
         businessName: 'BuildPair Automated QA Trade',
         tradeCategory: 'Tiling',
-        subSkills: ['Bathrooms', 'Floors'],
+        subSkills: ['Tiling', 'Bathroom Fitting'],
         bio: 'Automated BuildPair end-to-end test tradesperson profile used only to verify the complete customer and trader workflow.',
         radiusMiles: 20,
         postcode: 'TW18 4AA',
