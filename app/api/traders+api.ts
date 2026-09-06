@@ -6,6 +6,12 @@ import { previewDataEnabled } from '@/lib/preview';
 import { jsonError } from '@/lib/server';
 import { TRADER_TRIAL_DAYS } from '@/lib/subscription';
 
+function canonicalTradeCategory(category: string) {
+  if (category === 'Plastering') return 'Plastering & Rendering';
+  if (category === 'Joinery') return 'Carpentry & Joinery';
+  return category;
+}
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -49,7 +55,9 @@ export async function GET(request: Request) {
       ).limit(100);
 
     const previewTraders = previewDataEnabled()
-      ? (trade ? demoTraders.filter((trader) => trader.tradeCategory === trade) : demoTraders)
+      ? demoTraders
+          .map((trader) => ({ ...trader, tradeCategory: canonicalTradeCategory(trader.tradeCategory) }))
+          .filter((trader) => !trade || trader.tradeCategory === trade)
           .map((trader) => ({ ...trader, averageRating: 0, reviewCount: 0, verifiedCredentialCount: 0, availabilitySummary: null, isPreview: true }))
       : [];
     const combined = [...rows.map((trader) => ({ ...trader, isPreview: false })), ...previewTraders].slice(0, 100);
