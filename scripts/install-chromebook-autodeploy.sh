@@ -33,7 +33,13 @@ require_systemd_user() {
 
 install_service() {
   require_systemd_user
-  chmod +x "$SUPERVISOR" "$REPO_DIR/scripts/chromebook-status.sh" 2>/dev/null || true
+  cd "$REPO_DIR"
+
+  # Chrome/Linux can report executable-bit-only changes for shell scripts.
+  # BuildPair invokes these scripts explicitly with bash, so file mode changes
+  # are irrelevant and should not block automatic deploys.
+  git config core.fileMode false
+
   mkdir -p "$SYSTEMD_DIR"
 
   # Remove the older timer-based deploy setup if it was installed previously.
@@ -76,8 +82,8 @@ show_status() {
   require_systemd_user
   systemctl --user --no-pager --full status buildpair-host.service || true
   echo
-  if [[ -x "$REPO_DIR/scripts/chromebook-status.sh" ]]; then
-    "$REPO_DIR/scripts/chromebook-status.sh" || true
+  if [[ -f "$REPO_DIR/scripts/chromebook-status.sh" ]]; then
+    /usr/bin/env bash "$REPO_DIR/scripts/chromebook-status.sh" || true
   fi
 }
 
