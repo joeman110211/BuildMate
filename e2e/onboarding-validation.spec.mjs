@@ -27,7 +27,7 @@ async function selectOption(page, label, option) {
   await page.getByText(option, { exact: true }).last().click();
 }
 
-test('trader onboarding visibly ticks selected skills and enforces the 50-character bio minimum', async ({ page }) => {
+test('trader onboarding limits new accounts to three work types, visibly ticks selections and enforces the 50-character bio minimum', async ({ page }) => {
   const state = JSON.parse(await fs.readFile(stateFile, 'utf8'));
   await page.goto(`${baseURL}/`, { waitUntil: 'domcontentloaded' });
   await clerk.signIn({ page, emailAddress: state.traderEmail });
@@ -42,11 +42,20 @@ test('trader onboarding visibly ticks selected skills and enforces the 50-charac
   await bathrooms.click();
   await expect(bathrooms).toBeChecked();
   await expect(bathrooms.getByText('✓')).toBeVisible();
-  await expect(page.getByText('Select at least one. Chosen skills show a visible ✓.')).toBeVisible();
+
+  await page.getByRole('checkbox', { name: 'Wet rooms' }).click();
+  await page.getByRole('checkbox', { name: 'Kitchen splashbacks' }).click();
+  await expect(page.getByText(/Selected 3 of 3 work types/)).toBeVisible();
+
+  const fourthWorkType = page.getByRole('checkbox', { name: 'Wall tiling' });
+  await expect(fourthWorkType).toBeDisabled();
+  await expect(fourthWorkType).not.toBeChecked();
+  await expect(page.getByText(/Maximum reached for your current plan/)).toBeVisible();
 
   await page.getByLabel('Base postcode').fill('TW18 4AA');
   const firstContinue = page.getByRole('button', { name: 'Continue' });
   await expect(firstContinue).toBeEnabled();
+  await firstContinue.scrollIntoViewIfNeeded();
   await firstContinue.click();
 
   await expect(page.getByText('Build Your Profile', { exact: true }).first()).toBeVisible();

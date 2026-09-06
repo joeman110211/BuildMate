@@ -5,7 +5,7 @@ import { traderProfileShowcase } from '@/db/showcase-schema';
 import { InvalidPostcodeError, lookupPostcode } from '@/lib/postcode';
 import { getSql } from '@/lib/sql';
 import { accountAccess, accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
-import { trialEndsAt, TRADER_TRIAL_DAYS } from '@/lib/subscription';
+import { traderWorkTypeLimit, trialEndsAt, TRADER_TRIAL_DAYS } from '@/lib/subscription';
 import { roleSchema, traderProfileSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -92,8 +92,19 @@ export async function PUT(request: Request) {
     const db = getDb();
     const existingProfile = await db.query.traderProfiles.findFirst({
       where: eq(traderProfiles.userId, userId),
-      columns: { stripeSubscriptionId: true, createdAt: true, trialEndsAt: true },
+      columns: {
+        subscriptionTier: true,
+        isSubscriptionActive: true,
+        stripeSubscriptionId: true,
+        createdAt: true,
+        trialEndsAt: true,
+      },
     });
+
+    const workTypeLimit = traderWorkTypeLimit(existingProfile);
+    if (baseProfile.subSkills.length > workTypeLimit) {
+      throw new HttpError(403, `Your current BuildPair plan allows up to ${workTypeLimit} work types. Remove some selections or upgrade your plan.`);
+    }
 
     const minimumTrialEnd = existingProfile?.createdAt ? trialEndsAt(existingProfile.createdAt) : trialEndsAt();
     const storedTrialEnd = existingProfile?.trialEndsAt ? new Date(existingProfile.trialEndsAt) : null;
@@ -143,6 +154,6 @@ export async function PUT(request: Request) {
       }
     }
 
-    return Response.json({ ...profile, trialDays: TRADER_TRIAL_DAYS });
+    return Response.json({ ...profile, trialDays: TRADER_TRIAL_DAYS, workTypeLimit });
   } catch (error) { return jsonError(error); }
 }

@@ -28,7 +28,14 @@ export function Screen({ children, title, subtitle, scroll = true, backHref }: P
       {children}
     </View>
   );
-  return <SafeAreaView style={styles.safe}>{scroll ? <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">{content}</ScrollView> : content}</SafeAreaView>;
+  return <SafeAreaView style={styles.safe}>{scroll ? <ScrollView
+    style={styles.scrollView}
+    contentContainerStyle={styles.scroll}
+    keyboardShouldPersistTaps="handled"
+    keyboardDismissMode="on-drag"
+    nestedScrollEnabled
+    contentInsetAdjustmentBehavior="automatic"
+  >{content}</ScrollView> : content}</SafeAreaView>;
 }
 
 export function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
@@ -41,7 +48,8 @@ export function EmptyState({ title, body, action }: { title: string; body: strin
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { flexGrow: 1, paddingBottom: 40 },
+  scrollView: { flex: 1 },
+  scroll: { flexGrow: 1, paddingBottom: 64 },
   content: { width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 30, gap: 20 },
   backRow: { alignSelf: 'flex-start', marginBottom: -8 },
   headingBlock: { gap: 8, paddingHorizontal: 2 },

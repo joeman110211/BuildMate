@@ -72,6 +72,15 @@ describe('marketplace validation', () => {
     if (!result.success) expect(result.error.issues[0]?.message).toContain('at least one specialist skill');
   });
 
+  it('caps any trader profile at nine work types', () => {
+    const result = traderProfileSchema.safeParse({
+      ...validTraderProfile,
+      subSkills: ['1','2','3','4','5','6','7','8','9','10'],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0]?.message).toContain('no more than 9 work types');
+  });
+
   it('requires a trader bio of at least 50 characters', () => {
     const result = traderProfileSchema.safeParse({ ...validTraderProfile, bio: 'Experienced tiler, reliable and tidy.' });
     expect(result.success).toBe(false);
