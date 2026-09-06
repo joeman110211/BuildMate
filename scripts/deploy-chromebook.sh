@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# BuildPair staging deploy runner for the self-hosted Chromebook.
+# BuildPair deploy runner for the existing Chromebook PM2 + named Cloudflare tunnel setup.
 REPO_DIR="${BUILDPAIR_REPO_DIR:-/home/jloveridge1102/BuildPair}"
 BRANCH="${BUILDPAIR_DEPLOY_BRANCH:-main}"
 PUBLIC_ORIGIN="${BUILDPAIR_PUBLIC_ORIGIN:-https://staging.buildpair.co.uk}"
 HEALTH_URL="${BUILDPAIR_HEALTH_URL:-$PUBLIC_ORIGIN/api/health}"
 READINESS_URL="${BUILDPAIR_READINESS_URL:-$PUBLIC_ORIGIN/api/readiness}"
-ENV_FILE="${BUILDPAIR_ENV_FILE:-$REPO_DIR/.env.local}"
+if [[ -n "${BUILDPAIR_ENV_FILE:-}" ]]; then
+  ENV_FILE="$BUILDPAIR_ENV_FILE"
+elif [[ -f "$REPO_DIR/.env.local" ]]; then
+  ENV_FILE="$REPO_DIR/.env.local"
+else
+  ENV_FILE="$REPO_DIR/.env"
+fi
 LOCK_FILE="${BUILDPAIR_DEPLOY_LOCK:-/tmp/buildpair-deploy.lock}"
-FAILED_SHA_FILE="${BUILDPAIR_FAILED_SHA_FILE:-/home/jloveridge1102/.buildpair-last-failed-sha}"
-DEPLOYED_SHA_FILE="${BUILDPAIR_DEPLOYED_SHA_FILE:-/home/jloveridge1102/.buildpair-last-deployed-sha}"
+FAILED_SHA_FILE="${BUILDPAIR_FAILED_SHA_FILE:-$HOME/.buildpair-last-failed-sha}"
+DEPLOYED_SHA_FILE="${BUILDPAIR_DEPLOYED_SHA_FILE:-$HOME/.buildpair-last-deployed-sha}"
 
 log() {
   printf '[%s] %s\n' "$(date -Is)" "$*"
@@ -44,7 +50,6 @@ wait_for_health() {
   local url="$1"
   local label="$2"
   local response=""
-
   for attempt in $(seq 1 30); do
     response="$(curl --fail --silent --show-error --connect-timeout 2 --max-time 5 "$url" 2>/dev/null || true)"
     if [[ -n "$response" ]] && health_response_ok "$response"; then
@@ -53,7 +58,6 @@ wait_for_health() {
     fi
     sleep 2
   done
-
   log "$label health check failed after 60 seconds. Last response: ${response:-<no response>}"
   return 1
 }
@@ -62,7 +66,6 @@ wait_for_readiness() {
   local url="$1"
   local label="$2"
   local response=""
-
   for attempt in $(seq 1 30); do
     response="$(curl --silent --show-error --connect-timeout 2 --max-time 5 "$url" 2>/dev/null || true)"
     if [[ -n "$response" ]] && readiness_response_ok "$response"; then
@@ -71,7 +74,6 @@ wait_for_readiness() {
     fi
     sleep 2
   done
-
   log "$label readiness check failed after 60 seconds. Last response: ${response:-<no response>}"
   return 1
 }
@@ -82,8 +84,7 @@ env_value() {
 }
 
 build_web() {
-  local clerk_publishable_key
-  local build_sha
+  local clerk_publishable_key build_sha
   clerk_publishable_key="$(env_value EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY)"
   build_sha="$(git rev-parse HEAD)"
   log "Building web output for $PUBLIC_ORIGIN..."
@@ -91,18 +92,19 @@ build_web() {
   APP_URL="$PUBLIC_ORIGIN" \
   EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$clerk_publishable_key" \
   BUILDPAIR_BUILD_SHA="$build_sha" \
+  BUILDPAIR_PREVIEW_DATA_ENABLED=false \
   npm run build:web
 }
 
 restart_buildpair() {
-  local clerk_publishable_key
-  local build_sha
+  local clerk_publishable_key build_sha
   clerk_publishable_key="$(env_value EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY)"
   build_sha="$(git rev-parse HEAD)"
   EXPO_PUBLIC_API_URL="$PUBLIC_ORIGIN" \
   APP_URL="$PUBLIC_ORIGIN" \
   EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$clerk_publishable_key" \
   BUILDPAIR_BUILD_SHA="$build_sha" \
+  BUILDPAIR_PREVIEW_DATA_ENABLED=false \
   pm2 restart buildpair --update-env >/dev/null
   pm2 save >/dev/null
 }
@@ -113,7 +115,6 @@ write_deployed_sha() {
 }
 
 cd "$REPO_DIR"
-
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
   log "Another deployment is already running; exiting."
@@ -147,6 +148,16 @@ if [[ -n "$missing_env" ]]; then
   exit 4
 fi
 
+if ! command -v pm2 >/dev/null 2>&1; then
+  log "PM2 is required for the Chromebook runtime but was not found."
+  exit 5
+fi
+
+if ! pm2 describe buildpair >/dev/null 2>&1; then
+  log "PM2 process 'buildpair' is not configured."
+  exit 5
+fi
+
 if ! git diff --quiet || ! git diff --cached --quiet; then
   log "Tracked local changes detected; refusing automatic deployment."
   git status --short
@@ -159,9 +170,7 @@ git fetch --quiet origin "$BRANCH"
 LOCAL_SHA="$(git rev-parse HEAD)"
 REMOTE_SHA="$(git rev-parse "origin/$BRANCH")"
 DEPLOYED_SHA=""
-if [[ -f "$DEPLOYED_SHA_FILE" ]]; then
-  DEPLOYED_SHA="$(cat "$DEPLOYED_SHA_FILE")"
-fi
+[[ ! -f "$DEPLOYED_SHA_FILE" ]] || DEPLOYED_SHA="$(cat "$DEPLOYED_SHA_FILE")"
 
 if [[ "$LOCAL_SHA" == "$REMOTE_SHA" && "$DEPLOYED_SHA" == "$REMOTE_SHA" ]]; then
   log "Already deployed at ${REMOTE_SHA:0:12}."
@@ -238,25 +247,20 @@ fi
 
 log "Running TypeScript checks..."
 npm run typecheck
-
 log "Running unit tests..."
 npm test
-
 build_web
 
-log "Restarting BuildPair..."
+log "Restarting BuildPair through PM2..."
 restart_buildpair
 
 log "Waiting for local API health..."
 wait_for_health "http://localhost:3000/api/health" "Local API"
-
 log "Waiting for local API readiness..."
 wait_for_readiness "http://localhost:3000/api/readiness" "Local API"
-
-log "Waiting for public staging health..."
+log "Waiting for public Cloudflare health..."
 wait_for_health "$HEALTH_URL" "Public staging"
-
-log "Waiting for public staging readiness..."
+log "Waiting for public Cloudflare readiness..."
 wait_for_readiness "$READINESS_URL" "Public staging"
 
 write_deployed_sha "$REMOTE_SHA"
