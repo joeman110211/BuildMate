@@ -85,8 +85,12 @@ export default function NewJobScreen() {
   ][step], [budgetRange, category, description, directRequest, postcode, propertyType, step, title, urgency]);
 
   const aiPropertyType = propertyType ?? 'Other';
+  const footer = <View style={styles.actions}>
+    {step > 0 ? <Button onPress={() => setStep((value) => value - 1)}>Back</Button> : <View />}
+    {step < 4 ? <Button mode="contained" contentStyle={styles.button} disabled={!stepValid} onPress={() => setStep((value) => value + 1)}>Continue</Button> : <Button mode="contained" icon="send" contentStyle={styles.button} loading={busy} disabled={!stepValid || busy} onPress={submit}>{traderName ? 'Send Request & Open Chat' : isEmergency ? 'Broadcast Urgent Job' : 'Post Job'}</Button>}
+  </View>;
 
-  return <Screen title={STEP_TITLES[step]} subtitle={traderName ? `Direct quote request for ${traderName}` : 'A few clear details help tradespeople give you useful quotes instead of guessing.'}>
+  return <Screen title={STEP_TITLES[step]} subtitle={traderName ? `Direct quote request for ${traderName}` : 'A few clear details help tradespeople give you useful quotes instead of guessing.'} footer={footer}>
     <View style={styles.progressBlock}><View style={styles.progressHeader}><Text style={styles.step}>Step {step + 1} of 5</Text><Text style={styles.muted}>{STEP_TITLES[step]}</Text></View><ProgressBar progress={(step + 1) / 5} color={colors.primary} style={styles.progress} /></View>
 
     {directRequest ? <AppCard style={styles.directInfo}>
@@ -139,7 +143,6 @@ export default function NewJobScreen() {
     </AppCard> : null}
 
     <HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
-    <View style={styles.actions}>{step > 0 ? <Button onPress={() => setStep((value) => value - 1)}>Back</Button> : <View />}{step < 4 ? <Button mode="contained" contentStyle={styles.button} disabled={!stepValid} onPress={() => setStep((value) => value + 1)}>Continue</Button> : <Button mode="contained" icon="send" contentStyle={styles.button} loading={busy} disabled={!stepValid || busy} onPress={submit}>{traderName ? 'Send Request & Open Chat' : isEmergency ? 'Broadcast Urgent Job' : 'Post Job'}</Button>}</View>
     {category ? <AIJobSpecModal visible={showAi} category={category} propertyType={aiPropertyType} onDismiss={() => setShowAi(false)} onGenerated={(spec) => { setDescription(spec); setAiGeneratedSpec(spec); }} /> : null}
   </Screen>;
 }
