@@ -3,7 +3,8 @@ import { getDb } from '@/db/client';
 import { traderProfiles } from '@/db/schema';
 import { traderProfileShowcase } from '@/db/showcase-schema';
 import { HttpError, jsonError, requireRole } from '@/lib/server';
-import { hasActiveLeadAccess, trialEndsAt } from '@/lib/subscription';
+import { getSql } from '@/lib/sql';
+import { categoryChangeAvailableAt, hasActiveLeadAccess, traderMonthlyQuoteLimit, traderWorkTypeLimit } from '@/lib/subscription';
 
 function missingShowcaseTable(error: unknown) {
   const candidate = error as { code?: string; message?: string; cause?: { code?: string; message?: string } };
@@ -23,6 +24,9 @@ export async function GET(request: Request) {
       businessName: traderProfiles.businessName,
       tradeCategory: traderProfiles.tradeCategory,
       subSkills: traderProfiles.subSkills,
+      tradeCategories: traderProfiles.tradeCategories,
+      serviceSelections: traderProfiles.serviceSelections,
+      categoriesChangedAt: traderProfiles.categoriesChangedAt,
       bio: traderProfiles.bio,
       radiusMiles: traderProfiles.radiusMiles,
       qualifications: traderProfiles.qualifications,
@@ -52,15 +56,29 @@ export async function GET(request: Request) {
       if (!missingShowcaseTable(error)) throw error;
     }
 
-    const minimumTrialEnd = trialEndsAt(profile.createdAt);
-    const storedTrialEnd = profile.trialEndsAt ? new Date(profile.trialEndsAt) : null;
-    const effectiveTrialEnd = storedTrialEnd && storedTrialEnd > minimumTrialEnd ? storedTrialEnd : minimumTrialEnd;
+    const usageRows = await getSql()`
+      SELECT count(*)::int AS count
+      FROM trader_job_offers
+      WHERE trader_id = ${trader.id}
+        AND created_at >= date_trunc('month', now())
+        AND created_at < date_trunc('month', now()) + interval '1 month'
+    ` as unknown as { count: number }[];
+    const resetRows = await getSql()`
+      SELECT (date_trunc('month', now()) + interval '1 month') AS "resetAt"
+    ` as unknown as { resetAt: string }[];
 
+    const normalisedCategories = profile.tradeCategories?.length ? profile.tradeCategories : [profile.tradeCategory];
+    const active = hasActiveLeadAccess(profile);
     return Response.json({
       ...profile,
       ...(showcase ?? {}),
-      trialEndsAt: effectiveTrialEnd,
-      isSubscriptionActive: hasActiveLeadAccess(profile),
+      tradeCategories: normalisedCategories,
+      isSubscriptionActive: active,
+      categoryLimit: traderWorkTypeLimit(profile),
+      categoryChangeAvailableAt: categoryChangeAvailableAt(profile.categoriesChangedAt)?.toISOString() ?? null,
+      monthlyQuotesUsed: usageRows[0]?.count ?? 0,
+      monthlyQuoteLimit: traderMonthlyQuoteLimit(profile),
+      monthlyQuoteResetAt: resetRows[0]?.resetAt ?? null,
     });
   } catch (error) { return jsonError(error); }
 }
