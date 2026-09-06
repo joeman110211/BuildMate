@@ -5,8 +5,11 @@ on:
     inputs:
       api_url:
         description: 'HTTPS BuildPair API/web origin to embed in the APK'
-        required: true
+        required: false
+        default: 'https://staging.buildpair.co.uk'
         type: string
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -24,7 +27,7 @@ jobs:
       EXPO_NO_TELEMETRY: '1'
       NODE_ENV: production
       EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-      EXPO_PUBLIC_API_URL: ${{ inputs.api_url }}
+      EXPO_PUBLIC_API_URL: ${{ inputs.api_url || 'https://staging.buildpair.co.uk' }}
       EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
       EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME: qrrcn7ma
 
@@ -99,6 +102,20 @@ jobs:
       - name: Build installable release APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon --max-workers=2 --stacktrace --info
+
+      - name: Verify release APK integrity and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=$(find android/app/build/outputs/apk/release -name '*.apk' -print -quit)
+          test -n "$apk" || { echo "::error::Release APK was not produced"; exit 1; }
+          unzip -t "$apk" >/dev/null
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          test -x "$build_tools/aapt" || { echo "::error::Android aapt tool not found"; exit 1; }
+          "$build_tools/aapt" dump badging "$apk" | tee /tmp/buildpair-apk-badging.txt
+          grep -q "package: name='uk.co.buildpair.app'" /tmp/buildpair-apk-badging.txt || { echo "::error::Unexpected Android application id"; exit 1; }
+          grep -q "application-label:'BuildPair'" /tmp/buildpair-apk-badging.txt || { echo "::error::Unexpected Android application label"; exit 1; }
+          echo "BuildPair Android release APK passed ZIP integrity and manifest identity checks."
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
