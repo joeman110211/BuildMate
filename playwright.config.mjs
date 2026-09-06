@@ -38,6 +38,12 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     {
+      name: 'desktop-account-deletion',
+      testMatch: /account-deletion\.spec\.mjs/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    {
       name: 'desktop-core-flow',
       testMatch: /core-flow\.spec\.mjs/,
       use: { ...devices['Desktop Chrome'] },
