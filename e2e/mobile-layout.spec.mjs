@@ -67,7 +67,7 @@ test('small Android public and auth surfaces fit without furniture-removal chaos
   await expectNoHorizontalOverflow(page, 'preview trader profile');
 });
 
-test('small Android trader onboarding keeps Continue reachable', async ({ page }) => {
+test('small Android trader forms keep primary actions reachable', async ({ page }) => {
   const state = JSON.parse(await fs.readFile(stateFile, 'utf8'));
   await page.goto('/');
   await clerk.signIn({ page, emailAddress: state.traderEmail });
@@ -80,6 +80,16 @@ test('small Android trader onboarding keeps Continue reachable', async ({ page }
   expect(titleBox?.y ?? 9999, 'Trader onboarding starts too far below the top of a small phone').toBeLessThan(300);
   await expectActionInViewport(page, page.getByRole('button', { name: 'Continue' }), 'trader onboarding');
   await expectNoHorizontalOverflow(page, 'trader onboarding');
+
+  await page.goto('/trader/invoices/new');
+  await expect(page.getByText('Create invoice', { exact: true }).first()).toBeVisible();
+  await expectActionInViewport(page, page.getByRole('button', { name: 'Save and send invoice' }), 'create invoice');
+  await expectNoHorizontalOverflow(page, 'create invoice');
+
+  await page.goto('/trader/quotes/new?jobId=mobile-layout-check');
+  await expect(page.getByText('Create an itemised quote', { exact: true }).first()).toBeVisible();
+  await expectActionInViewport(page, page.getByRole('button', { name: 'Send Quote & Open Conversation' }), 'create quote');
+  await expectNoHorizontalOverflow(page, 'create quote');
 });
 
 test('small Android post-a-job keeps Continue reachable', async ({ page }) => {
