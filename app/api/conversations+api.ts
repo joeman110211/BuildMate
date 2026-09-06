@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
 import { getSql } from '@/lib/sql';
+import { traderMonthlyQuoteLimit } from '@/lib/subscription';
 
 const createConversationSchema = z.object({
   jobId: z.string().uuid(),
@@ -18,8 +19,25 @@ type ConversationRow = {
   lastMessageAt: string;
 };
 
-type JobRow = { id: string; customerId: string; targetTraderId: string | null };
+type JobRow = {
+  id: string;
+  customerId: string;
+  targetTraderId: string | null;
+  category: string;
+  status: string;
+  latitude: number | null;
+  longitude: number | null;
+};
 type CreatedConversation = { id: string; jobId: string; customerId: string; traderId: string; lastMessageAt: string };
+type TraderPlanRow = {
+  subscriptionTier: 'free' | 'basic' | 'featured';
+  isSubscriptionActive: boolean;
+  tradeCategories: string[];
+  tradeCategory: string;
+  latitude: number | null;
+  longitude: number | null;
+  radiusMiles: number;
+};
 
 export async function GET(request: Request) {
   try {
@@ -73,7 +91,11 @@ export async function POST(request: Request) {
     if (!activeMode) throw new HttpError(403, 'Choose an account mode first');
     const payload = createConversationSchema.parse(await request.json());
     const sql = getSql();
-    const jobRows = await sql`SELECT id, customer_id AS "customerId", target_trader_id AS "targetTraderId" FROM jobs WHERE id = ${payload.jobId} LIMIT 1` as unknown as JobRow[];
+    const jobRows = await sql`
+      SELECT id, customer_id AS "customerId", target_trader_id AS "targetTraderId",
+             category, status, latitude, longitude
+      FROM jobs WHERE id = ${payload.jobId} LIMIT 1
+    ` as unknown as JobRow[];
     const job = jobRows[0];
     if (!job) throw new HttpError(404, 'Job not found');
 
@@ -82,13 +104,69 @@ export async function POST(request: Request) {
     if (activeMode === 'customer' && job.customerId !== userId) throw new HttpError(403, 'You cannot message from this job');
     if (activeMode === 'trader' && traderId !== userId) throw new HttpError(403, 'Invalid trader');
 
-    const eligible = await sql`
-      SELECT 1 AS allowed FROM quotes WHERE job_id = ${payload.jobId} AND trader_id = ${traderId}
-      UNION ALL
-      SELECT 1 AS allowed WHERE ${job.targetTraderId} = ${traderId}
-      LIMIT 1
-    ` as unknown as { allowed: number }[];
-    if (!eligible.length) throw new HttpError(403, 'Messaging opens after a quote or direct job request');
+    if (activeMode === 'trader' && job.targetTraderId !== traderId) {
+      if (job.targetTraderId) throw new HttpError(403, 'This direct job request belongs to another tradesperson');
+      if (!['open', 'quoted'].includes(job.status)) throw new HttpError(409, 'This job is no longer open for new offers');
+
+      const planRows = await sql`
+        SELECT tp.subscription_tier AS "subscriptionTier",
+               tp.is_subscription_active AS "isSubscriptionActive",
+               tp.trade_categories AS "tradeCategories",
+               tp.trade_category AS "tradeCategory",
+               tp.latitude, tp.longitude, tp.radius_miles AS "radiusMiles"
+        FROM trader_profiles tp
+        JOIN users u ON u.id = tp.user_id
+        WHERE tp.user_id = ${traderId}
+          AND coalesce(u.is_suspended, false) = false
+          AND coalesce(u.is_deleted, false) = false
+        LIMIT 1
+      ` as unknown as TraderPlanRow[];
+      const profile = planRows[0];
+      if (!profile || profile.subscriptionTier === 'free' || !profile.isSubscriptionActive) {
+        throw new HttpError(402, 'BuildPair Plus or Pro is required to offer on marketplace jobs');
+      }
+
+      const categories = profile.tradeCategories?.length ? profile.tradeCategories : [profile.tradeCategory];
+      if (!categories.includes(job.category)) throw new HttpError(403, 'This job does not match one of your selected trade categories');
+      if (profile.latitude == null || profile.longitude == null || job.latitude == null || job.longitude == null) {
+        throw new HttpError(403, 'A valid service location is required to offer on this job');
+      }
+
+      const distanceRows = await sql`
+        SELECT (3959 * acos(least(1, greatest(-1,
+          cos(radians(${profile.latitude})) * cos(radians(${job.latitude})) *
+          cos(radians(${job.longitude}) - radians(${profile.longitude})) +
+          sin(radians(${profile.latitude})) * sin(radians(${job.latitude}))
+        ))))::float AS miles
+      ` as unknown as { miles: number }[];
+      if ((distanceRows[0]?.miles ?? Infinity) > profile.radiusMiles) throw new HttpError(403, 'This job is outside your service radius');
+
+      const existing = await sql`SELECT id FROM trader_job_offers WHERE job_id = ${job.id} AND trader_id = ${traderId} LIMIT 1`;
+      if (!existing.length) {
+        const limit = traderMonthlyQuoteLimit(profile);
+        const usage = await sql`
+          SELECT count(*)::int AS count
+          FROM trader_job_offers
+          WHERE trader_id = ${traderId}
+            AND created_at >= date_trunc('month', now())
+            AND created_at < date_trunc('month', now()) + interval '1 month'
+        ` as unknown as { count: number }[];
+        if ((usage[0]?.count ?? 0) >= limit) throw new HttpError(402, `You have used all ${limit} marketplace offers for this month. Your allowance resets next month.`);
+        await sql`
+          INSERT INTO trader_job_offers(job_id, trader_id)
+          VALUES (${job.id}, ${traderId})
+          ON CONFLICT (job_id, trader_id) DO NOTHING
+        `;
+      }
+    } else if (activeMode === 'customer' && job.targetTraderId !== traderId) {
+      const eligible = await sql`
+        SELECT 1 FROM trader_job_offers WHERE job_id = ${job.id} AND trader_id = ${traderId}
+        UNION ALL
+        SELECT 1 FROM quotes WHERE job_id = ${job.id} AND trader_id = ${traderId}
+        LIMIT 1
+      `;
+      if (!eligible.length) throw new HttpError(403, 'This tradesperson has not offered on the job');
+    }
 
     const rows = await sql`
       INSERT INTO conversations(job_id, customer_id, trader_id)
