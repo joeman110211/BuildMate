@@ -1,7 +1,7 @@
-import { verifyToken } from '@clerk/backend';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { users } from '@/db/schema';
+import { verifyBuildPairClerkSession } from '@/lib/clerk-session';
 import { getSql } from '@/lib/sql';
 
 export class HttpError extends Error {
@@ -34,27 +34,6 @@ function productionErrorId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function normalizedOrigin(value: string | undefined) {
-  if (!value?.trim()) return null;
-  try { return new URL(value.trim()).origin; } catch { return null; }
-}
-
-function clerkAuthorizedParties() {
-  const origins = new Set<string>();
-  for (const value of [
-    process.env.APP_URL,
-    process.env.EXPO_PUBLIC_API_URL,
-    process.env.BUILDPAIR_PUBLIC_ORIGIN,
-    'https://staging.buildpair.co.uk',
-    'https://www.buildpair.co.uk',
-    'https://buildpair.co.uk',
-  ]) {
-    const origin = normalizedOrigin(value);
-    if (origin) origins.add(origin);
-  }
-  return [...origins];
-}
-
 function clerkSessionToken(request: Request) {
   const authorization = request.headers.get('authorization')?.trim();
   const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
@@ -70,17 +49,12 @@ export async function authenticatedUserId(request: Request) {
   const token = clerkSessionToken(request);
   if (!token) throw new HttpError(401, 'Authentication required');
 
-  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
-  if (!secretKey) throw new Error('CLERK_SECRET_KEY is not configured');
-
   try {
     // BuildPair clients send Clerk's session token explicitly as a Bearer token.
-    // Verify that token directly so authentication does not depend on proxy-added
-    // request metadata surviving the Expo/PM2/Cloudflare staging chain intact.
-    const payload = await verifyToken(token, {
-      secretKey,
-      authorizedParties: clerkAuthorizedParties(),
-    });
+    // The verifier first uses Clerk's secret-key path, then verifies the same JWT
+    // against this Clerk instance's published JWKS when the staging server cannot
+    // use its Backend API credentials. Both paths enforce Clerk's signed session.
+    const payload = await verifyBuildPairClerkSession(token);
     if (!payload.sub) throw new HttpError(401, 'Invalid authentication token');
     return payload.sub;
   } catch (error) {
