@@ -8,6 +8,11 @@ on:
         required: false
         default: 'https://staging.buildpair.co.uk'
         type: string
+      external_integrations:
+        description: 'Also exercise Gemini and Cloudinary integration checks'
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [main]
   schedule:
@@ -27,6 +32,7 @@ jobs:
     env:
       E2E_BASE_URL: ${{ inputs.base_url || 'https://staging.buildpair.co.uk' }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      E2E_EXTERNAL: ${{ (github.event_name == 'schedule' || inputs.external_integrations) && '1' || '0' }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
