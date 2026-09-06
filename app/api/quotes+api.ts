@@ -5,7 +5,7 @@ import { addJobEvent, createNotification } from '@/lib/notifications';
 import { assertRateLimit } from '@/lib/rate-limit';
 import { HttpError, jsonError, requireRole } from '@/lib/server';
 import { getSql } from '@/lib/sql';
-import { hasActiveLeadAccess } from '@/lib/subscription';
+import { hasActiveLeadAccess, traderMonthlyQuoteLimit } from '@/lib/subscription';
 import { quoteSchema } from '@/lib/validation';
 
 function distanceMiles(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -14,8 +14,32 @@ function distanceMiles(lat1: number, lon1: number, lat2: number, lon2: number) {
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a = Math.sin(dLat / 2) ** 2
-    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(toRad(lon2 - lon1) / 2) ** 2;
   return earthRadiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function ensureMarketplaceOfferAllowance(traderId: string, jobId: string, profile: { subscriptionTier: 'free' | 'basic' | 'featured' }) {
+  const sql = getSql();
+  const existing = await sql`SELECT id FROM trader_job_offers WHERE job_id = ${jobId} AND trader_id = ${traderId} LIMIT 1`;
+  if (existing.length) return;
+
+  const limit = traderMonthlyQuoteLimit(profile);
+  const usage = await sql`
+    SELECT count(*)::int AS count
+    FROM trader_job_offers
+    WHERE trader_id = ${traderId}
+      AND created_at >= date_trunc('month', now())
+      AND created_at < date_trunc('month', now()) + interval '1 month'
+  ` as unknown as { count: number }[];
+  if ((usage[0]?.count ?? 0) >= limit) {
+    throw new HttpError(402, `You have used all ${limit} open-marketplace offers for this month. Your allowance resets next month.`);
+  }
+
+  await sql`
+    INSERT INTO trader_job_offers(job_id, trader_id)
+    VALUES (${jobId}, ${traderId})
+    ON CONFLICT (job_id, trader_id) DO NOTHING
+  `;
 }
 
 export async function GET(request: Request) {
@@ -37,17 +61,18 @@ export async function POST(request: Request) {
     const payload = quoteSchema.parse(await request.json());
     const job = await db.query.jobs.findFirst({ where: eq(jobs.id, payload.jobId) });
     if (!job || !['open', 'quoted'].includes(job.status)) throw new HttpError(409, 'This job is not open for quotes');
-    if (job.targetTraderId && job.targetTraderId !== trader.id) throw new HttpError(403, 'This direct lead belongs to another tradesperson');
-    if (!hasActiveLeadAccess(profile) || profile.subscriptionTier === 'free') throw new HttpError(402, 'An active BuildPair trade plan or trial is required to send quotes');
+    if (job.targetTraderId && job.targetTraderId !== trader.id) throw new HttpError(403, 'This direct request belongs to another tradesperson');
+    if (!hasActiveLeadAccess(profile)) throw new HttpError(402, 'BuildPair Plus or Pro is required to send quotes and use BuildPair messaging');
 
     if (!job.targetTraderId) {
-      const listedWorkTypes = new Set([profile.tradeCategory, ...(profile.subSkills ?? [])]);
-      if (!listedWorkTypes.has(job.category)) throw new HttpError(403, 'This marketplace job does not match one of your listed work types');
+      const listedCategories = profile.tradeCategories?.length ? profile.tradeCategories : [profile.tradeCategory];
+      if (!listedCategories.includes(job.category)) throw new HttpError(403, 'This marketplace job does not match one of your selected trade categories');
       if (profile.latitude == null || profile.longitude == null || job.latitude == null || job.longitude == null) {
         throw new HttpError(403, 'Location matching is required to quote this marketplace job');
       }
       const miles = distanceMiles(profile.latitude, profile.longitude, job.latitude, job.longitude);
       if (miles > profile.radiusMiles) throw new HttpError(403, 'This marketplace job is outside your service radius');
+      await ensureMarketplaceOfferAllowance(trader.id, job.id, profile);
     }
 
     const totalAmount = payload.laborCost + payload.materialsCost + payload.vatAmount;
