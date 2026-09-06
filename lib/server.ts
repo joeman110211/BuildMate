@@ -1,4 +1,4 @@
-import { createClerkClient } from '@clerk/backend';
+import { verifyToken } from '@clerk/backend';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { users } from '@/db/schema';
@@ -55,34 +55,37 @@ function clerkAuthorizedParties() {
   return [...origins];
 }
 
-export async function authenticatedUserId(request: Request) {
-  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
-  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
-  if (!secretKey) throw new Error('CLERK_SECRET_KEY is not configured');
-  if (!publishableKey) throw new Error('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not configured');
+function clerkSessionToken(request: Request) {
+  const authorization = request.headers.get('authorization')?.trim();
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  if (bearer) return bearer;
 
-  const clerk = createClerkClient({ secretKey, publishableKey });
+  const cookie = request.headers.get('cookie') ?? '';
+  const encoded = cookie.match(/(?:^|;\s*)__session=([^;]+)/)?.[1];
+  if (!encoded) return null;
+  try { return decodeURIComponent(encoded); } catch { return encoded; }
+}
+
+export async function authenticatedUserId(request: Request) {
+  const token = clerkSessionToken(request);
+  if (!token) throw new HttpError(401, 'Authentication required');
+
+  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
+  if (!secretKey) throw new Error('CLERK_SECRET_KEY is not configured');
+
   try {
-    const state = await clerk.authenticateRequest(request, {
-      acceptsToken: 'session_token',
+    // BuildPair clients send Clerk's session token explicitly as a Bearer token.
+    // Verify that token directly so authentication does not depend on proxy-added
+    // request metadata surviving the Expo/PM2/Cloudflare staging chain intact.
+    const payload = await verifyToken(token, {
+      secretKey,
       authorizedParties: clerkAuthorizedParties(),
     });
-
-    if (!state.isAuthenticated) {
-      console.warn('[buildpair-auth] Clerk request was not authenticated', {
-        status: state.status,
-        reason: state.reason,
-        message: state.message ? redactServerError(state.message) : null,
-      });
-      throw new HttpError(401, 'Invalid authentication token');
-    }
-
-    const auth = state.toAuth();
-    if (!auth.userId) throw new HttpError(401, 'Invalid authentication token');
-    return auth.userId;
+    if (!payload.sub) throw new HttpError(401, 'Invalid authentication token');
+    return payload.sub;
   } catch (error) {
     if (error instanceof HttpError) throw error;
-    console.warn('[buildpair-auth] Clerk request authentication failed', {
+    console.warn('[buildpair-auth] Clerk session token verification failed', {
       name: error instanceof Error ? error.name : typeof error,
       message: error instanceof Error ? redactServerError(error.message) : undefined,
     });
