@@ -56,8 +56,20 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     {
+      name: 'desktop-public-marketplace',
+      testMatch: /public-marketplace\.spec\.mjs/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    {
       name: 'small-android-route-coverage',
       testMatch: /route-coverage\.spec\.mjs/,
+      use: { ...devices['Pixel 5'] },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'small-android-public-marketplace',
+      testMatch: /public-marketplace\.spec\.mjs/,
       use: { ...devices['Pixel 5'] },
       dependencies: ['setup'],
     },
