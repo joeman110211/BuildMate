@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/expo';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Chip, HelperText, SegmentedButtons, Text, TextInput } from 'react-native-paper';
@@ -22,6 +22,8 @@ type AiQuote = {
   notes: string;
   source: 'ai' | 'rules';
 };
+
+type SentQuote = { conversationId: string | null };
 
 export default function NewQuoteScreen() {
   const { jobId, title } = useLocalSearchParams<{ jobId: string; title?: string }>();
@@ -65,7 +67,7 @@ export default function NewQuoteScreen() {
         body: JSON.stringify({
           jobTitle: job?.title || title || 'BuildPair job',
           jobDescription: job?.description || 'Customer job details are available in BuildPair.',
-          tradeCategory: job?.category || 'General Building',
+          tradeCategory: job?.category || 'Building & Extensions',
           labourDays: labourDays ? Number(labourDays) : undefined,
           dayRate: dayRate ? poundsToPence(dayRate) : undefined,
           materialsEstimate: materials ? poundsToPence(materials) : undefined,
@@ -93,7 +95,7 @@ export default function NewQuoteScreen() {
     }
     try {
       setBusy(true); setError('');
-      await apiFetch('/api/quotes', {
+      const sent = await apiFetch<SentQuote>('/api/quotes', {
         method: 'POST',
         body: JSON.stringify({
           jobId,
@@ -111,7 +113,8 @@ export default function NewQuoteScreen() {
           validUntil,
         }),
       }, getToken);
-      router.replace('/trader/dashboard');
+      if (sent.conversationId) router.replace(`/trader/messages/${sent.conversationId}` as Href);
+      else router.replace('/trader/dashboard');
     } catch (e) { setError(errorMessage(e)); }
     finally { setBusy(false); }
   }
@@ -146,7 +149,7 @@ export default function NewQuoteScreen() {
       <TextInput label="Additional notes" value={notes} onChangeText={setNotes} mode="outlined" multiline />
     </AppCard>
 
-    <AppCard><Text>Net: {formatMoney(totals.net)}</Text><Text>VAT: {formatMoney(totals.vatAmount)}</Text><Text variant="headlineSmall">Total: {formatMoney(totals.totalAmount)}</Text></AppCard>
-    <HelperText type="error" visible={Boolean(error)}>{error}</HelperText><Button mode="contained" loading={busy} disabled={busy || totals.totalAmount <= 0 || depositTooHigh || terms.length < 5} onPress={() => void submit()}>Send quote</Button>
+    <AppCard><Text>Net: {formatMoney(totals.net)}</Text><Text>VAT: {formatMoney(totals.vatAmount)}</Text><Text variant="headlineSmall">Total: {formatMoney(totals.totalAmount)}</Text><Text variant="bodySmall">Sending this quote opens the BuildPair job conversation. A new open-marketplace job uses one monthly offer; direct homeowner requests do not.</Text></AppCard>
+    <HelperText type="error" visible={Boolean(error)}>{error}</HelperText><Button mode="contained" loading={busy} disabled={busy || totals.totalAmount <= 0 || depositTooHigh || terms.length < 5} onPress={() => void submit()}>Send Quote & Open Conversation</Button>
   </Screen>;
 }
