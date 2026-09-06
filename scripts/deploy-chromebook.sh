@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# BuildPair staging deploy runner for the self-hosted Chromebook.
 REPO_DIR="${BUILDPAIR_REPO_DIR:-/home/jloveridge1102/BuildPair}"
 BRANCH="${BUILDPAIR_DEPLOY_BRANCH:-main}"
 HEALTH_URL="${BUILDPAIR_HEALTH_URL:-https://staging.buildpair.co.uk/api/health}"
