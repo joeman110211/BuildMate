@@ -3,12 +3,32 @@ function isTruthy(value: string | undefined) {
   return normalised === 'true' || normalised === '1' || normalised === 'yes';
 }
 
-export function previewDataEnabled() {
+function stagingHostFromRequest(request?: Request | string) {
+  if (!request) return false;
+
+  try {
+    if (typeof request === 'string') {
+      return new URL(request).hostname === 'staging.buildpair.co.uk';
+    }
+
+    const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim().split(':')[0];
+    const host = request.headers.get('host')?.trim().split(':')[0];
+    const urlHost = new URL(request.url).hostname;
+
+    return [forwardedHost, host, urlHost].some((value) => value === 'staging.buildpair.co.uk');
+  } catch {
+    return false;
+  }
+}
+
+export function previewDataEnabled(request?: Request | string) {
   if (isTruthy(process.env.BUILDPAIR_PREVIEW_DATA_ENABLED)) return true;
 
-  // The staging host is deliberately a no-index preview environment. Keep demo
-  // marketplace data available there even when the production-safe default flag
-  // remains false in the shared environment template.
+  // Staging should always show realistic preview marketplace data. Detect it from
+  // the actual request first so stale local environment values cannot disable it.
+  if (stagingHostFromRequest(request)) return true;
+
+  // Environment fallback for server-side contexts where no Request is available.
   if (!isTruthy(process.env.BUILDPAIR_NOINDEX)) return false;
 
   try {
