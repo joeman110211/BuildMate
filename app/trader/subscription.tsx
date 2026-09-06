@@ -1,52 +1,145 @@
 import { useAuth } from '@clerk/expo';
+import { useCallback, useEffect, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
-import { Button, Text } from 'react-native-paper';
+import { Button, Chip, ProgressBar, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
 import { Screen } from '@/components/Screen';
+import { SUBSCRIPTION_TIERS } from '@/constants/options';
+import { colors } from '@/constants/theme';
 import { apiFetch, errorMessage } from '@/lib/api';
-import { TRADER_TRIAL_DAYS, TRADER_WORK_TYPE_LIMITS } from '@/lib/subscription';
+import type { SubscriptionTier, TraderProfile } from '@/types';
 
 const PLAN_COPY = {
   free: {
-    name: 'Free Profile',
-    price: '£0',
-    features: ['Public profile', 'Work gallery and verified reviews', 'No new marketplace/direct lead access after the trial'],
+    ...SUBSCRIPTION_TIERS.free,
+    detail: [
+      'Create a complete trade profile and work gallery',
+      'Choose up to 2 main trade categories',
+      'Browse matching BuildPair job posts',
+      'Share your profile externally',
+      'Hidden from BuildPair search and recommendations',
+      'No BuildPair quote or messaging access',
+      'Reviews and contact links hidden on the shared Starter page',
+    ],
   },
   basic: {
-    name: 'Basic',
-    price: '£19.99/mo',
-    features: ['Public profile and direct quote requests', 'Suitable local marketplace jobs inside your work types and radius', 'Core quoting, messaging and job-management workflow'],
+    ...SUBSCRIPTION_TIERS.basic,
+    detail: [
+      'Everything in Starter',
+      'Public searchable profile with reviews',
+      'Choose up to 4 main trade categories',
+      '15 open-marketplace offers per calendar month',
+      'Direct homeowner quote requests do not use your allowance',
+      'BuildPair messaging with AI reply assistance and safety moderation',
+    ],
   },
   featured: {
-    name: 'Featured',
-    price: '£29.99/mo',
-    features: ['Everything in Basic', 'Priority visibility in discovery', 'Stronger matching and alert advantages'],
+    ...SUBSCRIPTION_TIERS.featured,
+    detail: [
+      'Everything in Plus',
+      'Choose up to 6 main trade categories',
+      '35 open-marketplace offers per calendar month',
+      'Moderate priority boost in relevant search results',
+      'Advanced trader analytics',
+      'Priority new-job alert advantages',
+    ],
   },
 } as const;
 
 export default function SubscriptionScreen() {
   const { getToken } = useAuth();
   const paymentsEnabled = Boolean(process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim());
+  const [profile, setProfile] = useState<TraderProfile>();
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      setProfile(await apiFetch<TraderProfile>('/api/me/profile', {}, getToken));
+      setError('');
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }, [getToken]);
+
+  useEffect(() => { const timer = setTimeout(() => void load(), 0); return () => clearTimeout(timer); }, [load]);
+
   async function openEndpoint(path: string, body = {}) {
-    try { const { url } = await apiFetch<{ url: string }>(path, { method: 'POST', body: JSON.stringify(body) }, getToken); await Linking.openURL(url); }
-    catch (e) { alert(errorMessage(e)); }
+    try {
+      const { url } = await apiFetch<{ url: string }>(path, { method: 'POST', body: JSON.stringify(body) }, getToken);
+      await Linking.openURL(url);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
   }
-  return <Screen title="Plans and payouts" subtitle="Start with your free trial, then choose the BuildPair plan that fits your business.">
+
+  const activeTier: SubscriptionTier = profile?.subscriptionTier ?? 'free';
+  const used = profile?.monthlyQuotesUsed ?? 0;
+  const limit = profile?.monthlyQuoteLimit ?? PLAN_COPY[activeTier].monthlyMarketplaceQuotes;
+  const resetLabel = profile?.monthlyQuoteResetAt
+    ? new Date(profile.monthlyQuoteResetAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    : 'next month';
+  const usageProgress = limit > 0 ? Math.min(1, used / limit) : 0;
+
+  return <Screen title="BuildPair plans" subtitle="Start free, upgrade when you want BuildPair to bring your profile into search and let you actively pursue work.">
     <AppCard>
-      <Text variant="titleLarge">{TRADER_TRIAL_DAYS}-day trader trial</Text>
-      <Text>New trader profiles get {TRADER_TRIAL_DAYS} days of Basic marketplace and direct-lead access without needing a paid subscription. Trial and free profiles can list up to {TRADER_WORK_TYPE_LIMITS.free} work types. An active paid Basic plan unlocks {TRADER_WORK_TYPE_LIMITS.basic}, and Featured unlocks {TRADER_WORK_TYPE_LIMITS.featured}. If you choose a paid plan during the trial, Stripe will not bill before the free period ends.</Text>
+      <View style={styles.currentRow}>
+        <View style={styles.flex}>
+          <Text variant="titleLarge" style={styles.title}>Current plan: {PLAN_COPY[activeTier].name}</Text>
+          <Text style={styles.muted}>There is no free trial during beta testing. Starter, Plus and Pro entitlements are kept separate so we can test them properly.</Text>
+        </View>
+        <Chip icon={activeTier === 'free' ? 'account-outline' : activeTier === 'basic' ? 'check-decagram-outline' : 'star-circle-outline'}>{PLAN_COPY[activeTier].price}</Chip>
+      </View>
+      {limit > 0 ? <View style={styles.usage}>
+        <View style={styles.currentRow}><Text variant="labelLarge">Marketplace offers</Text><Text variant="labelLarge">{used} / {limit}</Text></View>
+        <ProgressBar progress={usageProgress} color={colors.primary} style={styles.progress} />
+        <Text style={styles.muted}>Allowance resets {resetLabel}. Direct homeowner requests do not count toward this total.</Text>
+      </View> : <Text style={styles.muted}>Starter traders can browse jobs without consuming anything, but offering on an open marketplace job requires Plus or Pro.</Text>}
     </AppCard>
-    <View style={styles.grid}>{Object.entries(PLAN_COPY).map(([key, tier]) => {
-      const workTypeLimit = key === 'featured' ? TRADER_WORK_TYPE_LIMITS.featured : key === 'basic' ? TRADER_WORK_TYPE_LIMITS.basic : TRADER_WORK_TYPE_LIMITS.free;
-      return <View key={key} style={styles.plan}><AppCard><Text variant="headlineSmall">{tier.name}</Text><Text variant="headlineMedium">{key === 'free' ? tier.price : `${tier.price} after trial`}</Text><Text>✓ Up to {workTypeLimit} work types</Text>{tier.features.map((feature) => <Text key={feature}>✓ {feature}</Text>)}{key !== 'free' ? <Button mode="contained" disabled={!paymentsEnabled} onPress={() => openEndpoint('/api/stripe/subscription', { tier: key })}>{paymentsEnabled ? `Choose ${tier.name}` : 'Stripe setup in progress'}</Button> : null}</AppCard></View>;
+
+    <View style={styles.grid}>{(Object.entries(PLAN_COPY) as [SubscriptionTier, (typeof PLAN_COPY)[SubscriptionTier]][]).map(([key, tier]) => {
+      const isCurrent = key === activeTier;
+      return <View key={key} style={styles.plan}>
+        <AppCard style={isCurrent ? styles.currentPlan : undefined}>
+          <View style={styles.planHeader}><View><Text variant="headlineSmall" style={styles.title}>{tier.name}</Text><Text variant="headlineMedium" style={styles.price}>{tier.price}</Text></View>{isCurrent ? <Chip icon="check">Current</Chip> : null}</View>
+          <Text style={styles.categoryLine}>Up to {tier.categoryLimit} main trade categories</Text>
+          {tier.detail.map((feature) => <Text key={feature} style={styles.feature}>✓ {feature}</Text>)}
+          {key !== 'free' ? <Button
+            mode={isCurrent ? 'outlined' : 'contained'}
+            disabled={!paymentsEnabled || isCurrent}
+            onPress={() => openEndpoint('/api/stripe/subscription', { tier: key })}
+          >{!paymentsEnabled ? 'Stripe setup in progress' : isCurrent ? 'Current plan' : `Choose ${tier.shortName}`}</Button> : null}
+        </AppCard>
+      </View>;
     })}</View>
+
     <AppCard>
-      <Text variant="titleLarge">How Featured differs</Text>
-      <Text>Basic is deliberately a real working marketplace plan, not a crippled upsell. Featured improves visibility and matching advantages; it does not reserve the ordinary local job marketplace only for the most expensive tier.</Text>
+      <Text variant="titleLarge" style={styles.title}>Why Pro costs £10 more</Text>
+      <Text style={styles.muted}>Pro is not simply “20 more clicks”. It raises the monthly open-job allowance to 35, supports 6 main categories, adds advanced analytics and gets a measured discovery and alert advantage. Relevance, reviews, verified credentials and profile quality still matter more than simply paying for Pro.</Text>
     </AppCard>
-    <AppCard><Text variant="titleLarge">Receive job payments</Text><Text>Complete Stripe Express onboarding so customer deposits and balances can be routed to your bank. BuildPair never handles raw card numbers.</Text><Button mode="contained" icon="bank" disabled={!paymentsEnabled} onPress={() => openEndpoint('/api/stripe/connect')}>{paymentsEnabled ? 'Set up Stripe payouts' : 'Stripe setup in progress'}</Button></AppCard>
+
+    <AppCard>
+      <Text variant="titleLarge" style={styles.title}>Receive job payments</Text>
+      <Text style={styles.muted}>Complete Stripe Express onboarding so customer deposits and balances can be routed to your bank. BuildPair never handles raw card numbers.</Text>
+      <Button mode="contained" icon="bank" disabled={!paymentsEnabled} onPress={() => openEndpoint('/api/stripe/connect')}>{paymentsEnabled ? 'Set up Stripe payouts' : 'Stripe setup in progress'}</Button>
+    </AppCard>
     <Button mode="outlined" disabled={!paymentsEnabled} onPress={() => openEndpoint('/api/stripe/billing-portal')}>Manage or cancel subscription</Button>
+    {error ? <Text style={styles.error}>{error}</Text> : null}
   </Screen>;
 }
 
-const styles = StyleSheet.create({ grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, plan: { flex: 1, minWidth: 240 } });
+const styles = StyleSheet.create({
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  plan: { flex: 1, minWidth: 260 },
+  currentPlan: { borderColor: colors.primary, borderWidth: 2 },
+  currentRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
+  planHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' },
+  flex: { flex: 1, minWidth: 220 },
+  title: { color: colors.charcoal, fontWeight: '900' },
+  price: { color: colors.primary, fontWeight: '900' },
+  categoryLine: { color: colors.charcoal, fontWeight: '800' },
+  feature: { color: colors.text, lineHeight: 22 },
+  muted: { color: colors.muted, lineHeight: 22 },
+  usage: { gap: 8, marginTop: 8 },
+  progress: { height: 9, borderRadius: 8, backgroundColor: colors.surfaceStrong },
+  error: { color: colors.danger },
+});
