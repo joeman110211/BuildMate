@@ -24,18 +24,15 @@ export function PillSelector({
   maxSelections?: number;
 }) {
   const { getToken } = useAuth();
-  const [planLimit, setPlanLimit] = useState(maxSelections ?? 3);
+  const [remotePlanLimit, setRemotePlanLimit] = useState(3);
 
   useEffect(() => {
-    if (maxSelections != null) {
-      setPlanLimit(maxSelections);
-      return;
-    }
+    if (maxSelections != null) return;
 
     let active = true;
     void apiFetch<PlanSnapshot>('/api/me/profile', {}, getToken)
       .then((profile) => {
-        if (active) setPlanLimit(traderWorkTypeLimit(profile));
+        if (active) setRemotePlanLimit(traderWorkTypeLimit(profile));
       })
       .catch(() => {
         // A new trader has no profile yet, so the onboarding allowance stays at three.
@@ -43,6 +40,7 @@ export function PillSelector({
     return () => { active = false; };
   }, [getToken, maxSelections]);
 
+  const planLimit = maxSelections ?? remotePlanLimit;
   const limitReached = values.length >= planLimit;
 
   return <View style={styles.block}>
