@@ -12,6 +12,18 @@ log() {
   printf '[%s] %s\n' "$(date -Is)" "$*"
 }
 
+health_response_ok() {
+  local response="$1"
+  node -e '
+    try {
+      const data = JSON.parse(process.argv[1]);
+      process.exit(data.status === "ok" && data.database === "ok" ? 0 : 1);
+    } catch {
+      process.exit(1);
+    }
+  ' "$response" >/dev/null 2>&1
+}
+
 wait_for_health() {
   local url="$1"
   local label="$2"
@@ -19,7 +31,7 @@ wait_for_health() {
 
   for attempt in $(seq 1 30); do
     response="$(curl --fail --silent --show-error --connect-timeout 2 --max-time 5 "$url" 2>/dev/null || true)"
-    if [[ "$response" == *'\"status\":\"ok\"'* && "$response" == *'\"database\":\"ok\"'* ]]; then
+    if [[ -n "$response" ]] && health_response_ok "$response"; then
       log "$label health check passed on attempt $attempt."
       return 0
     fi
@@ -82,7 +94,10 @@ fi
 BASE_SHA="$ROLLBACK_SHA"
 CHANGED_FILES="$(git diff --name-only "$BASE_SHA" "$REMOTE_SHA" 2>/dev/null || true)"
 NEEDS_NPM_CI=false
-if [[ ! -d node_modules ]] || grep -Eq '^(package\.json|package-lock\.json)$' <<<"$CHANGED_FILES"; then
+if [[ ! -d node_modules ]] \
+  || [[ ! -x node_modules/.bin/tsc ]] \
+  || [[ ! -x node_modules/.bin/expo ]] \
+  || grep -Eq '^(package\.json|package-lock\.json)$' <<<"$CHANGED_FILES"; then
   NEEDS_NPM_CI=true
 fi
 
@@ -95,8 +110,11 @@ rollback() {
   npm run build:web
   pm2 restart buildpair --update-env >/dev/null || true
   pm2 save >/dev/null || true
-  wait_for_health "http://localhost:3000/api/health" "Rollback local API" || true
-  write_deployed_sha "$ROLLBACK_SHA"
+  if wait_for_health "http://localhost:3000/api/health" "Rollback local API"; then
+    write_deployed_sha "$ROLLBACK_SHA"
+  else
+    log "Rollback process finished, but local API health could not be confirmed."
+  fi
   log "Rollback completed. This failed revision will not be retried unless GitHub changes again."
 }
 
@@ -120,10 +138,10 @@ fi
 DEPLOY_ACTIVE=true
 
 if [[ "$NEEDS_NPM_CI" == true ]]; then
-  log "Dependency files changed; installing locked dependencies..."
+  log "Dependencies missing or changed; installing locked dependencies..."
   npm ci
 else
-  log "Dependencies unchanged; skipping npm ci."
+  log "Dependencies unchanged and toolchain present; skipping npm ci."
 fi
 
 log "Running TypeScript checks..."
