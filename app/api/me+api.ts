@@ -22,6 +22,8 @@ export async function PATCH(request: Request) {
     const userId = await authenticatedUserId(request);
     await ensureDbUser(userId);
     const payload = roleSchema.parse(await request.json());
+    const before = await accountModes(userId);
+    const wasEnabled = payload.role === 'customer' ? before.customerEnabled : before.traderEnabled;
 
     if (payload.role === 'customer') {
       await getSql()`
@@ -45,7 +47,13 @@ export async function PATCH(request: Request) {
 
     const user = await ensureDbUser(userId);
     const [access, modes] = await Promise.all([accountAccess(userId), accountModes(userId)]);
-    return Response.json({ ...user, ...modes, isAdmin: access.isAdmin, isSuspended: access.isSuspended });
+    return Response.json({
+      ...user,
+      ...modes,
+      isAdmin: access.isAdmin,
+      isSuspended: access.isSuspended,
+      wasEnabled,
+    });
   } catch (error) { return jsonError(error); }
 }
 
