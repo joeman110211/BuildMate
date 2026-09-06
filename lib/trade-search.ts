@@ -62,8 +62,9 @@ function normalise(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function containsTerm(value: string, term: string) {
-  return Boolean(term) && value.includes(term);
+function phraseIncludes(value: string, term: string) {
+  if (!term) return false;
+  return ` ${value} `.includes(` ${term} `);
 }
 
 function matchedGroups(query: string) {
@@ -72,12 +73,12 @@ function matchedGroups(query: string) {
 
   return SEARCH_GROUPS.filter((group) => group.slice(0, GROUP_ANCHOR_LIMIT).some((term) => {
     const anchor = normalise(term);
-    return anchor.length > 1 && (raw === anchor || raw.includes(anchor) || anchor.includes(raw));
+    return anchor.length > 1 && (raw === anchor || phraseIncludes(raw, anchor) || phraseIncludes(anchor, raw));
   }));
 }
 
 function bestFieldMatch(value: string, terms: string[], score: number) {
-  return terms.some((term) => containsTerm(value, term)) ? score : 0;
+  return terms.some((term) => phraseIncludes(value, term)) ? score : 0;
 }
 
 export function scoreTraderSearch(trader: TraderProfile, query: string) {
