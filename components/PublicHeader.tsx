@@ -8,9 +8,8 @@ import { BuildPairLogo } from '@/components/BuildPairLogo';
 import { colors } from '@/constants/theme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { dashboardHref } from '@/lib/account-mode';
+import { useAuthAvailable } from '@/lib/auth-availability';
 import type { UserRole } from '@/types';
-
-const authConfigured = Boolean(process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 const NAV_ITEMS: { label: string; href: Href }[] = [
   { label: 'Home', href: '/' },
@@ -121,7 +120,8 @@ function PreviewHeader() {
 }
 
 export function PublicHeader() {
-  return authConfigured ? <AuthenticatedHeader /> : <PreviewHeader />;
+  const authAvailable = useAuthAvailable();
+  return authAvailable ? <AuthenticatedHeader /> : <PreviewHeader />;
 }
 
 const styles = StyleSheet.create({
