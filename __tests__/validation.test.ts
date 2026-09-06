@@ -15,7 +15,7 @@ const validJob = {
 const validTraderProfile = {
   businessName: 'Example Tiling',
   tradeCategory: 'Tiling' as const,
-  subSkills: ['Bathrooms'],
+  subSkills: ['Tiling'],
   bio: 'Experienced wall and floor tiler covering domestic bathroom and flooring projects across Surrey and West London.',
   radiusMiles: 25,
   postcode: 'TW18 4AB',
@@ -66,10 +66,10 @@ describe('marketplace validation', () => {
     expect(traderProfileSchema.safeParse({ ...validTraderProfile, selfCertified: false }).success).toBe(false);
   });
 
-  it('requires at least one specialist skill before publication', () => {
+  it('requires at least one work type before publication', () => {
     const result = traderProfileSchema.safeParse({ ...validTraderProfile, subSkills: [] });
     expect(result.success).toBe(false);
-    if (!result.success) expect(result.error.issues[0]?.message).toContain('at least one specialist skill');
+    if (!result.success) expect(result.error.issues[0]?.message).toContain('at least one work type');
   });
 
   it('caps any trader profile at nine work types', () => {
