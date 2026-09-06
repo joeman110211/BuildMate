@@ -5,26 +5,25 @@ on:
     inputs:
       base_url:
         description: 'HTTPS BuildPair URL to test'
-        required: true
+        required: false
+        default: 'https://staging.buildpair.co.uk'
         type: string
   push:
     branches: [main]
-    paths:
-      - 'e2e/**'
-      - 'playwright.config.mjs'
-      - '.github/workflows/e2e.yml'
+  schedule:
+    - cron: '30 3 * * *'
 
 permissions:
   contents: read
 
 concurrency:
   group: buildpair-e2e-${{ inputs.base_url || 'staging' }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       E2E_BASE_URL: ${{ inputs.base_url || 'https://staging.buildpair.co.uk' }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
@@ -47,7 +46,7 @@ jobs:
             *) echo "::error::base_url must start with https://"; exit 1 ;;
           esac
           if [ -z "$CLERK_SECRET_KEY" ]; then
-            echo "::error::Add CLERK_SECRET_KEY to this repository's Actions secrets before running E2E."
+            echo "::error::Add the staging Clerk secret key to this repository as an Actions secret named CLERK_SECRET_KEY before running E2E."
             exit 1
           fi
 
@@ -57,13 +56,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 45); do
+          for attempt in $(seq 1 60); do
             if curl --fail --silent --show-error --connect-timeout 3 --max-time 8 "$E2E_BASE_URL/api/readiness" | jq -e '.ready == true' >/dev/null 2>&1; then
               echo "BuildPair staging is ready."
               exit 0
             fi
-            echo "Waiting for staging readiness ($attempt/45)..."
-            sleep 4
+            echo "Waiting for staging readiness ($attempt/60)..."
+            sleep 5
           done
           echo "::error::BuildPair staging did not become ready in time"
           exit 1
@@ -86,16 +85,16 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run BuildPair real signup, lifecycle and mobile regressions
-        run: npx playwright test --project=real-signup-journey --project=desktop-core-flow --project=small-android-public-ui
+      - name: Run every BuildPair browser journey and feature matrix
+        run: npx playwright test
 
-      - name: Upload E2E evidence on failure
-        if: failure()
+      - name: Upload Playwright evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: buildpair-e2e-failure
+          name: buildpair-e2e-${{ github.run_id }}
           path: |
             playwright-report
             test-results
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 14
