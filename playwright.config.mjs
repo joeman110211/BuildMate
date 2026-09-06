@@ -44,9 +44,21 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     {
+      name: 'desktop-dual-mode',
+      testMatch: /dual-mode\.spec\.mjs/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    {
       name: 'desktop-route-coverage',
       testMatch: /route-coverage\.spec\.mjs/,
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'small-android-route-coverage',
+      testMatch: /route-coverage\.spec\.mjs/,
+      use: { ...devices['Pixel 5'] },
       dependencies: ['setup'],
     },
     {
