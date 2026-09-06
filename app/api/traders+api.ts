@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, or, sql } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { reviews, traderProfiles } from '@/db/schema';
 import { demoTraders } from '@/lib/demo-data';
@@ -24,9 +24,13 @@ export async function GET(request: Request) {
     const createdTrialEnd = sql<Date>`${traderProfiles.createdAt} + (${TRADER_TRIAL_DAYS} * interval '1 day')`;
     const effectiveTrialEnd = sql<Date>`greatest(coalesce(${traderProfiles.trialEndsAt}, ${createdTrialEnd}), ${createdTrialEnd})`;
     const activeLeadAccess = sql`${traderProfiles.isSubscriptionActive} = true and (${traderProfiles.stripeSubscriptionId} is not null or ${effectiveTrialEnd} > now())`;
-    const where = trade
-      ? and(activeLeadAccess, eq(traderProfiles.tradeCategory, trade), activeAccount)
+    const tradeMatch = trade
+      ? or(eq(traderProfiles.tradeCategory, trade), sql`${trade} = ANY(${traderProfiles.subSkills})`)
+      : undefined;
+    const where = tradeMatch
+      ? and(activeLeadAccess, tradeMatch, activeAccount)
       : and(activeLeadAccess, activeAccount);
+
     const db = getDb();
     const rows = await db.select({
       id: traderProfiles.id,
@@ -57,7 +61,7 @@ export async function GET(request: Request) {
     const previewTraders = previewDataEnabled(request)
       ? demoTraders
           .map((trader) => ({ ...trader, tradeCategory: canonicalTradeCategory(trader.tradeCategory) }))
-          .filter((trader) => !trade || trader.tradeCategory === trade)
+          .filter((trader) => !trade || trader.tradeCategory === trade || trader.subSkills.includes(trade))
           .map((trader) => ({ ...trader, averageRating: 0, reviewCount: 0, verifiedCredentialCount: 0, availabilitySummary: null, isPreview: true }))
       : [];
     const combined = [...rows.map((trader) => ({ ...trader, isPreview: false })), ...previewTraders].slice(0, 100);
