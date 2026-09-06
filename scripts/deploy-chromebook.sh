@@ -11,6 +11,24 @@ log() {
   printf '[%s] %s\n' "$(date -Is)" "$*"
 }
 
+wait_for_health() {
+  local url="$1"
+  local label="$2"
+  local response=""
+
+  for attempt in $(seq 1 30); do
+    response="$(curl --fail --silent --show-error --connect-timeout 2 --max-time 5 "$url" 2>/dev/null || true)"
+    if [[ "$response" == *'"status":"ok"'* && "$response" == *'"database":"ok"'* ]]; then
+      log "$label health check passed on attempt $attempt."
+      return 0
+    fi
+    sleep 2
+  done
+
+  log "$label health check failed after 60 seconds. Last response: ${response:-<no response>}"
+  return 1
+}
+
 cd "$REPO_DIR"
 
 # Never run two deploys at once.
@@ -58,6 +76,7 @@ rollback() {
   npm run build:web
   pm2 restart buildpair --update-env >/dev/null || true
   pm2 save >/dev/null || true
+  wait_for_health "http://localhost:3000/api/health" "Rollback local API" || true
   log "Rollback completed. This failed revision will not be retried unless GitHub changes again."
 }
 
@@ -89,19 +108,11 @@ log "Restarting BuildPair..."
 pm2 restart buildpair --update-env >/dev/null
 pm2 save >/dev/null
 
-log "Checking local API health..."
-LOCAL_HEALTH="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 http://localhost:3000/api/health)"
-if [[ "$LOCAL_HEALTH" != *'"status":"ok"'* || "$LOCAL_HEALTH" != *'"database":"ok"'* ]]; then
-  log "Local health check returned an unexpected response: $LOCAL_HEALTH"
-  false
-fi
+log "Waiting for local API health..."
+wait_for_health "http://localhost:3000/api/health" "Local API"
 
-log "Checking public staging health..."
-PUBLIC_HEALTH="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$HEALTH_URL")"
-if [[ "$PUBLIC_HEALTH" != *'"status":"ok"'* || "$PUBLIC_HEALTH" != *'"database":"ok"'* ]]; then
-  log "Public health check returned an unexpected response: $PUBLIC_HEALTH"
-  false
-fi
+log "Waiting for public staging health..."
+wait_for_health "$HEALTH_URL" "Public staging"
 
 rm -f "$FAILED_SHA_FILE"
 DEPLOY_SWITCHED=false
