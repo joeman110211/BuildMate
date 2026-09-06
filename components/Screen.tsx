@@ -1,6 +1,6 @@
 import { type Href, useRouter } from 'expo-router';
 import type { PropsWithChildren, ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { ActivityIndicator, Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
@@ -37,11 +37,18 @@ export function Screen({ children, title, subtitle, scroll = true, backHref, foo
     </View>
   );
 
-  return <SafeAreaView style={styles.safe}>
+  const webViewportStyle = Platform.OS === 'web'
+    ? ({ height: '100dvh', minHeight: '100vh' } as never)
+    : undefined;
+  const webScrollStyle = Platform.OS === 'web'
+    ? ({ overflowY: 'auto', overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' } as never)
+    : undefined;
+
+  return <SafeAreaView style={[styles.safe, webViewportStyle]}>
     {scroll ? <ScrollView
-      style={styles.scrollView}
+      style={[styles.scrollView, webScrollStyle]}
       contentContainerStyle={[styles.scroll, footer ? styles.scrollWithFooter : null]}
-      keyboardShouldPersistTaps="handled"
+      keyboardShouldPersistTaps="always"
       keyboardDismissMode="on-drag"
       nestedScrollEnabled
       contentInsetAdjustmentBehavior="automatic"
@@ -60,7 +67,7 @@ export function EmptyState({ title, body, action }: { title: string; body: strin
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: colors.background, minHeight: 0 },
   scrollView: { flex: 1, minHeight: 0 },
   scroll: { flexGrow: 1, paddingBottom: 64 },
   scrollWithFooter: { paddingBottom: 28 },
@@ -70,7 +77,7 @@ const styles = StyleSheet.create({
   headingBlock: { gap: 8, paddingHorizontal: 2 },
   title: { color: colors.charcoal, fontWeight: '900', letterSpacing: -0.7 },
   subtitle: { color: colors.muted, lineHeight: 24 },
-  footerShell: { width: '100%', borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surfaceRaised, paddingHorizontal: 18, paddingVertical: 10 },
+  footerShell: { width: '100%', flexShrink: 0, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surfaceRaised, paddingHorizontal: 18, paddingVertical: 10 },
   footerContent: { width: '100%', maxWidth: 1200, alignSelf: 'center' },
   loading: { flex: 1, minHeight: 420, alignItems: 'center', justifyContent: 'center', gap: 12 },
   empty: { paddingVertical: 38, paddingHorizontal: 26, borderWidth: 1, borderColor: colors.border, borderRadius: 26, backgroundColor: colors.surfaceRaised, alignItems: 'center', gap: 10 },
