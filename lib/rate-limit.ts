@@ -3,11 +3,17 @@ import { HttpError } from '@/lib/server';
 import { getSql } from '@/lib/sql';
 
 function fingerprint(request: Request, scope: string, userId?: string | null) {
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
+  if (userId) {
+    // An authenticated user must not be able to evade limits by rotating
+    // User-Agent or forwarding headers. Identity is the stable abuse boundary.
+    return `${scope}:user:${createHash('sha256').update(userId).digest('hex').slice(0, 32)}`;
+  }
+
   const realIp = request.headers.get('x-real-ip')?.trim() ?? '';
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
   const agent = request.headers.get('user-agent') ?? '';
-  const source = `${scope}|${userId ?? ''}|${forwarded}|${realIp}|${agent}`;
-  return `${scope}:${createHash('sha256').update(source).digest('hex').slice(0, 32)}`;
+  const source = `${scope}|${realIp || forwarded || 'unknown'}|${agent}`;
+  return `${scope}:anon:${createHash('sha256').update(source).digest('hex').slice(0, 32)}`;
 }
 
 export async function assertRateLimit(
