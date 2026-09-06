@@ -1,0 +1,37 @@
+name: Lighthouse CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Public BuildPair URL to audit'
+        required: false
+        default: 'https://staging.buildpair.co.uk'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      LHCI_BASE_URL: ${{ inputs.base_url || 'https://staging.buildpair.co.uk' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.23.1
+      - name: Install Lighthouse CI
+        run: npm install --global @lhci/cli@0.15.x
+      - name: Run Lighthouse audit
+        run: lhci autorun
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildpair-lighthouse-${{ github.run_id }}
+          path: .lighthouseci
+          if-no-files-found: ignore
+          retention-days: 14
