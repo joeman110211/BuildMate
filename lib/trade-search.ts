@@ -43,7 +43,7 @@ const SEARCH_GROUPS = [
   ['structural engineer', 'structural engineering', 'calculations', 'steel beam', 'rsj', 'load bearing wall'],
   ['surveyor', 'surveying', 'building survey', 'snagging', 'party wall', 'condition report'],
   ['screed', 'screeding', 'floor screed', 'levelling compound', 'self levelling', 'floor preparation'],
-  ['dry lining', 'dryliner', 'dryliner', 'plasterboard', 'stud wall', 'partition wall', 'suspended ceiling'],
+  ['dry lining', 'dryliner', 'dryliners', 'plasterboard', 'stud wall', 'partition wall', 'suspended ceiling'],
   ['basement', 'cellar', 'basement conversion', 'cellar conversion', 'basement waterproofing', 'tanking'],
   ['concrete', 'formwork', 'reinforced concrete', 'concrete slab', 'concrete base', 'shuttering'],
   ['piling', 'piles', 'underpinning', 'mini piling', 'foundation piles', 'foundation repair'],
@@ -62,9 +62,43 @@ function normalise(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function wordStems(word: string) {
+  const stems = new Set([word]);
+  if (word.length > 4 && word.endsWith('ies')) stems.add(`${word.slice(0, -3)}y`);
+  if (word.length > 4 && word.endsWith('ers')) {
+    const base = word.slice(0, -3);
+    stems.add(base);
+    stems.add(`${base}e`);
+  }
+  if (word.length > 3 && word.endsWith('er')) {
+    const base = word.slice(0, -2);
+    stems.add(base);
+    stems.add(`${base}e`);
+  }
+  if (word.length > 4 && word.endsWith('ing')) {
+    const base = word.slice(0, -3);
+    stems.add(base);
+    stems.add(`${base}e`);
+  }
+  if (word.length > 4 && word.endsWith('es')) stems.add(word.slice(0, -2));
+  if (word.length > 3 && word.endsWith('s')) stems.add(word.slice(0, -1));
+  return stems;
+}
+
+function wordsRelated(left: string, right: string) {
+  const leftStems = wordStems(left);
+  return [...wordStems(right)].some((stem) => leftStems.has(stem));
+}
+
 function phraseIncludes(value: string, term: string) {
-  if (!term) return false;
-  return ` ${value} `.includes(` ${term} `);
+  const valueWords = normalise(value).split(' ').filter(Boolean);
+  const termWords = normalise(term).split(' ').filter(Boolean);
+  if (!termWords.length || termWords.length > valueWords.length) return false;
+
+  for (let index = 0; index <= valueWords.length - termWords.length; index += 1) {
+    if (termWords.every((word, offset) => wordsRelated(valueWords[index + offset], word))) return true;
+  }
+  return false;
 }
 
 function matchedGroups(query: string) {
@@ -73,7 +107,7 @@ function matchedGroups(query: string) {
 
   return SEARCH_GROUPS.filter((group) => group.slice(0, GROUP_ANCHOR_LIMIT).some((term) => {
     const anchor = normalise(term);
-    return anchor.length > 1 && (raw === anchor || phraseIncludes(raw, anchor) || phraseIncludes(anchor, raw));
+    return anchor.length > 1 && (phraseIncludes(raw, anchor) || phraseIncludes(anchor, raw));
   }));
 }
 
@@ -92,13 +126,13 @@ export function scoreTraderSearch(trader: TraderProfile, query: string) {
 
   let score = 0;
 
-  // Literal user wording is strongest. This prevents a related trade from
-  // outranking the trade the user actually typed.
-  if (business.includes(raw)) score += 150;
+  // Literal user wording is strongest. Word-aware matching handles useful
+  // variants such as tiler/tiling and sink/sinks without matching spa/spark.
+  if (phraseIncludes(business, raw)) score += 150;
   if (category === raw) score += 145;
-  else if (category.includes(raw) || raw.includes(category)) score += 115;
-  if (skills.includes(raw)) score += 90;
-  if (bio.includes(raw)) score += 18;
+  else if (phraseIncludes(category, raw) || phraseIncludes(raw, category)) score += 115;
+  if (phraseIncludes(skills, raw)) score += 90;
+  if (phraseIncludes(bio, raw)) score += 18;
 
   for (const group of matchedGroups(query)) {
     const primaryTerms = group.slice(0, GROUP_ANCHOR_LIMIT).map(normalise);
