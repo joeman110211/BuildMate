@@ -5,7 +5,7 @@ import { traderProfileShowcase } from '@/db/showcase-schema';
 import { InvalidPostcodeError, lookupPostcode } from '@/lib/postcode';
 import { getSql } from '@/lib/sql';
 import { accountAccess, accountModes, authenticatedUserId, ensureDbUser, HttpError, jsonError } from '@/lib/server';
-import { traderWorkTypeLimit, trialEndsAt, TRADER_TRIAL_DAYS } from '@/lib/subscription';
+import { categoryChangeAllowed, categoryChangeAvailableAt, traderWorkTypeLimit } from '@/lib/subscription';
 import { roleSchema, traderProfileSchema } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -65,6 +65,11 @@ function missingShowcaseTable(error: unknown) {
     || candidate?.cause?.message?.includes('trader_profile_showcase');
 }
 
+function sameCategories(a: readonly string[], b: readonly string[]) {
+  if (a.length !== b.length) return false;
+  return [...a].sort().every((value, index) => value === [...b].sort()[index]);
+}
+
 export async function PUT(request: Request) {
   try {
     const userId = await authenticatedUserId(request);
@@ -72,62 +77,93 @@ export async function PUT(request: Request) {
     const modes = await accountModes(userId);
     if (!modes.traderEnabled) throw new HttpError(403, 'Trader account required');
     const payload = traderProfileSchema.parse(await request.json());
-    const { showcase, ...baseProfile } = payload;
+    const { showcase } = payload;
+
+    const tradeCategories = payload.tradeCategories?.length
+      ? [...new Set(payload.tradeCategories)]
+      : payload.tradeCategory ? [payload.tradeCategory] : [];
+    if (!tradeCategories.length) throw new HttpError(400, 'Select at least one trade category');
+
+    const serviceSelections = Object.fromEntries(
+      Object.entries(payload.serviceSelections ?? {})
+        .filter(([category]) => tradeCategories.includes(category as (typeof tradeCategories)[number]))
+        .map(([category, services]) => [category, [...new Set(services)]])
+    );
+    const flattenedServices = [...new Set(Object.values(serviceSelections).flat())];
+    const legacySubSkills = flattenedServices.length ? flattenedServices : [...new Set(payload.subSkills ?? [])];
 
     let location;
-    try { location = await lookupPostcode(baseProfile.postcode); }
+    try { location = await lookupPostcode(payload.postcode); }
     catch (error) {
       if (error instanceof InvalidPostcodeError) throw new HttpError(400, error.message);
       throw error;
     }
 
-    const values = {
-      ...baseProfile,
-      postcode: location.postcode,
-      locationLabel: location.locationLabel,
-      latitude: location.latitude,
-      longitude: location.longitude,
-    };
-
     const db = getDb();
     const existingProfile = await db.query.traderProfiles.findFirst({
       where: eq(traderProfiles.userId, userId),
       columns: {
+        tradeCategory: true,
+        tradeCategories: true,
+        serviceSelections: true,
+        categoriesChangedAt: true,
         subscriptionTier: true,
         isSubscriptionActive: true,
         stripeSubscriptionId: true,
         createdAt: true,
-        trialEndsAt: true,
       },
     });
 
-    const workTypeLimit = traderWorkTypeLimit(existingProfile);
-    if (baseProfile.subSkills.length > workTypeLimit) {
-      throw new HttpError(403, `Your current BuildPair plan allows up to ${workTypeLimit} work types. Remove some selections or upgrade your plan.`);
+    const categoryLimit = traderWorkTypeLimit(existingProfile);
+    if (tradeCategories.length > categoryLimit) {
+      throw new HttpError(403, `Your current BuildPair plan allows up to ${categoryLimit} main trade categories. Remove some selections or upgrade your plan.`);
     }
 
-    const minimumTrialEnd = existingProfile?.createdAt ? trialEndsAt(existingProfile.createdAt) : trialEndsAt();
-    const storedTrialEnd = existingProfile?.trialEndsAt ? new Date(existingProfile.trialEndsAt) : null;
-    const effectiveTrialEnd = storedTrialEnd && storedTrialEnd > minimumTrialEnd ? storedTrialEnd : minimumTrialEnd;
+    const existingCategories = existingProfile?.tradeCategories?.length
+      ? existingProfile.tradeCategories
+      : existingProfile?.tradeCategory ? [existingProfile.tradeCategory] : [];
+    const categoriesChanged = Boolean(existingProfile) && !sameCategories(existingCategories, tradeCategories);
+    if (categoriesChanged && !categoryChangeAllowed(existingProfile?.categoriesChangedAt)) {
+      const availableAt = categoryChangeAvailableAt(existingProfile?.categoriesChangedAt);
+      throw new HttpError(403, `Main trade categories can be changed once every 14 days. You can change them again on ${availableAt?.toLocaleDateString('en-GB')}. Specialist services can still be edited now.`);
+    }
 
-    // New BuildPair trader profiles receive 14 days of Basic lead access from
-    // first profile publication. Existing accounts keep any longer trial already granted.
-    // Editing a profile never restarts the trial clock.
-    const trialListing = existingProfile?.stripeSubscriptionId
-      ? {}
-      : { subscriptionTier: 'basic' as const, isSubscriptionActive: true, trialEndsAt: effectiveTrialEnd };
+    const categoryChangedAt = existingProfile
+      ? categoriesChanged ? new Date() : existingProfile.categoriesChangedAt
+      : new Date();
 
-    const [profile] = await db.insert(traderProfiles).values({ userId, ...values, ...trialListing }).onConflictDoUpdate({
+    const values = {
+      businessName: payload.businessName,
+      tradeCategory: tradeCategories[0],
+      tradeCategories,
+      serviceSelections,
+      subSkills: legacySubSkills,
+      categoriesChangedAt: categoryChangedAt,
+      bio: payload.bio,
+      postcode: location.postcode,
+      locationLabel: location.locationLabel,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      radiusMiles: payload.radiusMiles,
+      qualifications: payload.qualifications,
+      externalLinks: payload.externalLinks,
+      photos: payload.photos,
+      selfCertified: payload.selfCertified,
+    };
+
+    const [profile] = await db.insert(traderProfiles).values({ userId, ...values }).onConflictDoUpdate({
       target: traderProfiles.userId,
-      set: { ...values, ...trialListing, updatedAt: new Date() },
+      set: { ...values, updatedAt: new Date() },
     }).returning({
       id: traderProfiles.id,
       userId: traderProfiles.userId,
       businessName: traderProfiles.businessName,
       tradeCategory: traderProfiles.tradeCategory,
+      tradeCategories: traderProfiles.tradeCategories,
+      serviceSelections: traderProfiles.serviceSelections,
+      categoriesChangedAt: traderProfiles.categoriesChangedAt,
       subscriptionTier: traderProfiles.subscriptionTier,
       isSubscriptionActive: traderProfiles.isSubscriptionActive,
-      trialEndsAt: traderProfiles.trialEndsAt,
       createdAt: traderProfiles.createdAt,
       updatedAt: traderProfiles.updatedAt,
     });
@@ -154,6 +190,10 @@ export async function PUT(request: Request) {
       }
     }
 
-    return Response.json({ ...profile, trialDays: TRADER_TRIAL_DAYS, workTypeLimit });
+    return Response.json({
+      ...profile,
+      categoryLimit,
+      categoryChangeAvailableAt: categoryChangeAvailableAt(profile?.categoriesChangedAt)?.toISOString() ?? null,
+    });
   } catch (error) { return jsonError(error); }
 }
