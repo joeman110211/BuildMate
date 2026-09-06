@@ -176,7 +176,7 @@ export const SUB_SKILLS: Record<TradeCategory, string[]> = {
 
 export const PROPERTY_TYPES = ['House', 'Flat', 'Bungalow', 'Commercial', 'Other'] as const;
 export const URGENCY_OPTIONS = ['Flexible', 'Within 1 month', 'Within 2 weeks', 'Urgent'] as const;
-export const BUDGET_OPTIONS = ['Under £500', '£500–£1,500', '£1,500–£5,000', '£5,000–£15,000', '£15,000+'] as const;
+export const BUDGET_OPTIONS = ['Not sure / discuss', 'Under £500', '£500–£1,500', '£1,500–£5,000', '£5,000–£15,000', '£15,000+'] as const;
 export const RADIUS_OPTIONS = ['5', '10', '15', '25', '50', '75'] as const;
 export const TRADER_BIO_MIN_LENGTH = 50;
 
