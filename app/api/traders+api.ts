@@ -81,10 +81,32 @@ type DirectoryTrader = {
   rankingScore: number;
 };
 
+function previewTradersFor(trade: string | null) {
+  return demoTraders
+    .map((trader) => {
+      const category = canonicalTradeCategory(trader.tradeCategory);
+      return {
+        ...trader,
+        tradeCategory: category,
+        tradeCategories: [category],
+        serviceSelections: { [category]: trader.subSkills },
+        averageRating: trader.averageRating ?? 0,
+        reviewCount: trader.reviewCount ?? 0,
+        verifiedCredentialCount: 0,
+        availabilitySummary: null,
+        rankingScore: 0,
+        isPreview: true,
+      };
+    })
+    .filter((trader) => !trade || trader.tradeCategories.includes(trade));
+}
+
 export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const trade = url.searchParams.get('trade');
+  const previewEnabled = previewDataEnabled(request);
+
   try {
-    const url = new URL(request.url);
-    const trade = url.searchParams.get('trade');
     const sql = getSql();
     const rows = await sql`
       SELECT tp.id,
@@ -155,31 +177,19 @@ export async function GET(request: Request) {
       LIMIT 100
     ` as unknown as DirectoryTrader[];
 
-    const previewTraders = previewDataEnabled(request)
-      ? demoTraders
-          .map((trader) => {
-            const category = canonicalTradeCategory(trader.tradeCategory);
-            return {
-              ...trader,
-              tradeCategory: category,
-              tradeCategories: [category],
-              serviceSelections: { [category]: trader.subSkills },
-              averageRating: 0,
-              reviewCount: 0,
-              verifiedCredentialCount: 0,
-              availabilitySummary: null,
-              rankingScore: 0,
-              isPreview: true,
-            };
-          })
-          .filter((trader) => !trade || trader.tradeCategories.includes(trade))
-      : [];
-
+    const previews = previewEnabled ? previewTradersFor(trade) : [];
     return Response.json([
       ...rows.map((trader) => ({ ...trader, isPreview: false })),
-      ...previewTraders,
+      ...previews,
     ].slice(0, 100));
   } catch (error) {
+    // Staging is deliberately useful even when the live marketplace database is
+    // temporarily unavailable. Preview profiles are local fixtures, so return
+    // them instead of turning every public page into a generic "failed to fetch".
+    if (previewEnabled) {
+      console.error('Trader directory database query failed; serving staging previews instead.', error);
+      return Response.json(previewTradersFor(trade));
+    }
     return jsonError(error);
   }
 }
