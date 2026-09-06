@@ -3,7 +3,7 @@ import type { Href } from 'expo-router';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Button, IconButton, Menu, Text } from 'react-native-paper';
+import { Button, Divider, IconButton, Menu, Text } from 'react-native-paper';
 import { BuildPairLogo } from '@/components/BuildPairLogo';
 import { colors } from '@/constants/theme';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -19,6 +19,19 @@ const NAV_ITEMS: { label: string; href: Href }[] = [
   { label: 'How It Works', href: '/(public)/how-it-works' },
   { label: 'For Trades', href: '/(public)/for-tradespeople' },
   { label: 'About', href: '/(public)/about' },
+];
+
+const SUPPORT_ITEMS: { label: string; href: Href }[] = [
+  { label: 'For Homeowners', href: '/(public)/for-homeowners' },
+  { label: 'Download App', href: '/(public)/download' },
+  { label: 'Contact Us', href: '/(public)/contact' },
+];
+
+const LEGAL_ITEMS: { label: string; href: Href }[] = [
+  { label: 'Terms & Conditions', href: '/(public)/terms' },
+  { label: 'Privacy Policy', href: '/(public)/privacy' },
+  { label: 'Cookie Policy', href: '/(public)/cookies' },
+  { label: 'Disclaimer', href: '/(public)/disclaimer' },
 ];
 
 function HeaderBrand() {
@@ -41,9 +54,11 @@ function NavMenu({ dashboard, signedIn, onSignOut, preview = false }: { dashboar
     contentStyle={styles.menuContent}
   >
     {NAV_ITEMS.map((item) => <Menu.Item key={item.label} title={item.label} onPress={() => go(item.href)} />)}
-    <Menu.Item title="For Homeowners" onPress={() => go('/(public)/for-homeowners')} />
-    <Menu.Item title="Download App" onPress={() => go('/(public)/download')} />
-    <Menu.Item title="Contact" onPress={() => go('/(public)/contact')} />
+    <Divider />
+    {SUPPORT_ITEMS.map((item) => <Menu.Item key={item.label} title={item.label} onPress={() => go(item.href)} />)}
+    <Divider />
+    {LEGAL_ITEMS.map((item) => <Menu.Item key={item.label} title={item.label} onPress={() => go(item.href)} />)}
+    <Divider />
     {preview ? <Menu.Item title="Sign in (preview unavailable)" disabled /> : signedIn && dashboard ? <>
       <Menu.Item title="Dashboard" leadingIcon="view-dashboard-outline" onPress={() => go(dashboard)} />
       <Menu.Item title="Sign out" leadingIcon="logout" onPress={() => { setOpen(false); onSignOut?.(); }} />
@@ -115,5 +130,5 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', alignItems: 'center', gap: 4, justifyContent: 'flex-end' },
   desktopNav: { flexDirection: 'row', alignItems: 'center', gap: 1 },
   preview: { opacity: 0.65, marginLeft: 4 },
-  menuContent: { backgroundColor: colors.surfaceRaised, borderRadius: 18, minWidth: 230 },
+  menuContent: { backgroundColor: colors.surfaceRaised, borderRadius: 18, minWidth: 250, paddingVertical: 6 },
 });
