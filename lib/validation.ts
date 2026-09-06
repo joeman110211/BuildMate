@@ -66,6 +66,7 @@ export const quoteSchema = z.object({
 }).superRefine((data, ctx) => {
   const total = data.laborCost + data.materialsCost + data.vatAmount;
   if (data.depositAmount >= total && data.depositAmount > 0) ctx.addIssue({ code: 'custom', path: ['depositAmount'], message: 'Deposit must be less than the quote total so a final balance remains' });
+  if (data.validUntil && new Date(data.validUntil).getTime() <= Date.now()) ctx.addIssue({ code: 'custom', path: ['validUntil'], message: 'Quote expiry must be in the future' });
 });
 
 export const reviewSchema = z.object({
@@ -97,4 +98,8 @@ export const invoiceSchema = z.object({
   notes: z.string().max(2000).optional(),
   dueAt: z.iso.datetime().optional(),
   sendNow: z.boolean().default(false),
+}).superRefine((data, ctx) => {
+  const subtotal = data.items.reduce((sum, item) => sum + Math.round(item.quantity * item.unitPrice), 0);
+  const total = subtotal + data.vatAmount;
+  if (data.depositAmount > total) ctx.addIssue({ code: 'custom', path: ['depositAmount'], message: 'Deposit cannot exceed the invoice total' });
 });
