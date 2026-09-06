@@ -1,4 +1,4 @@
-import { createClerkClient, verifyToken } from '@clerk/backend';
+import { createClerkClient } from '@clerk/backend';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { users } from '@/db/schema';
@@ -34,20 +34,34 @@ function productionErrorId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function clerkClientForAuth() {
+  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
+  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
+  if (!secretKey) throw new Error('CLERK_SECRET_KEY is not configured');
+  if (!publishableKey) throw new Error('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not configured');
+  return createClerkClient({ secretKey, publishableKey });
+}
+
 export async function authenticatedUserId(request: Request) {
   const header = request.headers.get('authorization');
-  if (!header?.startsWith('Bearer ')) throw new HttpError(401, 'Authentication required');
-  const token = header.slice(7);
-  const secretKey = process.env.CLERK_SECRET_KEY;
-  if (!secretKey) throw new Error('CLERK_SECRET_KEY is not configured');
+  const hasBearer = Boolean(header?.startsWith('Bearer '));
+  const hasSessionCookie = /(?:^|;\s*)__session=/.test(request.headers.get('cookie') ?? '');
+  if (!hasBearer && !hasSessionCookie) throw new HttpError(401, 'Authentication required');
 
   try {
-    const payload = await verifyToken(token, { secretKey });
-    if (!payload.sub) throw new HttpError(401, 'Invalid authentication token');
-    return payload.sub;
+    // Clerk recommends authenticateRequest() for request-level authentication.
+    // It understands both Clerk session cookies and Authorization bearer tokens,
+    // and avoids duplicating lower-level JWT/JWKS handling in every API route.
+    const state = await clerkClientForAuth().authenticateRequest(request, {
+      acceptsToken: 'session_token',
+    });
+    if (!state.isAuthenticated) throw new HttpError(401, 'Invalid authentication token');
+    const auth = state.toAuth();
+    if (!auth.userId) throw new HttpError(401, 'Invalid authentication token');
+    return auth.userId;
   } catch (error) {
     if (error instanceof HttpError) throw error;
-    console.warn('[buildpair-auth] Clerk token verification failed', {
+    console.warn('[buildpair-auth] Clerk request authentication failed', {
       name: error instanceof Error ? error.name : typeof error,
     });
     throw new HttpError(401, 'Invalid authentication token');
