@@ -2,9 +2,20 @@
 
 import http from 'node:http';
 import path from 'node:path';
-import { createReadStream } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+
+// PM2 restarts do not automatically re-read BuildPair's local environment file.
+// Load it here so server-only values such as CLERK_SECRET_KEY and DATABASE_URL are
+// available after every staging restart, without relying on the shell that launched PM2.
+const localEnvFile = path.resolve(process.cwd(), '.env.local');
+const fallbackEnvFile = path.resolve(process.cwd(), '.env');
+if (existsSync(localEnvFile)) {
+  process.loadEnvFile(localEnvFile);
+} else if (existsSync(fallbackEnvFile)) {
+  process.loadEnvFile(fallbackEnvFile);
+}
 
 // expo-server 57 publishes both ESM and CommonJS adapters. Its ESM build currently
 // contains extensionless internal imports that native Node 22 rejects, so load the
