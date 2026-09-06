@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from 'node:child_process';
 import http from 'node:http';
 import path from 'node:path';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
@@ -21,12 +22,26 @@ const runtimeOverrides = new Set([
   'APP_URL',
   'EXPO_PUBLIC_API_URL',
   'BUILDPAIR_NOINDEX',
+  'BUILDPAIR_BUILD_SHA',
 ]);
 const envFile = existsSync(localEnvFile) ? localEnvFile : (existsSync(fallbackEnvFile) ? fallbackEnvFile : null);
 if (envFile) {
   const parsed = parseEnv(readFileSync(envFile, 'utf8'));
   for (const [name, value] of Object.entries(parsed)) {
     if (!runtimeOverrides.has(name)) process.env[name] = value;
+  }
+}
+
+if (!process.env.BUILDPAIR_BUILD_SHA) {
+  try {
+    process.env.BUILDPAIR_BUILD_SHA = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    // Production images may not contain .git metadata. The deploy environment
+    // can still provide BUILDPAIR_BUILD_SHA explicitly in that case.
   }
 }
 
@@ -53,7 +68,7 @@ const MIME_TYPES = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.ico', 'image/x-icon'],
   ['.jpeg', 'image/jpeg'],
-  ['.jpg', 'image/jpeg'],
+  ['.jpg', 'image/jpg'],
   ['.js', 'text/javascript; charset=utf-8'],
   ['.json', 'application/json; charset=utf-8'],
   ['.map', 'application/json; charset=utf-8'],
