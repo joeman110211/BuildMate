@@ -19,12 +19,14 @@ export async function GET(request: Request) {
     const activeMode = modes.activeMode ?? user.role;
     const db = getDb();
     let rows;
+
     if (activeMode === 'customer' && modes.customerEnabled) {
       rows = (await db.select().from(jobs).where(eq(jobs.customerId, user.id)).orderBy(desc(jobs.createdAt)))
         .map((job) => ({ ...job, isPreview: false }));
     } else if (activeMode === 'trader' && modes.traderEnabled) {
       const [profile] = await db.select({
         tradeCategory: traderProfiles.tradeCategory,
+        subSkills: traderProfiles.subSkills,
         subscriptionTier: traderProfiles.subscriptionTier,
         isSubscriptionActive: traderProfiles.isSubscriptionActive,
         stripeSubscriptionId: traderProfiles.stripeSubscriptionId,
@@ -35,8 +37,9 @@ export async function GET(request: Request) {
         createdAt: traderProfiles.createdAt,
       }).from(traderProfiles).where(eq(traderProfiles.userId, user.id)).limit(1);
       if (!profile) throw new HttpError(409, 'Complete your trader profile first');
-      const activeLeadAccess = hasActiveLeadAccess(profile);
 
+      const activeLeadAccess = hasActiveLeadAccess(profile);
+      const acceptedCategories = [...new Set([profile.tradeCategory, ...(profile.subSkills ?? [])])];
       const acceptedWork = sql`${jobs.acceptedQuoteId} in (select id from quotes where trader_id = ${user.id})`;
       let access = acceptedWork;
 
@@ -59,7 +62,7 @@ export async function GET(request: Request) {
               eq(jobs.targetTraderId, user.id),
               and(
                 sql`${jobs.targetTraderId} is null`,
-                eq(jobs.category, profile.tradeCategory),
+                inArray(jobs.category, acceptedCategories),
                 withinRadius,
               ),
             ),
@@ -70,7 +73,7 @@ export async function GET(request: Request) {
       const databaseRows = await db.select().from(jobs).where(access).orderBy(desc(jobs.isEmergency), desc(jobs.createdAt)).limit(100);
       const previewRows = activeLeadAccess && profile.subscriptionTier !== 'free' && previewDataEnabled()
         ? demoJobs
-            .filter((job) => job.category === profile.tradeCategory)
+            .filter((job) => acceptedCategories.includes(job.category))
             .map((job) => ({ ...job, isPreview: true, isEmergency: false }))
         : [];
       rows = [...databaseRows.map((job) => ({ ...job, isPreview: false })), ...previewRows].slice(0, 100);
@@ -80,7 +83,10 @@ export async function GET(request: Request) {
           ? { ...job, postcode: outwardCode(job.postcode), latitude: null, longitude: null }
           : job;
       });
-    } else throw new HttpError(403, 'Choose an account mode first');
+    } else {
+      throw new HttpError(403, 'Choose an account mode first');
+    }
+
     return Response.json(rows);
   } catch (error) { return jsonError(error); }
 }
@@ -95,6 +101,7 @@ export async function POST(request: Request) {
     if (payload.targetTraderId) {
       const targets = await getSql()`
         SELECT tp.trade_category AS "tradeCategory",
+               tp.sub_skills AS "subSkills",
                tp.subscription_tier AS "subscriptionTier",
                (
                  tp.is_subscription_active = true
@@ -112,15 +119,17 @@ export async function POST(request: Request) {
           AND coalesce(u.is_suspended, false) = false
           AND coalesce(u.is_deleted, false) = false
         LIMIT 1
-      ` as unknown as { tradeCategory: string; subscriptionTier: string; isSubscriptionActive: boolean }[];
+      ` as unknown as { tradeCategory: string; subSkills: string[]; subscriptionTier: string; isSubscriptionActive: boolean }[];
       const target = targets[0];
       if (!target || !target.isSubscriptionActive || target.subscriptionTier === 'free') throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildPair leads');
-      if (target.tradeCategory !== payload.category) throw new HttpError(400, `This direct request must use the tradesperson's listed category: ${target.tradeCategory}`);
+      const listedCategories = new Set([target.tradeCategory, ...(target.subSkills ?? [])]);
+      if (!listedCategories.has(payload.category)) throw new HttpError(400, `This direct request must use one of the tradesperson's listed work types.`);
     }
 
     let location;
-    try { location = await lookupPostcode(payload.postcode); }
-    catch (error) {
+    try {
+      location = await lookupPostcode(payload.postcode);
+    } catch (error) {
       if (error instanceof InvalidPostcodeError) throw new HttpError(400, error.message);
       throw error;
     }
@@ -160,7 +169,7 @@ export async function POST(request: Request) {
         type: 'direct_lead',
         title: payload.isEmergency ? 'Emergency direct job request' : 'New direct job request',
         body: `${payload.title} has been sent directly to you.`,
-        href: `/trader/job-board`,
+        href: '/trader/job-board',
         email: payload.isEmergency,
       });
     } else {
@@ -169,7 +178,7 @@ export async function POST(request: Request) {
         FROM trader_profiles tp
         JOIN users u ON u.id = tp.user_id
         LEFT JOIN saved_job_searches s ON s.trader_id = tp.user_id AND s.enabled = true
-        WHERE tp.trade_category = ${payload.category}
+        WHERE (tp.trade_category = ${payload.category} OR ${payload.category} = ANY(tp.sub_skills))
           AND tp.subscription_tier <> 'free'
           AND tp.is_subscription_active = true
           AND (tp.stripe_subscription_id IS NOT NULL OR greatest(coalesce(tp.trial_ends_at, tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')), tp.created_at + (${TRADER_TRIAL_DAYS} * interval '1 day')) > now())
