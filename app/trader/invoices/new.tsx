@@ -41,7 +41,9 @@ export default function NewInvoiceScreen() {
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   }
   const valid = invoiceNumber && customerName.length >= 2 && customerEmail.includes('@') && items.every((item) => item.description.length >= 2 && Number(item.quantity) > 0) && totals.total > 0 && poundsToPence(deposit) <= totals.total;
-  return <Screen title="Create invoice" subtitle="Itemise it properly. ‘Building work — £4,000’ helps absolutely nobody.">
+  const footer = <Button mode="contained" loading={busy} disabled={!valid || busy} onPress={submit}>{sendNow === 'yes' ? 'Save and send invoice' : 'Save draft'}</Button>;
+
+  return <Screen title="Create invoice" subtitle="Itemise it properly. ‘Building work — £4,000’ helps absolutely nobody." footer={footer}>
     <TextInput label="Invoice number" value={invoiceNumber} onChangeText={setInvoiceNumber} mode="outlined" /><TextInput label="Customer name" value={customerName} onChangeText={setCustomerName} mode="outlined" /><TextInput label="Customer email" value={customerEmail} onChangeText={setCustomerEmail} mode="outlined" keyboardType="email-address" autoCapitalize="none" />
     <Text variant="titleLarge">Items</Text>{items.map((item, index) => <AppCard key={index}><TextInput label="Description" value={item.description} onChangeText={(value) => update(index, 'description', value)} mode="outlined" /><View style={styles.row}><TextInput style={styles.half} label="Quantity" value={item.quantity} onChangeText={(value) => update(index, 'quantity', value)} keyboardType="decimal-pad" mode="outlined" /><TextInput style={styles.half} label="Unit price (£)" value={item.unitPrice} onChangeText={(value) => update(index, 'unitPrice', value)} keyboardType="decimal-pad" mode="outlined" /></View>{items.length > 1 ? <Button textColor="#B91C1C" onPress={() => setItems((current) => current.filter((_, i) => i !== index))}>Remove line</Button> : null}</AppCard>)}
     <Button mode="outlined" icon="plus" onPress={() => setItems((current) => [...current, { description: '', quantity: '1', unitPrice: '' }])}>Add line item</Button>
@@ -49,7 +51,7 @@ export default function NewInvoiceScreen() {
     <Text variant="labelLarge">Payment due</Text><SegmentedButtons value={dueDays} onValueChange={setDueDays} buttons={[{ value: '7', label: '7 days' }, { value: '14', label: '14 days' }, { value: '30', label: '30 days' }]} />
     <TextInput label="Notes" value={notes} onChangeText={setNotes} mode="outlined" multiline />
     <AppCard><Text>Subtotal: {formatMoney(totals.subtotal)}</Text><Text>VAT: {formatMoney(totals.vatAmount)}</Text><Text variant="headlineSmall">Total: {formatMoney(totals.total)}</Text></AppCard>
-    <Text variant="labelLarge">Email it now?</Text><SegmentedButtons value={sendNow} onValueChange={setSendNow} buttons={[{ value: 'yes', label: 'Save & email' }, { value: 'no', label: 'Save draft' }]} /><HelperText type="error" visible={Boolean(error)}>{error}</HelperText><Button mode="contained" loading={busy} disabled={!valid || busy} onPress={submit}>{sendNow === 'yes' ? 'Save and send invoice' : 'Save draft'}</Button>
+    <Text variant="labelLarge">Email it now?</Text><SegmentedButtons value={sendNow} onValueChange={setSendNow} buttons={[{ value: 'yes', label: 'Save & email' }, { value: 'no', label: 'Save draft' }]} /><HelperText type="error" visible={Boolean(error)}>{error}</HelperText>
   </Screen>;
 }
 
