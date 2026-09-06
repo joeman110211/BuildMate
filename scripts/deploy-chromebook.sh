@@ -260,13 +260,23 @@ log "Waiting for local API health..."
 wait_for_health "http://localhost:3000/api/health" "Local API"
 log "Waiting for local API readiness..."
 wait_for_readiness "http://localhost:3000/api/readiness" "Local API"
-log "Waiting for public Cloudflare health..."
-wait_for_health "$HEALTH_URL" "Public staging"
-log "Waiting for public Cloudflare readiness..."
-wait_for_readiness "$READINESS_URL" "Public staging"
+
+# A Cloudflare tunnel outage is an infrastructure problem, not a bad application
+# revision. Rolling back a healthy PM2 app cannot repair the tunnel and used to
+# trap BuildPair on an old commit. Keep the healthy revision deployed and report
+# public reachability separately so the tunnel can recover without losing code.
+log "Checking public Cloudflare health..."
+if wait_for_health "$HEALTH_URL" "Public staging"; then
+  log "Checking public Cloudflare readiness..."
+  if ! wait_for_readiness "$READINESS_URL" "Public staging"; then
+    log "WARNING: BuildPair is healthy locally, but public staging readiness is unavailable. Leaving the healthy revision deployed."
+  fi
+else
+  log "WARNING: BuildPair is healthy locally, but the Cloudflare tunnel is currently unreachable. Leaving the healthy revision deployed."
+fi
 
 write_deployed_sha "$REMOTE_SHA"
 rm -f "$FAILED_SHA_FILE"
 DEPLOY_ACTIVE=false
 trap - ERR
-log "Deployment complete: ${REMOTE_SHA:0:12} is live and fully ready."
+log "Deployment complete: ${REMOTE_SHA:0:12} is healthy locally. Public tunnel status was checked separately."
