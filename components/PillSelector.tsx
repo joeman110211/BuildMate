@@ -8,8 +8,6 @@ import { traderWorkTypeLimit } from '@/lib/subscription';
 
 type PlanSnapshot = {
   subscriptionTier?: 'free' | 'basic' | 'featured' | null;
-  stripeSubscriptionId?: string | null;
-  isSubscriptionActive?: boolean | null;
 };
 
 export function PillSelector({
@@ -24,41 +22,32 @@ export function PillSelector({
   maxSelections?: number;
 }) {
   const { getToken } = useAuth();
-  const [remotePlanLimit, setRemotePlanLimit] = useState(3);
-  const [localValues, setLocalValues] = useState<string[]>(values);
-
-  useEffect(() => {
-    setLocalValues(values);
-  }, [values]);
+  const [remotePlanLimit, setRemotePlanLimit] = useState(2);
 
   useEffect(() => {
     if (maxSelections != null) return;
-
     let active = true;
     void apiFetch<PlanSnapshot>('/api/me/profile', {}, getToken)
       .then((profile) => {
         if (active) setRemotePlanLimit(traderWorkTypeLimit(profile));
       })
       .catch(() => {
-        // A new trader has no profile yet, so the onboarding allowance stays at three.
+        // A new trader has no profile yet, so Starter's two-category limit applies.
       });
     return () => { active = false; };
   }, [getToken, maxSelections]);
 
   const planLimit = maxSelections ?? remotePlanLimit;
-  const selected = useMemo(() => new Set(localValues), [localValues]);
-  const limitReached = localValues.length >= planLimit;
+  const selected = useMemo(() => new Set(values), [values]);
+  const limitReached = values.length >= planLimit;
 
   function toggle(option: string) {
-    setLocalValues((current) => {
-      const isSelected = current.includes(option);
-      if (!isSelected && current.length >= planLimit) return current;
-      const next = isSelected
-        ? current.filter((item) => item !== option)
-        : [...new Set([...current, option])];
-      onChange(next);
-      return next;
-    });
+    const isSelected = values.includes(option);
+    if (!isSelected && values.length >= planLimit) return;
+    const next = isSelected
+      ? values.filter((item) => item !== option)
+      : [...new Set([...values, option])];
+    onChange(next);
   }
 
   const webTouchStyle = Platform.OS === 'web' ? ({ touchAction: 'manipulation' } as never) : undefined;
@@ -81,7 +70,7 @@ export function PillSelector({
         <Text style={active ? styles.activeText : disabled ? styles.disabledText : undefined}>{option}</Text>
       </Pressable>;
     })}</View>
-    <Text style={styles.limitText}>Selected {localValues.length} of {planLimit} work types · New/trial 3 · Basic paid 6 · Featured paid 9</Text>
+    <Text style={styles.limitText}>Selected {values.length} of {planLimit} categories · Starter 2 · Plus 4 · Pro 6</Text>
     {limitReached ? <Text style={styles.limitReached}>Maximum reached for your current plan. Remove one to choose another.</Text> : null}
   </View>;
 }
