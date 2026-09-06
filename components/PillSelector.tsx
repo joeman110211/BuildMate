@@ -1,6 +1,6 @@
 import { useAuth } from '@clerk/expo';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { colors } from '@/constants/theme';
 import { apiFetch } from '@/lib/api';
@@ -25,6 +25,11 @@ export function PillSelector({
 }) {
   const { getToken } = useAuth();
   const [remotePlanLimit, setRemotePlanLimit] = useState(3);
+  const [localValues, setLocalValues] = useState<string[]>(values);
+
+  useEffect(() => {
+    setLocalValues(values);
+  }, [values]);
 
   useEffect(() => {
     if (maxSelections != null) return;
@@ -41,11 +46,26 @@ export function PillSelector({
   }, [getToken, maxSelections]);
 
   const planLimit = maxSelections ?? remotePlanLimit;
-  const limitReached = values.length >= planLimit;
+  const selected = useMemo(() => new Set(localValues), [localValues]);
+  const limitReached = localValues.length >= planLimit;
+
+  function toggle(option: string) {
+    setLocalValues((current) => {
+      const isSelected = current.includes(option);
+      if (!isSelected && current.length >= planLimit) return current;
+      const next = isSelected
+        ? current.filter((item) => item !== option)
+        : [...new Set([...current, option])];
+      onChange(next);
+      return next;
+    });
+  }
+
+  const webTouchStyle = Platform.OS === 'web' ? ({ touchAction: 'manipulation' } as never) : undefined;
 
   return <View style={styles.block}>
     <View style={styles.row}>{options.map((option) => {
-      const active = values.includes(option);
+      const active = selected.has(option);
       const disabled = !active && limitReached;
       return <Pressable
         key={option}
@@ -53,14 +73,15 @@ export function PillSelector({
         accessibilityState={{ checked: active, disabled }}
         accessibilityLabel={option}
         disabled={disabled}
-        onPress={() => onChange(active ? values.filter((x) => x !== option) : [...values, option])}
-        style={[styles.pill, active && styles.active, disabled && styles.disabled]}
+        hitSlop={4}
+        onPress={() => toggle(option)}
+        style={[styles.pill, webTouchStyle, active && styles.active, disabled && styles.disabled]}
       >
-        {active ? <Text style={styles.check}>✓</Text> : null}
+        <View style={[styles.box, active && styles.boxActive]}>{active ? <Text style={styles.check}>✓</Text> : null}</View>
         <Text style={active ? styles.activeText : disabled ? styles.disabledText : undefined}>{option}</Text>
       </Pressable>;
     })}</View>
-    <Text style={styles.limitText}>Selected {values.length} of {planLimit} work types · New/trial 3 · Basic paid 6 · Featured paid 9</Text>
+    <Text style={styles.limitText}>Selected {localValues.length} of {planLimit} work types · New/trial 3 · Basic paid 6 · Featured paid 9</Text>
     {limitReached ? <Text style={styles.limitReached}>Maximum reached for your current plan. Remove one to choose another.</Text> : null}
   </View>;
 }
@@ -68,12 +89,14 @@ export function PillSelector({
 const styles = StyleSheet.create({
   block: { gap: 8 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pill: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 44 },
   active: { backgroundColor: colors.primary, borderColor: colors.primary },
   disabled: { opacity: 0.45 },
   activeText: { color: '#fff', fontWeight: '700' },
   disabledText: { color: colors.muted },
-  check: { color: '#fff', fontWeight: '900' },
+  box: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  boxActive: { borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.16)' },
+  check: { color: '#fff', fontWeight: '900', fontSize: 13, lineHeight: 15 },
   limitText: { color: colors.muted, lineHeight: 20 },
   limitReached: { color: colors.warning, fontWeight: '700', lineHeight: 20 },
 });
