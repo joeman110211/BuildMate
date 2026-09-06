@@ -32,6 +32,12 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     {
+      name: 'desktop-auth-recovery',
+      testMatch: /auth-recovery\.spec\.mjs/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+    {
       name: 'desktop-core-flow',
       testMatch: /core-flow\.spec\.mjs/,
       use: { ...devices['Desktop Chrome'] },
