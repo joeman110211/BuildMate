@@ -1,7 +1,7 @@
+import { createClerkClient } from '@clerk/backend';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { users } from '@/db/schema';
-import { verifyBuildPairClerkSession } from '@/lib/clerk-session';
 import { getSql } from '@/lib/sql';
 
 export class HttpError extends Error {
@@ -34,29 +34,55 @@ function productionErrorId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function sessionTokenFromRequest(request: Request) {
-  const header = request.headers.get('authorization');
-  if (header?.startsWith('Bearer ')) {
-    const token = header.slice(7).trim();
-    if (token) return token;
-  }
+function normalizedOrigin(value: string | undefined) {
+  if (!value?.trim()) return null;
+  try { return new URL(value.trim()).origin; } catch { return null; }
+}
 
-  const cookie = request.headers.get('cookie') ?? '';
-  const match = cookie.match(/(?:^|;\s*)__session=([^;]+)/);
-  return match?.[1] ? decodeURIComponent(match[1]) : null;
+function clerkAuthorizedParties() {
+  const origins = new Set<string>();
+  for (const value of [
+    process.env.APP_URL,
+    process.env.EXPO_PUBLIC_API_URL,
+    process.env.BUILDPAIR_PUBLIC_ORIGIN,
+    'https://staging.buildpair.co.uk',
+    'https://www.buildpair.co.uk',
+    'https://buildpair.co.uk',
+  ]) {
+    const origin = normalizedOrigin(value);
+    if (origin) origins.add(origin);
+  }
+  return [...origins];
 }
 
 export async function authenticatedUserId(request: Request) {
-  const token = sessionTokenFromRequest(request);
-  if (!token) throw new HttpError(401, 'Authentication required');
+  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
+  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
+  if (!secretKey) throw new Error('CLERK_SECRET_KEY is not configured');
+  if (!publishableKey) throw new Error('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not configured');
 
+  const clerk = createClerkClient({ secretKey, publishableKey });
   try {
-    const payload = await verifyBuildPairClerkSession(token);
-    if (!payload.sub) throw new HttpError(401, 'Invalid authentication token');
-    return payload.sub;
+    const state = await clerk.authenticateRequest(request, {
+      acceptsToken: 'session_token',
+      authorizedParties: clerkAuthorizedParties(),
+    });
+
+    if (!state.isAuthenticated) {
+      console.warn('[buildpair-auth] Clerk request was not authenticated', {
+        status: state.status,
+        reason: state.reason,
+        message: state.message ? redactServerError(state.message) : null,
+      });
+      throw new HttpError(401, 'Invalid authentication token');
+    }
+
+    const auth = state.toAuth();
+    if (!auth.userId) throw new HttpError(401, 'Invalid authentication token');
+    return auth.userId;
   } catch (error) {
     if (error instanceof HttpError) throw error;
-    console.warn('[buildpair-auth] Clerk token verification failed', {
+    console.warn('[buildpair-auth] Clerk request authentication failed', {
       name: error instanceof Error ? error.name : typeof error,
       message: error instanceof Error ? redactServerError(error.message) : undefined,
     });
@@ -112,10 +138,9 @@ export async function ensureDbUser(userId: string) {
     return existing;
   }
 
-  // The Clerk session token has already been cryptographically verified above,
-  // so the Clerk user id is sufficient to establish the local BuildPair account.
-  // Do not make first login depend on a second Clerk Backend API request just to
-  // copy optional email/phone fields. Those can be synchronized separately.
+  // The Clerk session has already been verified above. The Clerk user id is
+  // enough to establish the local BuildPair account; optional identity fields
+  // can be synchronized separately without blocking a user's first login.
   const [created] = await db.insert(users).values({ id: userId }).onConflictDoNothing().returning();
   const user = created ?? await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) throw new Error('Unable to synchronize user');
