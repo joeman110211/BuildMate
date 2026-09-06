@@ -15,7 +15,9 @@ const validJob = {
 const validTraderProfile = {
   businessName: 'Example Tiling',
   tradeCategory: 'Tiling' as const,
-  subSkills: ['Tiling'],
+  tradeCategories: ['Tiling'] as const,
+  serviceSelections: { Tiling: ['Bathroom tiling', 'Wall tiling'] },
+  subSkills: ['Bathroom tiling', 'Wall tiling'],
   bio: 'Experienced wall and floor tiler covering domestic bathroom and flooring projects across Surrey and West London.',
   radiusMiles: 25,
   postcode: 'TW18 4AB',
@@ -66,19 +68,42 @@ describe('marketplace validation', () => {
     expect(traderProfileSchema.safeParse({ ...validTraderProfile, selfCertified: false }).success).toBe(false);
   });
 
-  it('requires at least one work type before publication', () => {
-    const result = traderProfileSchema.safeParse({ ...validTraderProfile, subSkills: [] });
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error.issues[0]?.message).toContain('at least one work type');
-  });
-
-  it('caps any trader profile at nine work types', () => {
+  it('requires at least one main trade category before publication', () => {
     const result = traderProfileSchema.safeParse({
       ...validTraderProfile,
-      subSkills: ['1','2','3','4','5','6','7','8','9','10'],
+      tradeCategory: undefined,
+      tradeCategories: [],
+      serviceSelections: {},
+      subSkills: [],
     });
     expect(result.success).toBe(false);
-    if (!result.success) expect(result.error.issues[0]?.message).toContain('no more than 9 work types');
+    if (!result.success) expect(result.error.issues.some((issue) => issue.message.includes('at least one trade category'))).toBe(true);
+  });
+
+  it('caps the stored profile at six main trade categories', () => {
+    const result = traderProfileSchema.safeParse({
+      ...validTraderProfile,
+      tradeCategories: [
+        'Tiling',
+        'Bathrooms',
+        'Kitchens',
+        'Plumbing',
+        'Heating & Gas',
+        'Electrical',
+        'Renewables & EV',
+      ],
+      serviceSelections: {},
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues.some((issue) => issue.message.includes('no more than 6 trade categories'))).toBe(true);
+  });
+
+  it('rejects a service that does not belong to the selected category', () => {
+    const result = traderProfileSchema.safeParse({
+      ...validTraderProfile,
+      serviceSelections: { Tiling: ['Boiler installation'] },
+    });
+    expect(result.success).toBe(false);
   });
 
   it('requires a trader bio of at least 50 characters', () => {
