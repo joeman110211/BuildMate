@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BUDGET_OPTIONS, PROPERTY_TYPES, TRADE_CATEGORIES, TRADER_BIO_MIN_LENGTH, URGENCY_OPTIONS } from '@/constants/options';
+import { BUDGET_OPTIONS, PROPERTY_TYPES, SUB_SKILLS, TRADE_CATEGORIES, TRADER_BIO_MIN_LENGTH, URGENCY_OPTIONS } from '@/constants/options';
 
 const postcodeSchema = z.string().trim().min(5, 'Enter a UK postcode').max(8, 'Enter a UK postcode');
 
@@ -21,14 +21,19 @@ export const traderShowcaseSchema = z.object({
   })).max(12).default([]),
 }).optional();
 
+const serviceSelectionsSchema = z.record(
+  z.string().max(120),
+  z.array(z.string().trim().min(1).max(80)).max(30),
+).default({});
+
 export const traderProfileSchema = z.object({
   businessName: z.string().trim().min(2, 'Enter your business or trading name').max(100),
-  tradeCategory: z.enum(TRADE_CATEGORIES),
-  // Historical BuildPair profiles stored specialist labels in this field while the
-  // current multi-work-type UI also stores selected top-level trade labels here.
-  // Keep both forms valid until the dedicated specialist-skills migration lands,
-  // while still bounding length/count server-side.
-  subSkills: z.array(z.string().trim().min(1).max(80)).min(1, 'Select at least one work type').max(9, 'A trader profile can contain no more than 9 work types'),
+  // New clients use structured multi-category fields. Legacy fields remain
+  // optional during rollout so an older app build cannot corrupt a profile.
+  tradeCategories: z.array(z.enum(TRADE_CATEGORIES)).min(1, 'Select at least one trade category').max(6, 'A trader profile can contain no more than 6 trade categories').optional(),
+  serviceSelections: serviceSelectionsSchema,
+  tradeCategory: z.enum(TRADE_CATEGORIES).optional(),
+  subSkills: z.array(z.string().trim().min(1).max(80)).max(100).optional(),
   bio: z.string().trim().min(TRADER_BIO_MIN_LENGTH, `Business bio must be at least ${TRADER_BIO_MIN_LENGTH} characters`).max(1500),
   radiusMiles: z.number().int().min(1).max(150),
   postcode: postcodeSchema,
@@ -37,6 +42,33 @@ export const traderProfileSchema = z.object({
   photos: z.array(z.url()).max(30),
   selfCertified: z.literal(true),
   showcase: traderShowcaseSchema,
+}).superRefine((data, ctx) => {
+  const categories = data.tradeCategories?.length
+    ? data.tradeCategories
+    : data.tradeCategory ? [data.tradeCategory] : [];
+
+  if (!categories.length) {
+    ctx.addIssue({ code: 'custom', path: ['tradeCategories'], message: 'Select at least one trade category' });
+    return;
+  }
+
+  const categorySet = new Set<string>(categories);
+  for (const [category, services] of Object.entries(data.serviceSelections ?? {})) {
+    if (!categorySet.has(category)) {
+      ctx.addIssue({ code: 'custom', path: ['serviceSelections', category], message: `${category} is not one of your selected trade categories` });
+      continue;
+    }
+    if (!TRADE_CATEGORIES.includes(category as (typeof TRADE_CATEGORIES)[number])) {
+      ctx.addIssue({ code: 'custom', path: ['serviceSelections', category], message: 'Unknown trade category' });
+      continue;
+    }
+    const allowed = new Set<string>(SUB_SKILLS[category as (typeof TRADE_CATEGORIES)[number]]);
+    for (const service of services) {
+      if (!allowed.has(service)) {
+        ctx.addIssue({ code: 'custom', path: ['serviceSelections', category], message: `${service} is not a recognised ${category} service` });
+      }
+    }
+  }
 });
 
 export const jobSchema = z.object({
