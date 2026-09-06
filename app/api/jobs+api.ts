@@ -11,6 +11,16 @@ import { getSql } from '@/lib/sql';
 import { hasActiveLeadAccess, TRADER_TRIAL_DAYS } from '@/lib/subscription';
 import { jobSchema } from '@/lib/validation';
 
+function distanceMiles(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (degrees: number) => degrees * Math.PI / 180;
+  const earthRadiusMiles = 3959;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return earthRadiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export async function GET(request: Request) {
   try {
     const userId = await authenticatedUserId(request);
@@ -98,11 +108,22 @@ export async function POST(request: Request) {
     const payload = jobSchema.parse(await request.json());
     const db = getDb();
 
+    let location;
+    try {
+      location = await lookupPostcode(payload.postcode);
+    } catch (error) {
+      if (error instanceof InvalidPostcodeError) throw new HttpError(400, error.message);
+      throw error;
+    }
+
     if (payload.targetTraderId) {
       const targets = await getSql()`
         SELECT tp.trade_category AS "tradeCategory",
                tp.sub_skills AS "subSkills",
                tp.subscription_tier AS "subscriptionTier",
+               tp.latitude,
+               tp.longitude,
+               tp.radius_miles AS "radiusMiles",
                (
                  tp.is_subscription_active = true
                  AND (
@@ -119,19 +140,23 @@ export async function POST(request: Request) {
           AND coalesce(u.is_suspended, false) = false
           AND coalesce(u.is_deleted, false) = false
         LIMIT 1
-      ` as unknown as { tradeCategory: string; subSkills: string[]; subscriptionTier: string; isSubscriptionActive: boolean }[];
+      ` as unknown as Array<{
+        tradeCategory: string;
+        subSkills: string[];
+        subscriptionTier: string;
+        isSubscriptionActive: boolean;
+        latitude: number | null;
+        longitude: number | null;
+        radiusMiles: number;
+      }>;
       const target = targets[0];
       if (!target || !target.isSubscriptionActive || target.subscriptionTier === 'free') throw new HttpError(409, 'This tradesperson is not currently accepting direct BuildPair leads');
       const listedCategories = new Set([target.tradeCategory, ...(target.subSkills ?? [])]);
       if (!listedCategories.has(payload.category)) throw new HttpError(400, `This direct request must use one of the tradesperson's listed work types.`);
-    }
-
-    let location;
-    try {
-      location = await lookupPostcode(payload.postcode);
-    } catch (error) {
-      if (error instanceof InvalidPostcodeError) throw new HttpError(400, error.message);
-      throw error;
+      if (target.latitude == null || target.longitude == null) throw new HttpError(409, 'This tradesperson does not currently have a valid service location');
+      if (distanceMiles(target.latitude, target.longitude, location.latitude, location.longitude) > target.radiusMiles) {
+        throw new HttpError(409, 'This job is outside the tradesperson’s published service radius');
+      }
     }
 
     const [job] = await db.insert(jobs).values({
@@ -199,12 +224,33 @@ export async function POST(request: Request) {
                   AND ta.starts_at <= now() AND ta.ends_at >= now()
               )
             )
-            OR tp.subscription_tier = 'featured'
             OR (
-              s.id IS NOT NULL
-              AND (s.category IS NULL OR s.category = ${payload.category})
-              AND (s.emergency_only = false OR ${payload.isEmergency} = true)
-              AND (s.keywords IS NULL OR lower(${payload.title + ' ' + payload.description}) LIKE '%' || lower(s.keywords) || '%')
+              ${payload.isEmergency} = false
+              AND (
+                tp.subscription_tier = 'featured'
+                OR (
+                  s.id IS NOT NULL
+                  AND (s.category IS NULL OR s.category = ${payload.category})
+                  AND s.emergency_only = false
+                  AND (
+                    s.keywords IS NULL OR btrim(s.keywords) = ''
+                    OR EXISTS (
+                      SELECT 1
+                      FROM regexp_split_to_table(lower(s.keywords), '[,[:space:]]+') AS keyword
+                      WHERE length(keyword) >= 2
+                        AND lower(${payload.title + ' ' + payload.description}) LIKE '%' || keyword || '%'
+                    )
+                  )
+                  AND (
+                    s.latitude IS NULL OR s.longitude IS NULL
+                    OR (3959 * acos(least(1, greatest(-1,
+                      cos(radians(s.latitude)) * cos(radians(${location.latitude})) *
+                      cos(radians(${location.longitude}) - radians(s.longitude)) +
+                      sin(radians(s.latitude)) * sin(radians(${location.latitude}))
+                    )))) <= s.radius_miles
+                  )
+                )
+              )
             )
           )
         LIMIT 100
