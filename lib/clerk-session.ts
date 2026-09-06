@@ -13,10 +13,11 @@ type TokenPayload = {
   azp?: string;
 };
 
-type ClerkJwk = JsonWebKey & {
+type ClerkJwk = Record<string, string | undefined> & {
   kid?: string;
   alg?: string;
   use?: string;
+  kty?: string;
 };
 
 type CachedPem = {
