@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AppStripeProvider } from '@/components/AppStripeProvider';
 import { PaperIcon } from '@/components/PaperIcon';
 import { colors, paperTheme } from '@/constants/theme';
+import { AuthAvailabilityProvider } from '@/lib/auth-availability';
 import { tokenCache } from '@/lib/token-cache';
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -32,13 +33,21 @@ function AppShell() {
 }
 
 export default function RootLayout() {
-  if (!publishableKey) return <AppShell />;
+  if (!publishableKey) {
+    return (
+      <AuthAvailabilityProvider value={false}>
+        <AppShell />
+      </AuthAvailabilityProvider>
+    );
+  }
 
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <ClerkLoaded>
-        <AppShell />
-      </ClerkLoaded>
+      <AuthAvailabilityProvider value>
+        <ClerkLoaded>
+          <AppShell />
+        </ClerkLoaded>
+      </AuthAvailabilityProvider>
     </ClerkProvider>
   );
 }
