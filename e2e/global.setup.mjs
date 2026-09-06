@@ -7,8 +7,8 @@ import { test as setup } from '@playwright/test';
 
 const baseURL = process.env.E2E_BASE_URL || 'https://staging.buildpair.co.uk';
 const runId = (process.env.GITHUB_RUN_ID || Date.now().toString()).replace(/[^a-zA-Z0-9-]/g, '');
-const customerEmail = process.env.E2E_CUSTOMER_EMAIL || `buildpair-customer+clerk_test_${runId}@example.com`;
-const traderEmail = process.env.E2E_TRADER_EMAIL || `buildpair-trader+clerk_test_${runId}@example.com`;
+const customerEmail = process.env.E2E_CUSTOMER_EMAIL || `buildpair-fixture-customer+clerk_test_${runId}@example.com`;
+const traderEmail = process.env.E2E_TRADER_EMAIL || `buildpair-fixture-trader+clerk_test_${runId}@example.com`;
 const stateFile = path.join(process.cwd(), 'playwright', '.e2e-users.json');
 
 async function ensureTestUser(client, email, firstName) {
@@ -34,9 +34,14 @@ setup('prepare Clerk testing token and disposable users', async () => {
   process.env.CLERK_PUBLISHABLE_KEY = config.clerkPublishableKey;
 
   const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-  await ensureTestUser(clerkClient, customerEmail, 'Customer');
-  await ensureTestUser(clerkClient, traderEmail, 'Trader');
+  const customer = await ensureTestUser(clerkClient, customerEmail, 'Customer');
+  const trader = await ensureTestUser(clerkClient, traderEmail, 'Trader');
   await fs.mkdir(path.dirname(stateFile), { recursive: true });
-  await fs.writeFile(stateFile, JSON.stringify({ customerEmail, traderEmail }), 'utf8');
+  await fs.writeFile(stateFile, JSON.stringify({
+    customerEmail,
+    traderEmail,
+    customerClerkId: customer.id,
+    traderClerkId: trader.id,
+  }), 'utf8');
   await clerkSetup();
 });
