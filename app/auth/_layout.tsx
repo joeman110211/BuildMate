@@ -1,6 +1,21 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import { Pressable } from 'react-native';
 import { BuildPairLogo } from '@/components/BuildPairLogo';
 import { colors } from '@/constants/theme';
+
+function AuthHeaderLogo() {
+  const router = useRouter();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Go to BuildPair home"
+      hitSlop={10}
+      onPress={() => router.replace('/')}
+    >
+      <BuildPairLogo compact />
+    </Pressable>
+  );
+}
 
 export default function AuthLayout() {
   return <Stack screenOptions={{
@@ -8,7 +23,7 @@ export default function AuthLayout() {
     headerShadowVisible: false,
     headerTitleAlign: 'center',
     headerStyle: { backgroundColor: colors.surfaceRaised },
-    headerTitle: () => <BuildPairLogo compact />,
+    headerTitle: () => <AuthHeaderLogo />,
     contentStyle: { backgroundColor: colors.background },
   }}>
     <Stack.Screen name="account" options={{ headerBackVisible: false }} />
