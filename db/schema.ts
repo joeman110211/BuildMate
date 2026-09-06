@@ -41,8 +41,14 @@ export const traderProfiles = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     businessName: text('business_name').notNull(),
+    // Legacy primary category stays populated for compatibility with existing routes.
     tradeCategory: text('trade_category').notNull(),
+    // Legacy flattened skills stay populated for compatibility/search while the
+    // structured fields below are the product source of truth.
     subSkills: text('sub_skills').array().notNull().default(sql`ARRAY[]::text[]`),
+    tradeCategories: text('trade_categories').array().notNull().default(sql`ARRAY[]::text[]`),
+    serviceSelections: jsonb('service_selections').$type<Record<string, string[]>>().notNull().default({}),
+    categoriesChangedAt: timestamp('categories_changed_at', { withTimezone: true }),
     bio: text('bio').notNull().default(''),
     radiusMiles: integer('radius_miles').notNull().default(10),
     postcode: text('postcode'),
@@ -55,6 +61,7 @@ export const traderProfiles = pgTable(
     selfCertified: boolean('self_certified').notNull().default(false),
     subscriptionTier: subscriptionTierEnum('subscription_tier').notNull().default('free'),
     isSubscriptionActive: boolean('is_subscription_active').notNull().default(false),
+    // Retained for future launch-time trial support, but current beta logic ignores it.
     trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
     stripeSubscriptionId: text('stripe_subscription_id'),
     stripeCustomerId: text('stripe_customer_id'),
