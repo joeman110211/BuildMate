@@ -1,4 +1,3 @@
-import { createClerkClient } from '@clerk/backend';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { users } from '@/db/schema';
@@ -113,15 +112,11 @@ export async function ensureDbUser(userId: string) {
     return existing;
   }
 
-  const secretKey = process.env.CLERK_SECRET_KEY;
-  if (!secretKey) throw new Error('CLERK_SECRET_KEY is not configured');
-  const clerk = createClerkClient({ secretKey });
-  const identity = await clerk.users.getUser(userId);
-  const [created] = await db.insert(users).values({
-    id: userId,
-    email: identity.primaryEmailAddress?.emailAddress ?? null,
-    phone: identity.primaryPhoneNumber?.phoneNumber ?? null,
-  }).onConflictDoNothing().returning();
+  // The Clerk session token has already been cryptographically verified above,
+  // so the Clerk user id is sufficient to establish the local BuildPair account.
+  // Do not make first login depend on a second Clerk Backend API request just to
+  // copy optional email/phone fields. Those can be synchronized separately.
+  const [created] = await db.insert(users).values({ id: userId }).onConflictDoNothing().returning();
   const user = created ?? await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) throw new Error('Unable to synchronize user');
   await assertAccountActive(userId);
