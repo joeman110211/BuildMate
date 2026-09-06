@@ -5,7 +5,15 @@ import { ActivityIndicator, Button, Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 
-export function Screen({ children, title, subtitle, scroll = true, backHref }: PropsWithChildren<{ title?: string; subtitle?: string; scroll?: boolean; backHref?: Href }>) {
+type ScreenProps = PropsWithChildren<{
+  title?: string;
+  subtitle?: string;
+  scroll?: boolean;
+  backHref?: Href;
+  footer?: ReactNode;
+}>;
+
+export function Screen({ children, title, subtitle, scroll = true, backHref, footer }: ScreenProps) {
   const router = useRouter();
   const canGoBack = router.canGoBack();
   const showBack = canGoBack || Boolean(backHref);
@@ -28,14 +36,19 @@ export function Screen({ children, title, subtitle, scroll = true, backHref }: P
       {children}
     </View>
   );
-  return <SafeAreaView style={styles.safe}>{scroll ? <ScrollView
-    style={styles.scrollView}
-    contentContainerStyle={styles.scroll}
-    keyboardShouldPersistTaps="handled"
-    keyboardDismissMode="on-drag"
-    nestedScrollEnabled
-    contentInsetAdjustmentBehavior="automatic"
-  >{content}</ScrollView> : content}</SafeAreaView>;
+
+  return <SafeAreaView style={styles.safe}>
+    {scroll ? <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={[styles.scroll, footer ? styles.scrollWithFooter : null]}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      nestedScrollEnabled
+      contentInsetAdjustmentBehavior="automatic"
+      showsVerticalScrollIndicator
+    >{content}</ScrollView> : <View style={styles.staticBody}>{content}</View>}
+    {footer ? <View style={styles.footerShell}><View style={styles.footerContent}>{footer}</View></View> : null}
+  </SafeAreaView>;
 }
 
 export function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
@@ -48,13 +61,17 @@ export function EmptyState({ title, body, action }: { title: string; body: strin
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scrollView: { flex: 1 },
+  scrollView: { flex: 1, minHeight: 0 },
   scroll: { flexGrow: 1, paddingBottom: 64 },
+  scrollWithFooter: { paddingBottom: 28 },
+  staticBody: { flex: 1, minHeight: 0 },
   content: { width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 30, gap: 20 },
   backRow: { alignSelf: 'flex-start', marginBottom: -8 },
   headingBlock: { gap: 8, paddingHorizontal: 2 },
   title: { color: colors.charcoal, fontWeight: '900', letterSpacing: -0.7 },
   subtitle: { color: colors.muted, lineHeight: 24 },
+  footerShell: { width: '100%', borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surfaceRaised, paddingHorizontal: 18, paddingVertical: 10 },
+  footerContent: { width: '100%', maxWidth: 1200, alignSelf: 'center' },
   loading: { flex: 1, minHeight: 420, alignItems: 'center', justifyContent: 'center', gap: 12 },
   empty: { paddingVertical: 38, paddingHorizontal: 26, borderWidth: 1, borderColor: colors.border, borderRadius: 26, backgroundColor: colors.surfaceRaised, alignItems: 'center', gap: 10 },
   emptyIcon: { width: 50, height: 50, borderRadius: 17, backgroundColor: colors.charcoal, alignItems: 'center', justifyContent: 'center' },
