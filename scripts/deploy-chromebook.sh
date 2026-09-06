@@ -4,8 +4,9 @@ set -Eeuo pipefail
 # BuildPair staging deploy runner for the self-hosted Chromebook.
 REPO_DIR="${BUILDPAIR_REPO_DIR:-/home/jloveridge1102/BuildPair}"
 BRANCH="${BUILDPAIR_DEPLOY_BRANCH:-main}"
-HEALTH_URL="${BUILDPAIR_HEALTH_URL:-https://staging.buildpair.co.uk/api/health}"
-READINESS_URL="${BUILDPAIR_READINESS_URL:-https://staging.buildpair.co.uk/api/readiness}"
+PUBLIC_ORIGIN="${BUILDPAIR_PUBLIC_ORIGIN:-https://staging.buildpair.co.uk}"
+HEALTH_URL="${BUILDPAIR_HEALTH_URL:-$PUBLIC_ORIGIN/api/health}"
+READINESS_URL="${BUILDPAIR_READINESS_URL:-$PUBLIC_ORIGIN/api/readiness}"
 ENV_FILE="${BUILDPAIR_ENV_FILE:-$REPO_DIR/.env.local}"
 LOCK_FILE="${BUILDPAIR_DEPLOY_LOCK:-/tmp/buildpair-deploy.lock}"
 FAILED_SHA_FILE="${BUILDPAIR_FAILED_SHA_FILE:-/home/jloveridge1102/.buildpair-last-failed-sha}"
@@ -73,6 +74,20 @@ wait_for_readiness() {
 
   log "$label readiness check failed after 60 seconds. Last response: ${response:-<no response>}"
   return 1
+}
+
+build_web() {
+  log "Building web output for $PUBLIC_ORIGIN..."
+  EXPO_PUBLIC_API_URL="$PUBLIC_ORIGIN" \
+  APP_URL="$PUBLIC_ORIGIN" \
+  npm run build:web
+}
+
+restart_buildpair() {
+  EXPO_PUBLIC_API_URL="$PUBLIC_ORIGIN" \
+  APP_URL="$PUBLIC_ORIGIN" \
+  pm2 restart buildpair --update-env >/dev/null
+  pm2 save >/dev/null
 }
 
 write_deployed_sha() {
@@ -167,9 +182,8 @@ rollback() {
   chmod 600 "$FAILED_SHA_FILE"
   git reset --hard "$ROLLBACK_SHA"
   npm ci
-  npm run build:web
-  pm2 restart buildpair --update-env >/dev/null || true
-  pm2 save >/dev/null || true
+  build_web
+  restart_buildpair || true
   if wait_for_health "http://localhost:3000/api/health" "Rollback local API" \
     && wait_for_readiness "http://localhost:3000/api/readiness" "Rollback local API"; then
     write_deployed_sha "$ROLLBACK_SHA"
@@ -211,12 +225,10 @@ npm run typecheck
 log "Running unit tests..."
 npm test
 
-log "Building web production output..."
-npm run build:web
+build_web
 
 log "Restarting BuildPair..."
-pm2 restart buildpair --update-env >/dev/null
-pm2 save >/dev/null
+restart_buildpair
 
 log "Waiting for local API health..."
 wait_for_health "http://localhost:3000/api/health" "Local API"
