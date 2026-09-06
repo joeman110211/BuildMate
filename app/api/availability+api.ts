@@ -17,16 +17,29 @@ const MAX_FUTURE_MS = 400 * 24 * 60 * 60 * 1000;
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    let traderId = url.searchParams.get('traderId');
-    if (!traderId) {
-      const userId = await authenticatedUserId(request);
-      await ensureDbUser(userId);
-      traderId = userId;
+    const requestedTraderId = url.searchParams.get('traderId');
+
+    if (requestedTraderId) {
+      // Public availability is a sales signal, not a window into a trader's
+      // private diary. Never expose busy/unavailable entries or their notes.
+      const rows = await getSql()`
+        SELECT id, starts_at AS "startsAt", ends_at AS "endsAt", status, note
+        FROM trader_availability
+        WHERE trader_id = ${requestedTraderId}
+          AND status = 'available'
+          AND ends_at >= now()
+        ORDER BY starts_at ASC
+        LIMIT 60
+      `;
+      return Response.json(rows);
     }
+
+    const userId = await authenticatedUserId(request);
+    await ensureDbUser(userId);
     const rows = await getSql()`
       SELECT id, starts_at AS "startsAt", ends_at AS "endsAt", status, note
       FROM trader_availability
-      WHERE trader_id = ${traderId}
+      WHERE trader_id = ${userId}
         AND ends_at >= now() - interval '1 day'
       ORDER BY starts_at ASC
       LIMIT ${MAX_AVAILABILITY_SLOTS}
