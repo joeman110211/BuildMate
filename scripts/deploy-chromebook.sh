@@ -67,6 +67,12 @@ if ! git merge-base --is-ancestor "$LOCAL_SHA" "$REMOTE_SHA"; then
   exit 3
 fi
 
+CHANGED_FILES="$(git diff --name-only "$LOCAL_SHA" "$REMOTE_SHA")"
+NEEDS_NPM_CI=false
+if [[ ! -d node_modules ]] || grep -Eq '^(package\.json|package-lock\.json)$' <<<"$CHANGED_FILES"; then
+  NEEDS_NPM_CI=true
+fi
+
 rollback() {
   log "Deployment failed after switching revisions. Marking ${REMOTE_SHA:0:12} as failed and rolling back to ${LOCAL_SHA:0:12}..."
   printf '%s\n' "$REMOTE_SHA" > "$FAILED_SHA_FILE"
@@ -95,8 +101,12 @@ log "Deploying ${LOCAL_SHA:0:12} -> ${REMOTE_SHA:0:12}..."
 git merge --ff-only "$REMOTE_SHA"
 DEPLOY_SWITCHED=true
 
-log "Installing locked dependencies..."
-npm ci
+if [[ "$NEEDS_NPM_CI" == true ]]; then
+  log "Dependency files changed; installing locked dependencies..."
+  npm ci
+else
+  log "Dependencies unchanged; skipping npm ci."
+fi
 
 log "Running TypeScript checks..."
 npm run typecheck
