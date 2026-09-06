@@ -40,9 +40,18 @@ export async function authenticatedUserId(request: Request) {
   const token = header.slice(7);
   const secretKey = process.env.CLERK_SECRET_KEY;
   if (!secretKey) throw new Error('CLERK_SECRET_KEY is not configured');
-  const payload = await verifyToken(token, { secretKey });
-  if (!payload.sub) throw new HttpError(401, 'Invalid authentication token');
-  return payload.sub;
+
+  try {
+    const payload = await verifyToken(token, { secretKey });
+    if (!payload.sub) throw new HttpError(401, 'Invalid authentication token');
+    return payload.sub;
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    console.warn('[buildpair-auth] Clerk token verification failed', {
+      name: error instanceof Error ? error.name : typeof error,
+    });
+    throw new HttpError(401, 'Invalid authentication token');
+  }
 }
 
 export async function accountAccess(userId: string) {
