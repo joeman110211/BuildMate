@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
-import { createClerkClient } from '@clerk/backend';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { setupClerkTestingToken } from '@clerk/testing/playwright';
 import { expect, test } from '@playwright/test';
 
@@ -12,6 +13,27 @@ const customerPassword = `Bp!${crypto.randomUUID()}Aa9`;
 const businessName = `BuildPair Real Journey ${runId}`;
 const jobTitle = `Bathroom tiling real journey ${runId}`;
 const invoiceNumber = `E2E-${runId}`;
+const stateFile = path.join(process.cwd(), 'playwright', '.e2e-users.json');
+
+async function registerCleanupEmails() {
+  let state = {};
+  try {
+    state = JSON.parse(await fs.readFile(stateFile, 'utf8'));
+  } catch {
+    // Global setup normally creates this file. Keep the journey recoverable if it was removed.
+  }
+
+  const cleanupEmails = new Set([
+    ...(Array.isArray(state.cleanupEmails) ? state.cleanupEmails : []),
+    state.customerEmail,
+    state.traderEmail,
+    traderEmail,
+    customerEmail,
+  ].filter(Boolean));
+
+  await fs.mkdir(path.dirname(stateFile), { recursive: true });
+  await fs.writeFile(stateFile, JSON.stringify({ ...state, cleanupEmails: [...cleanupEmails] }), 'utf8');
+}
 
 async function api(page, pathName, options = {}) {
   await page.waitForFunction(() => Boolean(globalThis.Clerk?.session));
@@ -182,26 +204,11 @@ async function createInvoice(page) {
   return invoice;
 }
 
-async function cleanupTestUsers() {
-  if (!process.env.CLERK_SECRET_KEY) return;
-  const client = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
-  for (const email of [traderEmail, customerEmail]) {
-    try {
-      const result = await client.users.getUserList({ emailAddress: [email], limit: 10 });
-      for (const user of result.data) await client.users.deleteUser(user.id);
-    } catch (error) {
-      console.warn(`Could not clean Clerk test user ${email}:`, error instanceof Error ? error.message : error);
-    }
-  }
-}
-
 test.describe.configure({ mode: 'serial' });
 
-test.afterAll(async () => {
-  await cleanupTestUsers();
-});
-
 test('real browser journey: trader signup -> profile -> homeowner signup -> direct job -> quote -> accept -> invoice', async ({ browser }) => {
+  await registerCleanupEmails();
+
   const traderContext = await browser.newContext();
   const customerContext = await browser.newContext();
   const traderPage = await traderContext.newPage();
