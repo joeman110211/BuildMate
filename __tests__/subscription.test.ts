@@ -1,78 +1,52 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { hasActiveLeadAccess, traderWorkTypeLimit, trialEndsAt, TRADER_TRIAL_DAYS, TRADER_WORK_TYPE_LIMITS } from '@/lib/subscription';
+import { describe, expect, it } from 'vitest';
+import {
+  CATEGORY_CHANGE_COOLDOWN_DAYS,
+  categoryChangeAllowed,
+  categoryChangeAvailableAt,
+  hasActiveLeadAccess,
+  traderMonthlyQuoteLimit,
+  traderWorkTypeLimit,
+  TRADER_MONTHLY_QUOTE_LIMITS,
+  TRADER_WORK_TYPE_LIMITS,
+} from '@/lib/subscription';
 
-describe('trader trial access', () => {
-  afterEach(() => vi.useRealTimers());
-
-  it('creates a trial exactly 14 days after the start date', () => {
-    const start = new Date('2026-09-04T12:00:00.000Z');
-    expect(TRADER_TRIAL_DAYS).toBe(14);
-    expect(trialEndsAt(start).toISOString()).toBe('2026-09-18T12:00:00.000Z');
+describe('BuildPair trade plan entitlements', () => {
+  it('uses the agreed 2, 4, 6 main-category ladder', () => {
+    expect(TRADER_WORK_TYPE_LIMITS).toEqual({ free: 2, basic: 4, featured: 6 });
+    expect(traderWorkTypeLimit()).toBe(2);
+    expect(traderWorkTypeLimit({ subscriptionTier: 'basic' })).toBe(4);
+    expect(traderWorkTypeLimit({ subscriptionTier: 'featured' })).toBe(6);
   });
 
-  it('keeps an active unbilled trader inside the 14-day window', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-09-12T12:00:00.000Z'));
-    expect(hasActiveLeadAccess({
-      isSubscriptionActive: true,
-      createdAt: '2026-09-04T12:00:00.000Z',
-      trialEndsAt: '2026-09-18T12:00:00.000Z',
-      stripeSubscriptionId: null,
-    })).toBe(true);
+  it('uses the agreed 0, 15, 35 marketplace-offer ladder', () => {
+    expect(TRADER_MONTHLY_QUOTE_LIMITS).toEqual({ free: 0, basic: 15, featured: 35 });
+    expect(traderMonthlyQuoteLimit()).toBe(0);
+    expect(traderMonthlyQuoteLimit({ subscriptionTier: 'basic' })).toBe(15);
+    expect(traderMonthlyQuoteLimit({ subscriptionTier: 'featured' })).toBe(35);
   });
 
-  it('honours a longer trial already granted to an existing beta account', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-09-25T12:00:00.000Z'));
-    expect(hasActiveLeadAccess({
-      isSubscriptionActive: true,
-      createdAt: '2026-09-04T12:00:00.000Z',
-      trialEndsAt: '2026-10-02T12:00:00.000Z',
-      stripeSubscriptionId: null,
-    })).toBe(true);
+  it('keeps Starter Free browse-only even when an old active flag exists', () => {
+    expect(hasActiveLeadAccess({ subscriptionTier: 'free', isSubscriptionActive: true })).toBe(false);
   });
 
-  it('removes unbilled lead access after the 14-day trial expires', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-09-19T12:00:00.000Z'));
-    expect(hasActiveLeadAccess({
-      isSubscriptionActive: true,
-      createdAt: '2026-09-04T12:00:00.000Z',
-      trialEndsAt: '2026-09-18T12:00:00.000Z',
-      stripeSubscriptionId: null,
-    })).toBe(false);
-  });
-
-  it('keeps a paid Stripe subscriber active after the trial date', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-11-01T12:00:00.000Z'));
-    expect(hasActiveLeadAccess({
-      isSubscriptionActive: true,
-      trialEndsAt: '2026-09-18T12:00:00.000Z',
-      stripeSubscriptionId: 'sub_test_123',
-    })).toBe(true);
+  it('requires an active paid subscription for marketplace/direct lead access', () => {
+    expect(hasActiveLeadAccess({ subscriptionTier: 'basic', isSubscriptionActive: true })).toBe(true);
+    expect(hasActiveLeadAccess({ subscriptionTier: 'featured', isSubscriptionActive: true })).toBe(true);
+    expect(hasActiveLeadAccess({ subscriptionTier: 'basic', isSubscriptionActive: false })).toBe(false);
+    expect(hasActiveLeadAccess({ subscriptionTier: 'featured', isSubscriptionActive: false })).toBe(false);
   });
 });
 
-describe('trader work-type plan limits', () => {
-  it('uses the 3, 6, 9 plan ladder', () => {
-    expect(TRADER_WORK_TYPE_LIMITS).toEqual({ free: 3, basic: 6, featured: 9 });
+describe('trade-category change cooldown', () => {
+  it('uses a 14-day cooldown', () => {
+    expect(CATEGORY_CHANGE_COOLDOWN_DAYS).toBe(14);
+    const changedAt = new Date('2026-09-01T12:00:00.000Z');
+    expect(categoryChangeAvailableAt(changedAt)?.toISOString()).toBe('2026-09-15T12:00:00.000Z');
   });
 
-  it('keeps new and trial traders at three work types', () => {
-    expect(traderWorkTypeLimit()).toBe(3);
-    expect(traderWorkTypeLimit({ subscriptionTier: 'basic', isSubscriptionActive: true, stripeSubscriptionId: null })).toBe(3);
-  });
-
-  it('unlocks six work types for an active paid Basic subscriber', () => {
-    expect(traderWorkTypeLimit({ subscriptionTier: 'basic', isSubscriptionActive: true, stripeSubscriptionId: 'sub_basic' })).toBe(6);
-  });
-
-  it('unlocks nine work types for an active paid Featured subscriber', () => {
-    expect(traderWorkTypeLimit({ subscriptionTier: 'featured', isSubscriptionActive: true, stripeSubscriptionId: 'sub_featured' })).toBe(9);
-  });
-
-  it('drops a cancelled paid plan back to three work types', () => {
-    expect(traderWorkTypeLimit({ subscriptionTier: 'featured', isSubscriptionActive: false, stripeSubscriptionId: 'sub_cancelled' })).toBe(3);
+  it('allows first-time selection and blocks changes inside the cooldown', () => {
+    expect(categoryChangeAllowed(null, new Date('2026-09-02T12:00:00.000Z'))).toBe(true);
+    expect(categoryChangeAllowed('2026-09-01T12:00:00.000Z', new Date('2026-09-10T12:00:00.000Z'))).toBe(false);
+    expect(categoryChangeAllowed('2026-09-01T12:00:00.000Z', new Date('2026-09-15T12:00:00.000Z'))).toBe(true);
   });
 });
