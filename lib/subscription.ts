@@ -1,46 +1,57 @@
-export const TRADER_TRIAL_DAYS = 14;
+import { SUBSCRIPTION_TIERS } from '@/constants/options';
+
+export const CATEGORY_CHANGE_COOLDOWN_DAYS = 14;
 
 export const TRADER_WORK_TYPE_LIMITS = {
-  free: 3,
-  basic: 6,
-  featured: 9,
+  free: SUBSCRIPTION_TIERS.free.categoryLimit,
+  basic: SUBSCRIPTION_TIERS.basic.categoryLimit,
+  featured: SUBSCRIPTION_TIERS.featured.categoryLimit,
+} as const;
+
+export const TRADER_MONTHLY_QUOTE_LIMITS = {
+  free: SUBSCRIPTION_TIERS.free.monthlyMarketplaceQuotes,
+  basic: SUBSCRIPTION_TIERS.basic.monthlyMarketplaceQuotes,
+  featured: SUBSCRIPTION_TIERS.featured.monthlyMarketplaceQuotes,
 } as const;
 
 export type TraderWorkTypeTier = keyof typeof TRADER_WORK_TYPE_LIMITS;
 
-export function traderWorkTypeLimit(profile?: {
-  subscriptionTier?: TraderWorkTypeTier | null;
-  stripeSubscriptionId?: string | null;
-  isSubscriptionActive?: boolean | null;
-}) {
-  // Trial/new traders keep the three-slot onboarding allowance. Extra work-type
-  // slots are a paid-plan benefit, not a side effect of the 14-day lead trial.
-  if (!profile?.stripeSubscriptionId || profile.isSubscriptionActive === false) return TRADER_WORK_TYPE_LIMITS.free;
-  return TRADER_WORK_TYPE_LIMITS[profile.subscriptionTier ?? 'free'];
+export function traderWorkTypeLimit(profile?: { subscriptionTier?: TraderWorkTypeTier | null }) {
+  return TRADER_WORK_TYPE_LIMITS[profile?.subscriptionTier ?? 'free'];
 }
 
-export function trialEndsAt(from: Date | string = new Date()) {
-  const startedAt = from instanceof Date ? from : new Date(from);
-  return new Date(startedAt.getTime() + TRADER_TRIAL_DAYS * 24 * 60 * 60 * 1000);
+export function traderMonthlyQuoteLimit(profile?: { subscriptionTier?: TraderWorkTypeTier | null }) {
+  return TRADER_MONTHLY_QUOTE_LIMITS[profile?.subscriptionTier ?? 'free'];
 }
 
 export function hasActiveLeadAccess(profile: {
-  isSubscriptionActive: boolean;
-  createdAt?: Date | string | null;
-  trialEndsAt?: Date | string | null;
-  stripeSubscriptionId?: string | null;
+  subscriptionTier?: TraderWorkTypeTier | null;
+  isSubscriptionActive?: boolean | null;
 }) {
-  if (!profile.isSubscriptionActive) return false;
-  if (profile.stripeSubscriptionId) return true;
+  return profile.subscriptionTier !== 'free' && profile.isSubscriptionActive === true;
+}
 
-  const createdMinimum = profile.createdAt ? trialEndsAt(profile.createdAt).getTime() : null;
-  const storedEnd = profile.trialEndsAt ? new Date(profile.trialEndsAt).getTime() : null;
-  const effectiveEnd = createdMinimum != null && storedEnd != null
-    ? Math.max(createdMinimum, storedEnd)
-    : createdMinimum ?? storedEnd;
+export function isPubliclySearchable(profile: {
+  subscriptionTier?: TraderWorkTypeTier | null;
+  isSubscriptionActive?: boolean | null;
+}) {
+  return hasActiveLeadAccess(profile);
+}
 
-  // Existing beta accounts may already have been granted a longer stored trial.
-  // Honour that commitment while new accounts use the 14-day product rule.
-  if (effectiveEnd == null) return true;
-  return effectiveEnd > Date.now();
+export function canShowPaidProfileExtras(profile: {
+  subscriptionTier?: TraderWorkTypeTier | null;
+  isSubscriptionActive?: boolean | null;
+}) {
+  return hasActiveLeadAccess(profile);
+}
+
+export function categoryChangeAvailableAt(lastChangedAt?: Date | string | null) {
+  if (!lastChangedAt) return null;
+  const changed = lastChangedAt instanceof Date ? lastChangedAt : new Date(lastChangedAt);
+  return new Date(changed.getTime() + CATEGORY_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+}
+
+export function categoryChangeAllowed(lastChangedAt?: Date | string | null, now = new Date()) {
+  const availableAt = categoryChangeAvailableAt(lastChangedAt);
+  return !availableAt || availableAt.getTime() <= now.getTime();
 }
