@@ -104,6 +104,7 @@ export async function POST(request: Request) {
       throw error;
     }
 
+    let targetPlan: string | null = null;
     if (payload.targetTraderId) {
       const targets = await getSql()`
         SELECT tp.trade_category AS "tradeCategory",
@@ -135,6 +136,7 @@ export async function POST(request: Request) {
       if (distanceMiles(target.latitude, target.longitude, location.latitude, location.longitude) > target.radiusMiles) {
         throw new HttpError(409, 'This job is outside the tradesperson’s published service radius');
       }
+      targetPlan = target.subscriptionTier;
     }
 
     const [job] = await db.insert(jobs).values({
@@ -168,12 +170,13 @@ export async function POST(request: Request) {
         RETURNING id
       ` as unknown as { id: string }[];
       conversationId = conversations[0]?.id ?? null;
+      const proTarget = targetPlan === 'featured';
       await createNotification(payload.targetTraderId, {
-        type: 'direct_lead',
-        title: payload.isEmergency ? 'Emergency direct job request' : 'New direct job request',
-        body: `${payload.title} has been sent directly to you.`,
+        type: proTarget ? 'pro_direct_lead' : 'direct_lead',
+        title: payload.isEmergency ? 'Emergency direct job request' : proTarget ? 'Pro priority · New direct job request' : 'New direct job request',
+        body: `${payload.title} has been sent directly to you.${proTarget ? ' Pro alerts include immediate email delivery.' : ''}`,
         href: '/trader/job-board',
-        email: payload.isEmergency,
+        email: payload.isEmergency || proTarget,
       });
     } else {
       const matched = await getSql()`
@@ -194,13 +197,20 @@ export async function POST(request: Request) {
         LIMIT 100
       ` as unknown as { userId: string; subscriptionTier: 'basic' | 'featured' }[];
 
-      await Promise.allSettled(matched.map(({ userId, subscriptionTier }) => createNotification(userId, {
-        type: payload.isEmergency ? 'emergency_job_match' : 'job_match',
-        title: payload.isEmergency ? `Emergency ${payload.category} job nearby` : `New ${payload.category} job match`,
-        body: `${payload.title} · ${outwardCode(location.postcode) ?? location.locationLabel}`,
-        href: '/trader/job-board',
-        email: payload.isEmergency || subscriptionTier === 'featured',
-      })));
+      await Promise.allSettled(matched.map(({ userId, subscriptionTier }) => {
+        const pro = subscriptionTier === 'featured';
+        return createNotification(userId, {
+          type: payload.isEmergency
+            ? pro ? 'pro_emergency_job_match' : 'emergency_job_match'
+            : pro ? 'pro_priority_job_match' : 'job_match',
+          title: payload.isEmergency
+            ? `${pro ? 'Pro priority · ' : ''}Emergency ${payload.category} job nearby`
+            : pro ? `Pro priority · New ${payload.category} job match` : `New ${payload.category} job match`,
+          body: `${payload.title} · ${outwardCode(location.postcode) ?? location.locationLabel}${pro ? ' · Priority alert also sent by email' : ''}`,
+          href: '/trader/job-board',
+          email: payload.isEmergency || pro,
+        });
+      }));
     }
 
     return Response.json({ ...job, isPreview: false, conversationId }, { status: 201 });
