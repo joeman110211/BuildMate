@@ -1,11 +1,12 @@
 import { useAuth } from '@clerk/expo';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, ProgressBar, Text } from 'react-native-paper';
+import { Button, Chip, ProgressBar, Text } from 'react-native-paper';
 import { AppCard } from '@/components/AppCard';
 import { EmptyState, LoadingScreen, Screen } from '@/components/Screen';
 import { colors } from '@/constants/theme';
-import { apiFetch, errorMessage } from '@/lib/api';
+import { ApiError, apiFetch, errorMessage } from '@/lib/api';
 import { formatMoney } from '@/lib/money';
 
 type Metrics = {
@@ -28,22 +29,41 @@ type Metrics = {
 
 export default function TraderAnalyticsScreen() {
   const { getToken } = useAuth();
+  const router = useRouter();
   const getTokenRef = useRef(getToken);
   const [metrics, setMetrics] = useState<Metrics>();
+  const [locked, setLocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
   const load = useCallback(async () => {
-    try { setMetrics(await apiFetch<Metrics>('/api/analytics/trader', {}, () => getTokenRef.current())); setError(''); }
-    catch (e) { setError(errorMessage(e)); }
-    finally { setLoading(false); }
+    try {
+      setMetrics(await apiFetch<Metrics>('/api/analytics/trader', {}, () => getTokenRef.current()));
+      setLocked(false);
+      setError('');
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 402) {
+        setLocked(true);
+        setMetrics(undefined);
+        setError('');
+      } else setError(errorMessage(e));
+    } finally { setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
   if (loading) return <LoadingScreen label="Calculating business performance…" />;
+  if (locked) return <Screen title="Business Analytics" subtitle="Advanced performance analytics are included with BuildPair Pro.">
+    <AppCard style={styles.proGate}>
+      <Chip icon="chart-box-outline">BuildPair Pro</Chip>
+      <Text variant="headlineSmall" style={styles.title}>See what is actually turning into work</Text>
+      <Text style={styles.muted}>Pro unlocks 30-day profile trends, homeowner shortlists, direct enquiries, quote win rate, average quote value, jobs won, response time, verified-review performance and other marketplace conversion metrics.</Text>
+      <Button mode="contained" icon="arrow-up-circle-outline" onPress={() => router.push('/trader/subscription')}>View BuildPair Pro</Button>
+    </AppCard>
+  </Screen>;
   if (!metrics) return <Screen title="Business Analytics"><EmptyState title="Analytics unavailable" body={error || 'No metrics were returned.'} action={<Button onPress={() => void load()}>Try again</Button>} /></Screen>;
 
   const viewChange = metrics.profileViewsPrevious30d ? Math.round(((metrics.profileViews30d - metrics.profileViewsPrevious30d) / metrics.profileViewsPrevious30d) * 100) : null;
   return <Screen title="Business Analytics" subtitle="Real BuildPair marketplace activity, so you can see what is turning into enquiries and won work.">
+    <Chip icon="shield-star-outline">BuildPair Pro analytics</Chip>
     {error ? <Text style={styles.error}>{error}</Text> : null}
     <View style={styles.grid}>
       <MetricCard value={metrics.profileViews30d.toLocaleString()} label="Profile views · 30 days" detail={viewChange == null ? 'Building your baseline' : `${viewChange >= 0 ? '+' : ''}${viewChange}% vs previous 30 days`} />
@@ -73,6 +93,7 @@ function MetricCard({ value, label, detail }: { value: string; label: string; de
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   metric: { flexGrow: 1, flexBasis: 210, minWidth: 190 },
+  proGate: { backgroundColor: '#FFF8F3', maxWidth: 720 },
   number: { color: colors.primary, fontWeight: '900' },
   title: { color: colors.charcoal, fontWeight: '900' },
   muted: { color: colors.muted, lineHeight: 20 },
