@@ -12,6 +12,19 @@ const validJob = {
   photos: [],
 };
 
+const validTraderProfile = {
+  businessName: 'Example Tiling',
+  tradeCategory: 'Tiling' as const,
+  subSkills: ['Bathrooms'],
+  bio: 'Experienced wall and floor tiler covering domestic bathroom and flooring projects across Surrey and West London.',
+  radiusMiles: 25,
+  postcode: 'TW18 4AB',
+  qualifications: [],
+  externalLinks: {},
+  photos: [],
+  selfCertified: true as const,
+};
+
 describe('marketplace validation', () => {
   it('accepts a valid customer job', () => {
     expect(jobSchema.parse(validJob)).toMatchObject({ category: 'Tiling', postcode: 'TW18 4AB' });
@@ -45,38 +58,38 @@ describe('marketplace validation', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts a complete trader profile ready for publication', () => {
+    expect(traderProfileSchema.safeParse(validTraderProfile).success).toBe(true);
+  });
+
   it('requires traders to self-certify before a profile can be saved', () => {
-    const profile = {
-      businessName: 'Example Tiling',
-      tradeCategory: 'Tiling' as const,
-      subSkills: ['Bathrooms'],
-      bio: 'Experienced wall and floor tiler covering domestic bathroom and flooring projects across Surrey and West London.',
-      radiusMiles: 25,
-      postcode: 'TW18 4AB',
-      qualifications: [],
-      externalLinks: {},
-      photos: [],
-      selfCertified: false,
-    };
-    expect(traderProfileSchema.safeParse(profile).success).toBe(false);
+    expect(traderProfileSchema.safeParse({ ...validTraderProfile, selfCertified: false }).success).toBe(false);
+  });
+
+  it('requires at least one specialist skill before publication', () => {
+    const result = traderProfileSchema.safeParse({ ...validTraderProfile, subSkills: [] });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0]?.message).toContain('at least one specialist skill');
   });
 
   it('requires a trader bio of at least 50 characters', () => {
-    const profile = {
-      businessName: 'Example Tiling',
-      tradeCategory: 'Tiling' as const,
-      subSkills: ['Bathrooms'],
-      bio: 'Experienced tiler, reliable and tidy.',
-      radiusMiles: 25,
-      postcode: 'TW18 4AB',
-      qualifications: [],
-      externalLinks: {},
-      photos: [],
-      selfCertified: true,
-    };
-
-    const result = traderProfileSchema.safeParse(profile);
+    const result = traderProfileSchema.safeParse({ ...validTraderProfile, bio: 'Experienced tiler, reliable and tidy.' });
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.issues[0]?.message).toContain('at least 50 characters');
+  });
+
+  it('rejects a future business establishment year', () => {
+    const result = traderProfileSchema.safeParse({
+      ...validTraderProfile,
+      showcase: {
+        template: 'modern' as const,
+        colourTheme: 'burnt_orange' as const,
+        yearsExperience: 5,
+        yearEstablished: new Date().getFullYear() + 1,
+        serviceAreas: [],
+        beforeAfterProjects: [],
+      },
+    });
+    expect(result.success).toBe(false);
   });
 });
