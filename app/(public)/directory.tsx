@@ -8,6 +8,8 @@ import { TraderCard } from '@/components/TraderCard';
 import { TRADE_CATEGORIES } from '@/constants/options';
 import { colors } from '@/constants/theme';
 import { apiFetch, errorMessage } from '@/lib/api';
+import { clientPreviewDataEnabled } from '@/lib/client-preview';
+import { demoTraders } from '@/lib/demo-data';
 import { searchTraders } from '@/lib/trade-search';
 import type { TraderProfile } from '@/types';
 
@@ -15,6 +17,10 @@ const EXAMPLE_SEARCHES = ['tiler', 'bathroom', 'boiler', 'roof leak', 'kitchen',
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function previewTraders(selected?: string) {
+  return demoTraders.filter((trader) => !selected || trader.tradeCategory === selected);
 }
 
 export default function DirectoryScreen() {
@@ -33,7 +39,12 @@ export default function DirectoryScreen() {
       setError('');
       setTraders(await apiFetch(`/api/traders${selected ? `?trade=${encodeURIComponent(selected)}` : ''}`));
     } catch (e) {
-      setError(errorMessage(e));
+      if (clientPreviewDataEnabled()) {
+        setTraders(previewTraders(selected));
+        setError('');
+      } else {
+        setError(errorMessage(e));
+      }
     } finally {
       setLoading(false);
     }
