@@ -76,16 +76,27 @@ wait_for_readiness() {
   return 1
 }
 
+env_value() {
+  local name="$1"
+  node --env-file="$ENV_FILE" -e 'const value = process.env[process.argv[1]] || ""; process.stdout.write(value);' "$name"
+}
+
 build_web() {
+  local clerk_publishable_key
+  clerk_publishable_key="$(env_value EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY)"
   log "Building web output for $PUBLIC_ORIGIN..."
   EXPO_PUBLIC_API_URL="$PUBLIC_ORIGIN" \
   APP_URL="$PUBLIC_ORIGIN" \
+  EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$clerk_publishable_key" \
   npm run build:web
 }
 
 restart_buildpair() {
+  local clerk_publishable_key
+  clerk_publishable_key="$(env_value EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY)"
   EXPO_PUBLIC_API_URL="$PUBLIC_ORIGIN" \
   APP_URL="$PUBLIC_ORIGIN" \
+  EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$clerk_publishable_key" \
   pm2 restart buildpair --update-env >/dev/null
   pm2 save >/dev/null
 }
