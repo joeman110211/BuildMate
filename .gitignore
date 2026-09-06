@@ -8,7 +8,7 @@ web-build/
 .env.*.local
 .neon
 
-# Local self-hosting artifacts
+# Local self-hosting and deployment artifacts
 .vercel/
 cloudflared.deb
 
