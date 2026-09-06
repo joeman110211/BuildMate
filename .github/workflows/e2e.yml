@@ -7,20 +7,26 @@ on:
         description: 'HTTPS BuildPair URL to test'
         required: true
         type: string
+  push:
+    branches: [main]
+    paths:
+      - 'e2e/**'
+      - 'playwright.config.mjs'
+      - '.github/workflows/e2e.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: buildpair-e2e-${{ inputs.base_url }}
+  group: buildpair-e2e-${{ inputs.base_url || 'staging' }}
   cancel-in-progress: false
 
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
-      E2E_BASE_URL: ${{ inputs.base_url }}
+      E2E_BASE_URL: ${{ inputs.base_url || 'https://staging.buildpair.co.uk' }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
     steps:
       - uses: actions/checkout@v5
@@ -47,6 +53,21 @@ jobs:
 
       - run: npm ci --no-audit --no-fund --prefer-offline
 
+      - name: Wait for staging readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent --show-error --connect-timeout 3 --max-time 8 "$E2E_BASE_URL/api/readiness" | jq -e '.ready == true' >/dev/null 2>&1; then
+              echo "BuildPair staging is ready."
+              exit 0
+            fi
+            echo "Waiting for staging readiness ($attempt/45)..."
+            sleep 4
+          done
+          echo "::error::BuildPair staging did not become ready in time"
+          exit 1
+
       - name: Load target Clerk publishable key
         shell: bash
         run: |
@@ -65,8 +86,8 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run BuildPair lifecycle and mobile regressions
-        run: npx playwright test --project=desktop-core-flow --project=small-android-public-ui
+      - name: Run BuildPair real signup, lifecycle and mobile regressions
+        run: npx playwright test --project=real-signup-journey --project=desktop-core-flow --project=small-android-public-ui
 
       - name: Upload E2E evidence on failure
         if: failure()
