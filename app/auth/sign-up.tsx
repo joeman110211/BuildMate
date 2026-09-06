@@ -14,6 +14,10 @@ function scalar(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function storedMode(value: unknown) {
+  return typeof value === 'string' ? parseAccountMode(value) : null;
+}
+
 export default function SignUpScreen() {
   const { signUp, fetchStatus } = useSignUp();
   const router = useRouter();
@@ -24,17 +28,21 @@ export default function SignUpScreen() {
     jobCategory?: string | string[];
     jobLocation?: string | string[];
   }>();
-  const mode = parseAccountMode(params.mode);
+  const requestedMode = parseAccountMode(params.mode);
+  const mode = requestedMode ?? storedMode(signUp.unsafeMetadata?.buildpairMode);
   const jobTitle = scalar(params.jobTitle);
   const jobCategory = scalar(params.jobCategory);
   const jobLocation = scalar(params.jobLocation);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
-  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState('');
 
   const busy = fetchStatus === 'fetching';
+  const needsEmailVerification = signUp.status === 'missing_requirements'
+    && signUp.unverifiedFields.includes('email_address')
+    && signUp.missingFields.length === 0;
+  const verificationEmail = signUp.emailAddress ?? email.trim().toLowerCase();
   const title = mode === 'trader' ? 'Create Tradesperson Account' : mode === 'customer' ? 'Create Homeowner Account' : 'Create your account';
   const subtitle = mode === 'trader'
     ? 'Build your trade profile and start with a 14-day free trial.'
@@ -46,11 +54,15 @@ export default function SignUpScreen() {
     try {
       setError('');
       const emailAddress = email.trim().toLowerCase();
-      const result = await signUp.password({ emailAddress, password });
+      const result = await signUp.password({
+        emailAddress,
+        password,
+        unsafeMetadata: requestedMode ? { buildpairMode: requestedMode } : undefined,
+      });
       if (result.error) throw result.error;
-      await signUp.verifications.sendEmailCode();
+      const verification = await signUp.verifications.sendEmailCode();
+      if (verification.error) throw verification.error;
       setCode('');
-      setVerifying(true);
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -59,14 +71,15 @@ export default function SignUpScreen() {
   async function verifyEmail() {
     try {
       setError('');
-      await signUp.verifications.verifyEmailCode({ code: code.trim() });
+      const verification = await signUp.verifications.verifyEmailCode({ code: code.trim() });
+      if (verification.error) throw verification.error;
 
       if (signUp.status !== 'complete') {
         const missing = signUp.missingFields?.join(', ');
         throw new Error(missing ? `Account verification still needs: ${missing}.` : `Account verification is incomplete (${signUp.status}).`);
       }
 
-      await signUp.finalize({
+      const finalized = await signUp.finalize({
         navigate: async ({ session }) => {
           if (session?.currentTask) {
             throw new Error('Account needs another Clerk setup step before BuildPair can continue.');
@@ -74,6 +87,7 @@ export default function SignUpScreen() {
           router.replace(modeSetupHref(mode));
         },
       });
+      if (finalized.error) throw finalized.error;
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -82,10 +96,19 @@ export default function SignUpScreen() {
   async function resendCode() {
     try {
       setError('');
-      await signUp.verifications.sendEmailCode();
+      const result = await signUp.verifications.sendEmailCode();
+      if (result.error) throw result.error;
     } catch (e) {
       setError(errorMessage(e));
     }
+  }
+
+  async function changeEmail() {
+    await signUp.reset();
+    setEmail('');
+    setPassword('');
+    setCode('');
+    setError('');
   }
 
   const jobContext = jobTitle ? <AppCard style={styles.contextCard}>
@@ -94,9 +117,9 @@ export default function SignUpScreen() {
     <Text style={styles.contextMeta}>{[jobCategory, jobLocation].filter(Boolean).join(' · ')}</Text>
   </AppCard> : null;
 
-  if (verifying) {
+  if (needsEmailVerification) {
     return (
-      <Screen title="Verify your email" subtitle={`We sent a 6-digit code to ${email.trim().toLowerCase()}.`}>
+      <Screen title="Verify your email" subtitle={`We sent a 6-digit code to ${verificationEmail}.`}>
         {jobContext}
         <TextInput
           label="Verification code"
@@ -111,7 +134,7 @@ export default function SignUpScreen() {
           Verify and continue
         </Button>
         <Button disabled={busy} onPress={() => void resendCode()}>Send another code</Button>
-        <Button disabled={busy} onPress={() => { signUp.reset(); setVerifying(false); setCode(''); setError(''); }}>Change email</Button>
+        <Button disabled={busy} onPress={() => void changeEmail()}>Change email</Button>
       </Screen>
     );
   }
