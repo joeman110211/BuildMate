@@ -16,12 +16,15 @@ const NAV_ITEMS: { label: string; href: Href }[] = [
   { label: 'Find Trades', href: '/(public)/directory' },
   { label: 'How It Works', href: '/(public)/how-it-works' },
   { label: 'Membership', href: '/(public)/pricing' as Href },
+  { label: 'Advice Hub', href: '/(public)/advice' as Href },
   { label: 'For Trades', href: '/(public)/for-tradespeople' },
   { label: 'Trust & Safety', href: '/(public)/trust-safety' as Href },
   { label: 'About', href: '/(public)/about' },
 ];
 
 const SUPPORT_ITEMS: { label: string; href: Href }[] = [
+  { label: 'Building Rules', href: '/(public)/building-regulations' as Href },
+  { label: 'Report a User', href: '/(public)/report' as Href },
   { label: 'Browse Jobs', href: '/(public)/jobs' },
   { label: 'For Homeowners', href: '/(public)/for-homeowners' },
   { label: 'Download App', href: '/(public)/download' },
@@ -73,7 +76,7 @@ function NavMenu({ dashboard, signedIn, onSignOut, preview = false }: { dashboar
 
 function DesktopNav() {
   return <View style={styles.desktopNav}>
-    {NAV_ITEMS.slice(1, 5).map((item) => <Link href={item.href} asChild key={item.label}><Button compact textColor={colors.charcoalSoft}>{item.label}</Button></Link>)}
+    {NAV_ITEMS.slice(1, 6).map((item) => <Link href={item.href} asChild key={item.label}><Button compact textColor={colors.charcoalSoft}>{item.label}</Button></Link>)}
   </View>;
 }
 
@@ -82,7 +85,7 @@ function AuthenticatedHeader() {
   const { user, isSignedIn } = useCurrentUser();
   const { signOut } = useClerk();
   const router = useRouter();
-  const compact = width < 940;
+  const compact = width < 1040;
 
   let mode: UserRole | null = null;
   if (user?.activeMode === 'customer' && user.customerEnabled) mode = 'customer';
@@ -111,7 +114,7 @@ function AuthenticatedHeader() {
 
 function PreviewHeader() {
   const { width } = useWindowDimensions();
-  const compact = width < 940;
+  const compact = width < 1040;
   return <View style={styles.header}>
     <HeaderBrand />
     {compact ? <NavMenu preview /> : <View style={styles.actions}>
@@ -134,5 +137,5 @@ const styles = StyleSheet.create({
   desktopNav: { flexDirection: 'row', alignItems: 'center', gap: 1 },
   primaryAction: { minHeight: 44, paddingHorizontal: 6 },
   preview: { opacity: 0.62, marginLeft: 4 },
-  menuContent: { backgroundColor: colors.surfaceRaised, borderRadius: 20, minWidth: 270, paddingVertical: 7, borderWidth: 1, borderColor: colors.border },
+  menuContent: { backgroundColor: colors.surfaceRaised, borderRadius: 20, minWidth: 285, paddingVertical: 7, borderWidth: 1, borderColor: colors.border },
 });
