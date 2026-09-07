@@ -85,7 +85,7 @@ export default function BuildingRegulationsHub() {
           <Text style={styles.body}>{item.body}</Text>
           <View style={styles.actions}>
             <Button mode="contained" icon="open-in-new" onPress={() => Linking.openURL(item.primaryUrl)}>{item.primaryLabel}</Button>
-            {item.secondaryUrl ? <Button mode="outlined" icon="open-in-new" onPress={() => Linking.openURL(item.secondaryUrl)}>{item.secondaryLabel}</Button> : null}
+            {item.secondaryUrl ? <Button mode="outlined" icon="open-in-new" onPress={() => Linking.openURL(item.secondaryUrl!)}>{item.secondaryLabel}</Button> : null}
           </View>
         </View>)}
       </View>
