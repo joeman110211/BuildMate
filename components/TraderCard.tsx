@@ -9,14 +9,15 @@ import type { TraderProfile } from '@/types';
 export function TraderCard({ trader }: { trader: TraderProfile }) {
   const router = useRouter();
   const rating = Number(trader.averageRating || 0);
-  const membership = trader.subscriptionTier === 'featured' ? 'BuildPair Pro' : trader.subscriptionTier === 'basic' ? 'BuildPair Plus' : null;
+  const isPro = trader.subscriptionTier === 'featured';
+  const membership = isPro ? 'BuildPair Pro' : trader.subscriptionTier === 'basic' ? 'BuildPair Plus' : null;
 
   return <AppCard style={styles.card}>
     <View style={styles.media}>
       {trader.photos[0]
         ? <Image source={{ uri: trader.photos[0] }} style={styles.image} accessibilityLabel={`${trader.businessName} work example`} />
         : <View style={styles.placeholder}><View style={styles.placeholderMark}><Text style={styles.placeholderLetter}>{trader.businessName.slice(0, 1).toUpperCase()}</Text></View><Text style={styles.placeholderText}>Work gallery coming soon</Text></View>}
-      {membership ? <View style={[styles.membershipBadge, trader.subscriptionTier === 'featured' && styles.proBadge]}><Text style={styles.membershipText}>{membership}</Text></View> : null}
+      {membership ? <View style={[styles.membershipBadge, isPro && styles.proBadge]}><Text style={[styles.membershipText, isPro && styles.proMembershipText]}>{membership}</Text></View> : null}
     </View>
     <View style={styles.content}>
       <View style={styles.row}>
@@ -46,8 +47,9 @@ const styles = StyleSheet.create({
   placeholderLetter: { color: colors.navy, fontSize: 30, fontWeight: '900' },
   placeholderText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
   membershipBadge: { position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-  proBadge: { backgroundColor: 'rgba(24,53,78,0.95)' },
+  proBadge: { backgroundColor: 'rgba(24,53,78,0.96)' },
   membershipText: { color: colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  proMembershipText: { color: '#FFFFFF' },
   content: { padding: 18, gap: 11 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' },
   flex: { flex: 1, minWidth: 180, gap: 3 },
