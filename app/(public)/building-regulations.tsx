@@ -44,9 +44,11 @@ const NATIONS: NationCard[] = [
   {
     nation: 'Northern Ireland',
     subtitle: 'Building Regulations (Northern Ireland) + Technical Booklets',
-    body: 'Northern Ireland uses its own Building Regulations and Technical Booklets. Building Control Northern Ireland provides the technical booklet set used by the local council building-control system.',
-    primaryLabel: 'Northern Ireland Technical Booklets',
-    primaryUrl: 'https://www.buildingcontrol-ni.com/regulations/technical-booklets',
+    body: 'Northern Ireland has its own Building Regulations and Technical Booklets. The Department of Finance publishes the current technical guidance and amendment booklets, while district councils administer building control.',
+    primaryLabel: 'Official NI Technical Booklets',
+    primaryUrl: 'https://www.finance-ni.gov.uk/articles/building-regulations-technical-booklets',
+    secondaryLabel: 'NI Building Regulations topic',
+    secondaryUrl: 'https://www.finance-ni.gov.uk/topics/building-regulations',
   },
 ];
 
