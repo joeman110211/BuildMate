@@ -42,7 +42,7 @@ function first(value: string | string[] | undefined) {
 }
 
 function ReportForm() {
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn } = useAuth();
   const params = useLocalSearchParams<{ subjectUserId?: string | string[]; subjectLabel?: string | string[]; subjectType?: string | string[] }>();
   const suppliedUserId = first(params.subjectUserId);
   const suppliedLabel = first(params.subjectLabel);
@@ -59,7 +59,7 @@ function ReportForm() {
     : 'BuildPair user', [suppliedLabel, suppliedType]);
 
   async function submit() {
-    if (!reference.trim() || !reason || details.trim().length < 10) return;
+    if (!isSignedIn || !reference.trim() || !reason || details.trim().length < 10) return;
     try {
       setBusy(true);
       setError('');
@@ -78,6 +78,12 @@ function ReportForm() {
       setBusy(false);
     }
   }
+
+  if (!isSignedIn) return <View style={styles.formCard}>
+    <Text variant="headlineSmall" style={styles.title}>Sign in to submit a marketplace report</Text>
+    <Text style={styles.body}>Reports are tied to a BuildPair account so the moderation queue has a real reporter, can investigate relevant platform context and can reduce anonymous abuse of the reporting system.</Text>
+    <Link href="/auth/account" asChild><Button mode="contained">Sign in to BuildPair</Button></Link>
+  </View>;
 
   if (sent) return <View style={styles.successCard}>
     <Chip icon="check-circle" style={styles.successChip}>Report received</Chip>
