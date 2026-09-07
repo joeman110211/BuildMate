@@ -13,6 +13,53 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
+required_env=(
+  EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+  EXPO_PUBLIC_API_URL
+  EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  CLERK_SECRET_KEY
+  DATABASE_URL
+  STRIPE_SECRET_KEY
+  STRIPE_BASIC_PRICE_ID
+  STRIPE_FEATURED_PRICE_ID
+  STRIPE_WEBHOOK_SECRET
+  STRIPE_CONNECT_WEBHOOK_SECRET
+  GEMINI_API_KEY
+  RESEND_API_KEY
+  INVOICE_FROM_EMAIL
+  SUPPORT_EMAIL
+  APP_URL
+  CRON_SECRET
+  CLOUDINARY_API_KEY
+  CLOUDINARY_API_SECRET
+)
+
+missing_env=()
+for name in "${required_env[@]}"; do
+  if ! grep -Eq "^${name}=.+" "$ENV_FILE"; then
+    missing_env+=("$name")
+  fi
+done
+
+if (( ${#missing_env[@]} > 0 )); then
+  echo "Production environment is incomplete. Missing/non-empty values required for:"
+  printf '  - %s\n' "${missing_env[@]}"
+  exit 1
+fi
+
+if ! grep -Eq '^APP_URL=https://www\.buildpair\.co\.uk/?$' "$ENV_FILE"; then
+  echo "APP_URL must be https://www.buildpair.co.uk for the production deployment."
+  exit 1
+fi
+if ! grep -Eq '^EXPO_PUBLIC_API_URL=https://www\.buildpair\.co\.uk/?$' "$ENV_FILE"; then
+  echo "EXPO_PUBLIC_API_URL must be https://www.buildpair.co.uk for the production deployment."
+  exit 1
+fi
+if ! grep -Eq '^BUILDPAIR_PREVIEW_DATA_ENABLED=false$' "$ENV_FILE"; then
+  echo "BUILDPAIR_PREVIEW_DATA_ENABLED must be explicitly false in production."
+  exit 1
+fi
+
 mkdir -p downloads
 
 echo "[BuildPair] Updating source..."
