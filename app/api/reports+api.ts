@@ -29,7 +29,9 @@ const reportSchema = z.object({
 
 function profileReference(value: string) {
   const match = value.match(/\/traders\/([^/?#]+)/i);
-  return decodeURIComponent(match?.[1] ?? value.trim());
+  const reference = match?.[1] ?? value.trim();
+  try { return decodeURIComponent(reference); }
+  catch { return reference; }
 }
 
 export async function GET(request: Request) {
